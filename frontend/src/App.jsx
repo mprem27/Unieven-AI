@@ -10,24 +10,24 @@ import "react-toastify/dist/ReactToastify.css";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 
-// Pages
-import Login from "./Pages/Login";
-import Register from "./Pages/Register";
-import Feed from "./Pages/Feed";
-import AddStory from "./Pages/AddStory";
-import Reels from "./Pages/Reels";
+// pages
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Feed from "./pages/Feed";
+import AddStory from "./pages/AddStory";
+import Reels from "./pages/Reels";
 import Profile from "./components/Profile";
-import EditProfile from "./Pages/EditProfile";
-import UserProfile from "./Pages/UserProfile";
-import Search from "./Pages/Search";
+import EditProfile from "./pages/EditProfile";
+import UserProfile from "./pages/UserProfile";
+import Search from "./pages/Search";
 
 // CREATE
-import CreatePost from "./Pages/CreatePost";
-import CreateReel from "./Pages/CreateReel";
-import CreateEvent from "./Pages/CreateEvent";
+import CreatePost from "./pages/CreatePost";
+import CreateReel from "./pages/CreateReel";
+import CreateEvent from "./pages/CreateEvent";
 
 // EVENTS
-import Events from "./Pages/Events";
+import Events from "./pages/Events";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
