@@ -1,5 +1,5 @@
 import search from './search.png'
-import profile from './Profile.png'
+import profile from './profile.png'
 import logo from './logo.png'
 import logoicon from './logoicon.png'
 // import upload from './upload.png'
