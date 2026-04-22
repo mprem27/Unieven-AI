@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 
 // CONFIGS
 import connectDB from "./configs/mongodb.js";
-import connectCloudinary from "./configs/Cloudinary.js";
+import connectCloudinary from "./configs/cloudinary.js"; 
 
 // ROUTES
 import authRoutes from "./routes/authRoutes.js";
@@ -28,16 +28,27 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 4000;
 
-// CONNECT DB
+// CONNECT DB + CLOUDINARY
 connectDB();
 connectCloudinary();
 
-// CORS
+// CORS (Production Ready)
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL // set this in Render
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: false,
+    credentials: true,
   })
 );
 
@@ -56,10 +67,7 @@ app.use("/api/stories", storyRoutes);
 app.use("/api/follow", followRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/events", eventRoutes);
-
-// 🔥🔥 FIXED HERE
 app.use("/api/event-registration", eventRegistrationRoutes);
-
 app.use("/api/upload", uploadRoutes);
 app.use("/api/search", searchRoutes);
 
@@ -71,7 +79,7 @@ app.get("/", (req, res) => {
 // ERROR HANDLER
 app.use(errorMiddleware);
 
-// START
+// START SERVER
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(` Server running on port ${port}`);
 });
