@@ -35,7 +35,7 @@ connectCloudinary();
 // CORS (Production Ready)
 const allowedOrigins = [
   "http://localhost:5173",
-  process.env.FRONTEND_URL // set this in Render
+  process.env.FRONTEND_URL 
 ];
 
 app.use(
