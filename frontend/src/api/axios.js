@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || "http://localhost:4000/api",
+  baseURL: import.meta.env.VITE_BACKEND_URL || "https://unieven-ai.onrender.com/api",
 });
 
 // 🔐 Attach token
