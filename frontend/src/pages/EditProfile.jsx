@@ -6,7 +6,7 @@ import { getProfileImage } from "../utils/getProfileImage";
 import API from "../api/axios";
 import Loader from "../components/Loader";
 import { toast } from "react-toastify";
-import { FaChevronDown, FaQuestionCircle, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { FaChevronDown, FaQuestionCircle, FaCheckCircle, FaTimesCircle, FaCamera } from "react-icons/fa";
 
 function EditProfile() {
   const { user, setUser } = useAuth();
@@ -24,7 +24,7 @@ function EditProfile() {
     month: "",
     year: "",
     imagePreview: "",
-    isPrivate: false, // ✅ Added Private state
+    isPrivate: false, 
   });
 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -53,7 +53,6 @@ function EditProfile() {
 
   useEffect(() => {
     if (user) {
-      // Parse DOB if it exists (assuming YYYY-MM-DD format from DB)
       let initialDay = "", initialMonth = "", initialYear = "";
       if (user.dob) {
         const dateObj = new Date(user.dob);
@@ -72,7 +71,7 @@ function EditProfile() {
         month: initialMonth,
         year: initialYear,
         imagePreview: getProfileImage(user),
-        isPrivate: user.isPrivate || false, // ✅ Set initial Private state
+        isPrivate: user.isPrivate || false, 
       });
       setLoading(false);
     }
@@ -132,7 +131,6 @@ function EditProfile() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Show preview immediately in the modal
     setSelectedFile(file);
     setForm((prev) => ({
       ...prev,
@@ -148,6 +146,19 @@ function EditProfile() {
     try {
       const formData = new FormData();
       formData.append("image", selectedFile);
+      
+      // ✅ Send ALL mandatory fields to prevent backend 500 error
+      formData.append("name", form.name);
+      formData.append("username", form.username);
+      formData.append("bio", form.bio || "");
+      formData.append("gender", form.gender || "Prefer not to say");
+      formData.append("isPrivate", String(form.isPrivate)); // Fixed Boolean issue
+
+      if (form.day && form.month && form.year) {
+        const numericMonth = monthMap[form.month];
+        formData.append("dob", `${form.year}-${numericMonth}-${form.day}`);
+      }
+
       const data = await updateProfile(formData);
       
       if (data.success !== false) {
@@ -155,6 +166,8 @@ function EditProfile() {
         toast.success("Profile photo updated!");
         setIsPhotoModalOpen(false);
         setSelectedFile(null);
+      } else {
+        throw new Error(data.message || "Failed to update");
       }
     } catch (err) {
       toast.error("Failed to upload photo.");
@@ -181,14 +194,15 @@ function EditProfile() {
       formData.append("username", form.username);
       formData.append("bio", form.bio || "");
       formData.append("gender", form.gender || "Prefer not to say");
-      formData.append("isPrivate", form.isPrivate); // ✅ Add isPrivate to Payload
+      
+      // ✅ FIXED: Explicitly cast boolean to string for FormData
+      formData.append("isPrivate", String(form.isPrivate)); 
       
       if (form.day && form.month && form.year) {
         const numericMonth = monthMap[form.month];
         formData.append("dob", `${form.year}-${numericMonth}-${form.day}`);
       }
 
-      // If they didn't click "Save Photo" in modal but clicked the main save button, upload it anyway
       if (selectedFile) formData.append("image", selectedFile); 
 
       const data = await updateProfile(formData);
@@ -218,100 +232,102 @@ function EditProfile() {
     );
   }
 
-  const inputStyles = "w-full bg-[#fafafa] border border-[#dbdbdb] rounded-xl px-4 py-3 text-[15px] focus:bg-white focus:border-[#0095f6] focus:ring-1 focus:ring-[#0095f6] outline-none transition-all duration-300 shadow-sm text-[#262626]";
-  const selectStyle = "flex-1 bg-[#fafafa] border border-[#dbdbdb] rounded-xl px-2 py-3 text-[14px] outline-none cursor-pointer hover:bg-white focus:border-[#0095f6] transition-all appearance-none text-center font-medium shadow-sm text-[#262626]";
+  const inputStyles = "w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-[15px] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 outline-none transition-all duration-300 font-medium text-gray-800 placeholder:text-gray-400";
+  const selectStyle = "flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-2 py-3.5 text-[14px] outline-none cursor-pointer hover:bg-white focus:border-blue-500 transition-all appearance-none text-center font-bold text-gray-700";
 
   return (
-    <div className="w-full min-h-screen flex justify-center bg-[#fafafa] text-[#262626] font-[system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Helvetica,Arial,sans-serif] antialiased sm:py-10">
+    <div className="w-full min-h-screen flex justify-center bg-[#f8f9fa] text-[#262626] font-['Poppins',sans-serif] antialiased sm:py-12">
       
-      <div className="w-full max-w-[650px] bg-white sm:border border-[#dbdbdb] sm:rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] flex flex-col mb-10">
+      <div className="w-full max-w-[680px] bg-white sm:rounded-[32px] sm:shadow-[0_20px_50px_rgba(0,0,0,0.04)] border-gray-100 flex flex-col mb-10 overflow-hidden">
         
-        <div className="px-6 sm:px-12 py-10">
-          <h2 className="text-[24px] font-bold mb-8 tracking-tight">Edit profile</h2>
+        <div className="px-6 sm:px-16 py-10">
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="text-[26px] font-black tracking-tight text-gray-900">Profile Studio</h2>
+            <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-red-500 font-bold text-sm transition-colors uppercase tracking-widest">Cancel</button>
+          </div>
 
           {/* ================= PREMIUM HEADER CARD ================= */}
-          <div className="flex items-center justify-between bg-gradient-to-r from-[#f5f5f5] to-[#fafafa] p-4 sm:px-6 sm:py-5 rounded-2xl mb-10 border border-[#efefef] shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-[56px] h-[56px] rounded-full overflow-hidden bg-white border-2 border-white shadow-sm ring-1 ring-gray-100">
-                <img src={form.imagePreview} className="w-full h-full object-cover" alt="Profile" />
+          <div className="relative group bg-gradient-to-br from-gray-50 to-white p-6 rounded-[30px] mb-12 border border-gray-100 flex flex-col sm:flex-row items-center gap-6 shadow-sm">
+            <div className="relative shrink-0">
+              <div className="w-24 h-24 rounded-[28px] overflow-hidden border-4 border-white shadow-xl ring-1 ring-gray-100">
+                <img src={form.imagePreview} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Profile" />
               </div>
-              <div className="flex flex-col justify-center">
-                <p className="font-bold text-[16px] leading-tight">{form.username}</p>
-                <p className="text-[14px] text-[#737373] mt-0.5">{form.name}</p>
-              </div>
+              <button 
+                onClick={() => setIsPhotoModalOpen(true)}
+                className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2.5 rounded-2xl shadow-lg hover:scale-110 active:scale-90 transition-all border-2 border-white"
+              >
+                <FaCamera size={14} />
+              </button>
             </div>
-
-            <button
-              onClick={() => setIsPhotoModalOpen(true)}
-              className="bg-[#0095f6] hover:bg-[#1877f2] text-white px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95"
-            >
-              Change photo
-            </button>
+            <div className="text-center sm:text-left flex-1">
+              <p className="font-black text-xl text-gray-900 leading-tight">@{form.username}</p>
+              <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1.5">{user?.role || "Student"}</p>
+            </div>
           </div>
 
           {/* ================= STACKED FORM FIELDS ================= */}
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-10">
 
             {/* NAME */}
-            <div>
-              <label className="block font-bold text-[15px] mb-2 text-gray-800">Name</label>
-              <input name="name" value={form.name} onChange={handleChange} placeholder="Name" className={inputStyles} />
-              <p className="text-[12px] text-[#8e8e8e] mt-2 leading-relaxed pl-1">
-                Help people discover your account by using the name you're known by.
+            <div className="space-y-2">
+              <label className="block font-black text-[11px] uppercase tracking-[0.15em] text-gray-400 ml-1">Identity Name</label>
+              <input name="name" value={form.name} onChange={handleChange} placeholder="Enter your full name" className={inputStyles} />
+              <p className="text-[11px] text-gray-400 mt-2 leading-relaxed font-medium px-1 italic">
+                Using your real name helps friends recognize you.
               </p>
             </div>
 
             {/* USERNAME W/ LIVE CHECKER */}
-            <div>
-              <label className="block font-bold text-[15px] mb-2 text-gray-800">Username</label>
+            <div className="space-y-2">
+              <label className="block font-black text-[11px] uppercase tracking-[0.15em] text-gray-400 ml-1">Unique Username</label>
               <div className="relative">
                 <input 
                   name="username" 
                   value={form.username} 
                   onChange={handleUsernameChange} 
-                  placeholder="Username" 
-                  className={`${inputStyles} pr-10 ${usernameError ? 'border-red-400' : ''}`} 
+                  placeholder="Choose a username" 
+                  className={`${inputStyles} pr-12 ${!usernameAvailable ? 'border-red-300 focus:border-red-400 focus:ring-red-400/5' : ''}`} 
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
                   {checkingUsername ? (
-                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-5 h-5 border-[3px] border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
                   ) : usernameAvailable ? (
-                    <FaCheckCircle className="text-[#00a400]" size={16} />
+                    <FaCheckCircle className="text-green-500" size={18} />
                   ) : usernameError ? (
-                    <FaTimesCircle className="text-[#fa3e3e]" size={16} />
+                    <FaTimesCircle className="text-red-400" size={18} />
                   ) : null}
                 </div>
               </div>
-              {usernameError && <p className="text-[12px] text-[#fa3e3e] mt-2 font-bold ml-1">{usernameError}</p>}
+              {usernameError && <p className="text-[11px] text-red-500 mt-2 font-bold ml-1 uppercase tracking-tighter">{usernameError}</p>}
             </div>
 
             {/* BIO */}
-            <div>
-              <label className="block font-bold text-[15px] mb-2 text-gray-800">Bio</label>
+            <div className="space-y-2">
+              <label className="block font-black text-[11px] uppercase tracking-[0.15em] text-gray-400 ml-1">About the Vibe</label>
               <div className="relative">
-                <textarea name="bio" value={form.bio} onChange={handleChange} rows="3" maxLength="150" placeholder="Write something about yourself..." className={`${inputStyles} resize-none pb-8`} />
-                <span className="absolute bottom-3 right-4 text-[12px] text-[#a8a8a8] font-medium bg-white px-1">
+                <textarea name="bio" value={form.bio} onChange={handleChange} rows="3" maxLength="150" placeholder="Write a short bio..." className={`${inputStyles} resize-none pb-10`} />
+                <span className={`absolute bottom-4 right-5 text-[10px] font-black tracking-widest ${form.bio.length >= 140 ? 'text-red-500' : 'text-gray-300'}`}>
                   {form.bio.length} / 150
                 </span>
               </div>
             </div>
 
             {/* CUSTOM GENDER DROPDOWN */}
-            <div>
-              <label className="block font-bold text-[15px] mb-2 text-gray-800">Gender</label>
+            <div className="space-y-2">
+              <label className="block font-black text-[11px] uppercase tracking-[0.15em] text-gray-400 ml-1">Gender Identity</label>
               <div className="relative">
                 <div 
                   onClick={() => setIsGenderOpen(!isGenderOpen)}
-                  className={`${inputStyles} flex justify-between items-center cursor-pointer select-none bg-white hover:bg-gray-50`}
+                  className={`${inputStyles} flex justify-between items-center cursor-pointer select-none bg-gray-50`}
                 >
-                  <span>{form.gender}</span>
-                  <FaChevronDown className={`text-[#8e8e8e] text-xs transition-transform duration-300 ${isGenderOpen ? "rotate-180" : ""}`} />
+                  <span className="font-bold text-gray-700">{form.gender}</span>
+                  <FaChevronDown className={`text-gray-400 text-[10px] transition-transform duration-300 ${isGenderOpen ? "rotate-180" : ""}`} />
                 </div>
                 
                 {isGenderOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setIsGenderOpen(false)} />
-                    <div className="absolute top-full left-0 w-full mt-2 bg-white border border-[#dbdbdb] rounded-xl shadow-lg z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute top-full left-0 w-full mt-3 bg-white border border-gray-100 rounded-[24px] shadow-2xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                       {genderOptions.map((opt) => (
                         <div
                           key={opt}
@@ -319,7 +335,7 @@ function EditProfile() {
                             setForm({ ...form, gender: opt });
                             setIsGenderOpen(false);
                           }}
-                          className={`px-4 py-3 hover:bg-[#f5f5f5] cursor-pointer text-[15px] transition-colors ${form.gender === opt ? "font-bold text-[#0095f6]" : "text-[#262626]"}`}
+                          className={`px-6 py-4 hover:bg-blue-50 cursor-pointer text-sm font-bold transition-colors ${form.gender === opt ? "text-blue-600 bg-blue-50/50" : "text-gray-600"}`}
                         >
                           {opt}
                         </div>
@@ -331,12 +347,12 @@ function EditProfile() {
             </div>
 
             {/* DATE OF BIRTH */}
-            <div>
+            <div className="space-y-2">
               <div className="flex items-center gap-2 mb-2 ml-1">
-                 <label className="text-[15px] font-bold text-gray-800 tracking-tight">Date of Birth</label>
-                 <FaQuestionCircle className="text-gray-400 text-[10px]" title="This won't be a part of your public profile." />
+                 <label className="block font-black text-[11px] uppercase tracking-[0.15em] text-gray-400">Birth Cycle</label>
+                 <FaQuestionCircle className="text-gray-300 text-[10px]" title="Private by default." />
               </div>
-              <div className="flex gap-3 relative">
+              <div className="flex gap-4 relative">
                 <select name="month" value={form.month} className={selectStyle} onChange={handleChange}>
                   <option value="">Month</option>
                   {months.map(m => <option key={m} value={m}>{m}</option>)}
@@ -350,19 +366,16 @@ function EditProfile() {
                   {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
-              <p className="text-[12px] text-[#8e8e8e] mt-2 leading-relaxed pl-1">
-                This won't be a part of your public profile.
-              </p>
             </div>
 
-            {/* 🔥 PRIVATE ACCOUNT TOGGLE (Hides if Faculty) */}
+            {/* 🔥 PRIVATE ACCOUNT TOGGLE */}
             {!isFaculty && (
-              <div className="border-t border-gray-200 pt-6 mt-2">
+              <div className="bg-blue-50/30 p-6 rounded-[30px] border border-blue-50/50 mt-4">
                 <div className="flex items-center justify-between">
                   <div className="pr-4">
-                    <label className="block font-bold text-[15px] mb-1 text-gray-800">Private Account</label>
-                    <p className="text-[12px] text-[#8e8e8e] leading-relaxed">
-                      When your account is private, only people you approve can see your photos and videos.
+                    <label className="block font-black text-[13px] text-gray-800 uppercase tracking-tight">Privacy Shield</label>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wide mt-1">
+                      Hide your feed from strangers.
                     </p>
                   </div>
                   
@@ -374,18 +387,18 @@ function EditProfile() {
                       onChange={(e) => setForm({ ...form, isPrivate: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0095f6]"></div>
+                    <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 shadow-inner"></div>
                   </label>
                 </div>
               </div>
             )}
 
             {/* SUBMIT BUTTON */}
-            <div className="flex justify-end mt-4">
+            <div className="pt-6">
               <button
                 onClick={handleSubmit}
                 disabled={saving || !usernameAvailable}
-                className="bg-[#0095f6] hover:bg-[#1877f2] text-white px-10 py-3 rounded-xl font-bold text-[15px] transition-all duration-300 disabled:opacity-50 w-full sm:w-auto flex justify-center items-center h-[48px] shadow-md active:scale-95"
+                className="w-full bg-black hover:bg-blue-600 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-30 flex justify-center items-center h-[60px] shadow-xl active:scale-95 shadow-blue-900/10"
               >
                 {saving ? <Loader size="20px" color="#ffffff" /> : "Save Changes"}
               </button>
@@ -397,42 +410,42 @@ function EditProfile() {
 
       {/* ================= PHOTO MODAL ================= */}
       {isPhotoModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-md transition-all">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-3xl w-full max-w-[400px] flex flex-col overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/60 animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xl transition-all duration-500">
+          <div className="bg-white rounded-[40px] w-full max-w-[420px] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             
-            <div className="py-6 text-center border-b border-gray-200/50">
-              <h3 className="text-[18px] font-bold text-[#262626]">Change Profile Photo</h3>
+            <div className="py-8 text-center border-b border-gray-50">
+              <h3 className="text-lg font-black text-gray-900 tracking-tight">Portrait Studio</h3>
             </div>
 
-            <div className="flex flex-col items-center py-8 bg-gradient-to-b from-transparent to-gray-50/50">
+            <div className="flex flex-col items-center py-12 bg-gray-50/50">
               <div 
-                className="w-[140px] h-[140px] rounded-full overflow-hidden border-[3px] border-white shadow-lg relative group cursor-pointer" 
+                className="w-32 h-32 rounded-[36px] overflow-hidden border-4 border-white shadow-2xl relative group cursor-pointer hover:scale-105 transition-transform" 
                 onClick={() => fileInputRef.current.click()}
               >
-                <img src={form.imagePreview} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="preview" />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 backdrop-blur-sm transition-all duration-300 text-white text-sm font-bold tracking-wide">
-                  Browse Files
+                <img src={form.imagePreview} className="w-full h-full object-cover" alt="preview" />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 backdrop-blur-sm transition-all duration-300 text-white text-[10px] font-black uppercase tracking-widest">
+                  Browse
                 </div>
               </div>
             </div>
             
             <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleFileSelect} />
 
-            <div className="flex flex-col">
+            <div className="flex flex-col p-4 gap-2">
               {selectedFile ? (
                 <button 
                   onClick={handleSavePhoto} 
                   disabled={savingPhoto}
-                  className="py-4 text-[15px] font-bold text-[#0095f6] border-t border-gray-200/50 hover:bg-blue-50 transition-colors flex justify-center items-center"
+                  className="w-full py-4.5 bg-blue-600 text-white rounded-[20px] font-black text-xs uppercase tracking-widest active:scale-95 shadow-lg shadow-blue-200"
                 >
-                  {savingPhoto ? <Loader size="16px" color="#0095f6" /> : "Save Photo"}
+                  {savingPhoto ? <Loader size="16px" color="#ffffff" /> : "Confirm Portrait"}
                 </button>
               ) : (
                 <button 
                   onClick={() => fileInputRef.current.click()} 
-                  className="py-4 text-[15px] font-bold text-[#0095f6] border-t border-gray-200/50 hover:bg-blue-50 transition-colors"
+                  className="w-full py-4.5 bg-gray-900 text-white rounded-[20px] font-black text-xs uppercase tracking-widest active:scale-95"
                 >
-                  Upload New Photo
+                  Upload New
                 </button>
               )}
               
@@ -440,11 +453,14 @@ function EditProfile() {
                 <button 
                   onClick={() => {
                     setSelectedFile(null);
-                    setForm(prev => ({ ...prev, imagePreview: "https://via.placeholder.com/150" }));
+                    setForm(prev => ({ 
+                      ...prev, 
+                      imagePreview: `https://ui-avatars.com/api/?name=${form.name || form.username || 'U'}&background=e2e8f0&color=475569` 
+                    }));
                   }}
-                  className="py-4 text-[15px] font-bold text-[#ed4956] border-t border-gray-200/50 hover:bg-red-50 transition-colors"
+                  className="w-full py-4.5 text-red-500 font-bold text-xs uppercase tracking-widest hover:bg-red-50 rounded-[20px] transition-colors"
                 >
-                  Remove Current Photo
+                  Reset Portrait
                 </button>
               )}
               
@@ -456,12 +472,11 @@ function EditProfile() {
                     setSelectedFile(null);
                   }
                 }} 
-                className="py-4 text-[15px] font-medium text-gray-600 border-t border-gray-200/50 hover:bg-gray-50 transition-colors"
+                className="w-full py-4.5 text-gray-400 font-bold text-xs uppercase tracking-widest hover:text-black transition-colors"
               >
-                Cancel
+                Dismiss
               </button>
             </div>
-
           </div>
         </div>
       )}

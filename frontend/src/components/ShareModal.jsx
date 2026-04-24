@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { 
   FaWhatsapp, 
   FaTwitter, 
-  FaFacebookF, 
   FaTelegramPlane, 
   FaLink, 
   FaShareAlt, 
   FaTimes, 
   FaSearch,
-  FaCheck
+  FaCheck,
+  FaFacebookF
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { getProfile } from "../services/userService";
@@ -20,13 +20,15 @@ function ShareModal({ post, onClose }) {
   const [copied, setCopied] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [followingUsers, setFollowingUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Trigger slide-up animation on mount
+  // Trigger slide-up animation
   useEffect(() => {
-    setIsVisible(true);
+    const timer = setTimeout(() => setIsVisible(true), 10);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Fetch real users the current user is following
+  // Fetch real users
   useEffect(() => {
     const fetchFollowing = async () => {
       if (!currentUser?.username) return;
@@ -36,203 +38,146 @@ function ShareModal({ post, onClose }) {
           setFollowingUsers(res.user.following);
         }
       } catch (err) {
-        console.log("Failed to fetch following list:", err);
+        console.error("Failed to fetch following list:", err);
       }
     };
     fetchFollowing();
   }, [currentUser]);
 
-  // Handle closing animation
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(onClose, 300); // Matches the transition duration
+    setTimeout(onClose, 300);
   };
 
-  // Dynamically generate the correct URL based on the item type
   const postType = post?.feedItemType === "reel" ? "reels" : post?.isEvent ? "events" : "post";
   const shareUrl = `${window.location.origin}/${postType}/${post?._id || ""}`;
-  
-  // Clean up caption for sharing text
-  const rawText = post?.title || post?.caption || "Check out this post on our campus network!";
-  const shareText = rawText.length > 50 ? rawText.substring(0, 50) + "..." : rawText;
+  const shareText = post?.title || post?.caption || "Check this out on UniEven!";
 
-  // 🔥 Native Share (Mobile Web Share API)
-  const handleNativeShare = async () => {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Campus Network",
-          text: shareText,
-          url: shareUrl,
-        });
-      } else {
-        copyLink(); // Fallback if browser doesn't support native sharing
-      }
-    } catch (err) {
-      console.log("Error sharing natively:", err);
-    }
-  };
-
-  // 🔥 Social Links
-  const shareWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + " " + shareUrl)}`, "_blank");
-  };
-
-  const shareTwitter = () => {
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, "_blank");
-  };
-
-  const shareFacebook = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, "_blank");
-  };
-
-  const shareTelegram = () => {
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`, "_blank");
-  };
-
-  // 🔥 Copy Link
   const copyLink = () => {
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
+    toast.success("Link copied!");
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 🔥 Mock In-App Send
-  const handleSendToUser = (user) => {
-    toast.info(`In-app sending to @${user.username || "user"} is currently under development! 🚀`, {
-      icon: "🚧"
-    });
+  const shareWhatsApp = () => window.open(`https://wa.me/?text=${encodeURIComponent(shareText + " " + shareUrl)}`, "_blank");
+  const shareTwitter = () => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, "_blank");
+  const shareTelegram = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`, "_blank");
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "UniEven", text: shareText, url: shareUrl });
+      } catch (err) { console.log(err); }
+    } else { copyLink(); }
   };
+
+  const filteredUsers = followingUsers.filter(u => 
+    u.username?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div 
-      className={`fixed inset-0 flex items-end justify-center z-[100] transition-colors duration-300 ${isVisible ? "bg-black/60 backdrop-blur-sm" : "bg-black/0 backdrop-blur-none"}`}
+      className={`fixed inset-0 flex items-end sm:items-center justify-center z-[200] transition-all duration-500 ${
+        isVisible ? "bg-black/70 backdrop-blur-md opacity-100" : "bg-black/0 backdrop-blur-none opacity-0"
+      }`}
       onClick={handleClose}
     >
-      {/* 🔥 BOTTOM SHEET */}
+      {/* MODAL SHEET */}
       <div 
-        className={`bg-white w-full max-w-[500px] rounded-t-3xl p-5 md:p-6 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isVisible ? "translate-y-0" : "translate-y-full"}`}
-        onClick={(e) => e.stopPropagation()} // Prevent clicks inside from closing
+        className={`bg-white w-full sm:max-w-[440px] rounded-t-[40px] sm:rounded-[40px] p-8 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isVisible ? "translate-y-0 scale-100" : "translate-y-full sm:scale-90"
+        }`}
+        onClick={(e) => e.stopPropagation()}
       >
-        
-        {/* DRAG HANDLE & HEADER */}
-        <div className="w-full flex flex-col items-center mb-5">
-          <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-4"></div>
-          <div className="w-full flex justify-between items-center">
-            <div className="w-8"></div> {/* Spacer */}
-            <h3 className="font-black text-lg text-gray-900">Share</h3>
-            <button 
-              onClick={handleClose}
-              className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-500 transition-colors"
-            >
-              <FaTimes />
-            </button>
-          </div>
-        </div>
+        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 sm:hidden"></div>
 
-        {/* 🔥 SEARCH & SEND (UI Layout) */}
-        <div className="mb-6">
-          <div className="relative mb-4">
-            <FaSearch className="absolute left-4 top-3.5 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search people..." 
-              className="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 font-medium"
-            />
-          </div>
-
-          {/* Horizontal User List */}
-          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-            {followingUsers.length > 0 ? (
-              followingUsers.map((u) => (
-                <div 
-                  key={u._id || Math.random()} 
-                  onClick={() => handleSendToUser(u)}
-                  className="flex flex-col items-center cursor-pointer group min-w-[70px]"
-                >
-                  <img
-                    src={getProfileImage(u)}
-                    className="w-14 h-14 rounded-full object-cover border border-gray-200 group-hover:scale-105 transition-transform"
-                    alt={u.username || "User"}
-                  />
-                  <p className="text-xs font-semibold text-gray-700 mt-2 truncate w-full text-center">
-                    {u.username || "User"}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="w-full text-center text-sm text-gray-400 py-4 font-medium">
-                Follow users to quickly share posts with them here.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <hr className="border-gray-100 mb-6" />
-
-        {/* 🔥 SOCIAL SHARE ICONS */}
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-          
-          <button onClick={copyLink} className="flex flex-col items-center gap-2 min-w-[70px] group">
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-sm transition-all group-hover:scale-105 ${copied ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-700"}`}>
-              {copied ? <FaCheck /> : <FaLink />}
-            </div>
-            <span className="text-xs font-semibold text-gray-600">Copy</span>
-          </button>
-
-          <button onClick={shareWhatsApp} className="flex flex-col items-center gap-2 min-w-[70px] group">
-            <div className="w-14 h-14 rounded-full bg-[#25D366] text-white flex items-center justify-center text-2xl shadow-sm transition-transform group-hover:scale-105">
-              <FaWhatsapp />
-            </div>
-            <span className="text-xs font-semibold text-gray-600">WhatsApp</span>
-          </button>
-
-          <button onClick={shareTwitter} className="flex flex-col items-center gap-2 min-w-[70px] group">
-            <div className="w-14 h-14 rounded-full bg-black text-white flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105">
-              <FaTwitter />
-            </div>
-            <span className="text-xs font-semibold text-gray-600">X (Twitter)</span>
-          </button>
-
-          <button onClick={shareFacebook} className="flex flex-col items-center gap-2 min-w-[70px] group">
-            <div className="w-14 h-14 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-2xl shadow-sm transition-transform group-hover:scale-105">
-              <FaFacebookF />
-            </div>
-            <span className="text-xs font-semibold text-gray-600">Facebook</span>
-          </button>
-
-          <button onClick={shareTelegram} className="flex flex-col items-center gap-2 min-w-[70px] group">
-            <div className="w-14 h-14 rounded-full bg-[#0088cc] text-white flex items-center justify-center text-2xl shadow-sm transition-transform group-hover:scale-105 pr-1">
-              <FaTelegramPlane />
-            </div>
-            <span className="text-xs font-semibold text-gray-600">Telegram</span>
-          </button>
-
-          <button onClick={handleNativeShare} className="flex flex-col items-center gap-2 min-w-[70px] group">
-            <div className="w-14 h-14 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-105">
-              <FaShareAlt />
-            </div>
-            <span className="text-xs font-semibold text-gray-600">More</span>
-          </button>
-
-        </div>
-
-        {/* 🔥 QUICK COPY LINK BAR */}
-        <div className="mt-2 bg-gray-50 border border-gray-200 rounded-xl p-1.5 flex items-center gap-2">
-          <div className="flex-1 truncate text-sm text-gray-500 font-medium px-3 select-all">
-            {shareUrl}
-          </div>
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-2xl font-black text-gray-900 tracking-tight">Share</h3>
           <button 
-            onClick={copyLink}
-            className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-colors ${copied ? "bg-green-500 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+            onClick={handleClose} 
+            className="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:rotate-90 transition-all duration-300"
           >
-            {copied ? "Copied!" : "Copy"}
+            <FaTimes />
           </button>
         </div>
 
+        {/* SEARCH BAR */}
+        <div className="relative mb-6">
+          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+          <input 
+            type="text" 
+            placeholder="Search connects..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm focus:border-blue-500 focus:bg-white transition-all outline-none font-bold shadow-sm"
+          />
+        </div>
+
+        {/* USERS LIST */}
+        <div className="flex gap-5 overflow-x-auto pb-6 scrollbar-hide -mx-2 px-2">
+          {filteredUsers.length > 0 ? (
+            filteredUsers.map((u) => (
+              <div 
+                key={u._id} 
+                onClick={() => toast.info(`Direct sending to @${u.username} coming soon!`)}
+                className="flex flex-col items-center cursor-pointer min-w-[70px] active:scale-90 transition-transform"
+              >
+                <div className="relative p-1 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500">
+                  <img 
+                    src={getProfileImage(u)} 
+                    className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" 
+                    alt={u.username} 
+                  />
+                </div>
+                <p className="text-[10px] font-black text-gray-500 mt-2 uppercase tracking-tighter truncate w-full text-center">
+                  {u.username}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="w-full text-center text-gray-400 text-sm font-medium py-2">No connects found</p>
+          )}
+        </div>
+
+        <div className="h-[1px] bg-gray-100 w-full mb-8"></div>
+
+        {/* SOCIAL GRID */}
+        <div className="grid grid-cols-4 gap-6 mb-10 px-2">
+          <SocialBtn onClick={copyLink} icon={copied ? <FaCheck /> : <FaLink />} label="Link" color={copied ? "bg-green-500" : "bg-blue-600"} />
+          <SocialBtn onClick={shareWhatsApp} icon={<FaWhatsapp />} label="WhatsApp" color="bg-[#25D366]" />
+          <SocialBtn onClick={shareTwitter} icon={<FaTwitter />} label="Twitter" color="bg-black" />
+          <SocialBtn onClick={handleNativeShare} icon={<FaShareAlt />} label="More" color="bg-gray-800" />
+        </div>
+
+        {/* LINK PREVIEW BOX */}
+        <div className="bg-gray-50 rounded-[24px] p-3 flex items-center gap-3 border border-gray-100 group">
+           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-blue-600 shadow-sm shrink-0 border border-gray-50">
+              <FaLink className="group-hover:rotate-45 transition-transform" />
+           </div>
+           <div className="flex-1 truncate text-[13px] font-bold text-gray-400">
+              {shareUrl}
+           </div>
+           <button 
+             onClick={copyLink} 
+             className="bg-white px-5 py-2.5 rounded-xl text-xs font-black shadow-sm hover:shadow-md transition-all active:scale-95 uppercase tracking-tighter border border-gray-100"
+           >
+             {copied ? "Done" : "Copy"}
+           </button>
+        </div>
       </div>
     </div>
   );
 }
+
+const SocialBtn = ({ onClick, icon, label, color }) => (
+  <button onClick={onClick} className="flex flex-col items-center gap-3 group">
+    <div className={`w-14 h-14 rounded-[22px] ${color} text-white flex items-center justify-center text-2xl shadow-xl transition-all group-hover:-translate-y-2 group-hover:rotate-6 active:scale-90 shadow-blue-500/10`}>
+      {icon}
+    </div>
+    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{label}</span>
+  </button>
+);
 
 export default ShareModal;

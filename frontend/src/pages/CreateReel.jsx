@@ -6,16 +6,9 @@ import { getProfileImage } from "../utils/getProfileImage";
 import Loader from "../components/Loader";
 import { toast } from "react-toastify";
 import { 
-  FaVideo, 
-  FaMapMarkerAlt, 
-  FaHashtag, 
-  FaFont, 
-  FaPaperPlane, 
-  FaTimes,
-  FaPlay,
-  FaPause,
-  FaVolumeUp,
-  FaVolumeMute
+  FaVideo, FaMapMarkerAlt, FaHashtag, FaFont, 
+  FaPaperPlane, FaTimes, FaPlay, FaPause, 
+  FaVolumeUp, FaVolumeMute, FaUserTag, FaArrowLeft
 } from "react-icons/fa";
 
 function CreateReel() {
@@ -24,394 +17,219 @@ function CreateReel() {
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
 
-  // General States
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
-  // Video Control States
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [isPublic, setIsPublic] = useState(true);
 
-  // Form Data States
   const [caption, setCaption] = useState("");
   const [overlayText, setOverlayText] = useState("");
   const [overlayFont, setOverlayFont] = useState("font-sans");
+  const [overlayColor, setOverlayColor] = useState("#ffffff");
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState("");
+  const [mentions, setMentions] = useState(""); 
 
-  // Draggable Text States
   const [textPos, setTextPos] = useState({ x: 0, y: 0 });
   const [isDraggingText, setIsDraggingText] = useState(false);
   const dragRef = useRef({ startX: 0, startY: 0 });
 
   const fontOptions = [
     { label: "Classic", value: "font-sans" },
-    { label: "Serif", value: "font-serif" },
-    { label: "Typewriter", value: "font-mono" },
+    { label: "Modern", value: "font-mono" },
     { label: "Cursive", value: "font-[cursive]" },
-    { label: "Impact", value: "font-['Impact']" }
+    { label: "Impact", value: "font-black uppercase" }
   ];
 
-  // 🎥 HANDLE VIDEO FILE PROCESSING
+  const colors = ["#ffffff", "#000000", "#3b82f6", "#ef4444", "#22c55e", "#eab308"];
+
   const processFile = (selectedFile) => {
-    if (selectedFile) {
-      if (!selectedFile.type.startsWith("video/")) {
-        toast.error("Please select a valid VIDEO file");
-        return;
-      }
+    if (selectedFile?.type.startsWith("video/")) {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       setTextPos({ x: 0, y: 0 });
       setPlaying(true);
+    } else {
+      toast.error("Please select a valid video file");
     }
   };
 
-  const handleFileChange = (e) => processFile(e.target.files[0]);
-
-  // 🖱️ DRAG AND DROP HANDLERS
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
-    else if (e.type === "dragleave") setDragActive(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // 🔥 DRAGGABLE TEXT HANDLERS
   const handlePointerDown = (e) => {
     setIsDraggingText(true);
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    dragRef.current = {
-      startX: clientX - textPos.x,
-      startY: clientY - textPos.y,
-    };
+    dragRef.current = { startX: clientX - textPos.x, startY: clientY - textPos.y };
   };
 
   const handlePointerMove = (e) => {
     if (!isDraggingText) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    setTextPos({
-      x: clientX - dragRef.current.startX,
-      y: clientY - dragRef.current.startY,
-    });
+    setTextPos({ x: clientX - dragRef.current.startX, y: clientY - dragRef.current.startY });
   };
 
-  const handlePointerUp = () => setIsDraggingText(false);
-
-  // ▶️ PLAY / PAUSE
-  const togglePlay = (e) => {
-    e.stopPropagation();
-    if (!videoRef.current) return;
-    if (playing) videoRef.current.pause();
-    else videoRef.current.play();
-    setPlaying(!playing);
-  };
-
-  // 🔊 MUTE TOGGLE
-  const toggleMute = (e) => {
-    e.stopPropagation();
-    if (!videoRef.current) return;
-    videoRef.current.muted = !muted;
-    setMuted(!muted);
-  };
-
-  // ⏩ CHANGE SPEED
   const handleSpeedChange = (speed) => {
     setPlaybackSpeed(speed);
-    if (videoRef.current) {
-      videoRef.current.playbackRate = speed;
-    }
+    if (videoRef.current) videoRef.current.playbackRate = speed;
   };
 
-  // ❌ RESET FORM
-  const handleDiscard = () => {
-    setFile(null);
-    setPreview(null);
-    setCaption("");
-    setOverlayText(""); 
-    setLocation("");
-    setTags("");
-    setTextPos({ x: 0, y: 0 });
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  // 🚀 SUBMIT TO BACKEND
   const handleSubmit = async () => {
-    if (!file) return toast.error("Please select a video to post!");
-
+    if (!file) return toast.error("Video file is required!");
     setLoading(true);
     try {
       const formData = new FormData();
-      
       formData.append("video", file); 
       formData.append("caption", caption);
-      
-      // Sending effect/meta data just in case backend wants to save it
+      formData.append("isPublic", isPublic);
       formData.append("playbackSpeed", playbackSpeed);
-      
       if (location.trim()) formData.append("location", location);
-      
-      if (tags.trim()) {
-        const formattedTags = tags.split(",").map((t) => t.trim()).filter((t) => t !== "");
-        formData.append("tags", JSON.stringify(formattedTags));
-      }
-      
+      if (tags.trim()) formData.append("tags", JSON.stringify(tags.split(",").map(t => t.trim())));
+      if (mentions.trim()) formData.append("mentions", JSON.stringify(mentions.split(",").map(m => m.trim())));
       if (overlayText.trim()) {
         formData.append("overlayText", overlayText);
         formData.append("overlayFont", overlayFont); 
+        formData.append("overlayColor", overlayColor);
         formData.append("overlayX", textPos.x);
         formData.append("overlayY", textPos.y);
       }
-
       await createReel(formData);
-      toast.success("Reel uploaded successfully! 🎉");
+      toast.success("Reel Published! 🎉");
       navigate("/reels");
-
     } catch (err) {
-      toast.error(err.message || "Failed to upload reel.");
+      toast.error("Upload failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  const inputStyles = "w-full bg-[#fafafa] border border-[#dbdbdb] rounded-xl px-4 py-3 text-[14px] focus:bg-white focus:border-[#0095f6] focus:ring-1 focus:ring-[#0095f6] outline-none transition-all duration-300 shadow-sm text-[#262626]";
+  const inputStyles = "w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-[13px] font-bold outline-none focus:bg-white focus:border-black transition-all text-gray-900";
 
   return (
-    <div className="w-full min-h-screen flex justify-center items-center bg-[#F8FAFC] font-['Poppins',sans-serif] antialiased py-10 px-4">
-      
-      {/* Background Decorative Blurs */}
-      <div className="fixed top-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-100 rounded-full blur-[120px] opacity-40 -z-10" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-purple-100 rounded-full blur-[120px] opacity-40 -z-10" />
-
-      {/* MAIN CONTAINER (Split Screen) */}
-      <div className="w-full max-w-[900px] bg-white/60 backdrop-blur-2xl border border-white/60 rounded-[30px] shadow-xl overflow-hidden flex flex-col md:flex-row">
+    <div className="w-full min-h-screen flex justify-center items-center bg-[#f8f9fa] p-2 sm:p-6 font-['Poppins',sans-serif]">
+      <div className="w-full max-w-[1000px] bg-white rounded-[32px] shadow-2xl flex flex-col overflow-hidden h-full max-h-[95vh] md:h-[750px] border border-white">
         
-        {/* ================= LEFT SIDE: VIDEO PREVIEW ================= */}
-        <div 
-          className="w-full md:w-1/2 min-h-[500px] bg-black flex flex-col items-center justify-center relative border-r border-gray-200/50"
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          onMouseMove={handlePointerMove}
-          onMouseUp={handlePointerUp}
-          onMouseLeave={handlePointerUp}
-          onTouchMove={handlePointerMove}
-          onTouchEnd={handlePointerUp}
-        >
-          
-          {preview ? (
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden group">
-              <video 
-                ref={videoRef}
-                src={preview} 
-                className="w-full h-full object-contain"
-                autoPlay
-                loop
-                muted={muted}
-                playsInline
-              />
-              
-              {/* Gradients for text readability */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 pointer-events-none"></div>
-
-              {/* 🔥 DRAGGABLE OVERLAY TEXT */}
-              {overlayText && (
-                <div 
-                  className="absolute z-40 cursor-grab active:cursor-grabbing px-4 py-2"
-                  style={{
-                    top: "50%",
-                    left: "50%",
-                    transform: `translate(calc(-50% + ${textPos.x}px), calc(-50% + ${textPos.y}px))`,
-                    touchAction: "none"
-                  }}
-                  onMouseDown={handlePointerDown}
-                  onTouchStart={handlePointerDown}
-                >
-                  <p className={`text-center text-3xl text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] whitespace-nowrap ${overlayFont}`}>
-                    {overlayText}
-                  </p>
-                </div>
-              )}
-
-              {/* Video Controls (Play/Pause & Mute) */}
-              <div className="absolute bottom-6 left-6 flex gap-3 z-50">
-                <button 
-                  onClick={togglePlay} 
-                  className="bg-black/40 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg"
-                >
-                  {playing ? <FaPause size={14} /> : <FaPlay size={14} className="ml-0.5" />}
-                </button>
-                <button 
-                  onClick={toggleMute} 
-                  className="bg-black/40 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg"
-                >
-                  {muted ? <FaVolumeMute size={16} /> : <FaVolumeUp size={16} />}
-                </button>
-              </div>
-
-              {/* Remove Video Button */}
-              <button 
-                onClick={handleDiscard}
-                className="absolute top-4 right-4 bg-black/50 hover:bg-red-500 text-white p-2.5 rounded-full backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 z-50"
-                title="Remove Video"
-              >
-                <FaTimes size={14} />
-              </button>
-            </div>
-          ) : (
-            <div 
-              onClick={() => fileInputRef.current.click()}
-              className="flex flex-col items-center justify-center gap-4 cursor-pointer w-full h-full p-10 hover:bg-gray-900 transition-colors"
-            >
-              <div className={`w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center shadow-sm border border-gray-700 text-blue-400 transition-all ${dragActive && "scale-110 bg-gray-700"}`}>
-                <FaVideo size={30} />
-              </div>
-              <h3 className="text-xl font-black text-white">Select a Video</h3>
-              <p className="text-sm text-gray-400 font-medium">Click or drag a video file here</p>
-            </div>
-          )}
-          
-          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*" className="hidden" />
+        {/* HEADER */}
+        <div className="h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white z-10 shrink-0">
+          <button onClick={() => preview ? setPreview(null) : navigate(-1)} className="text-gray-400 hover:text-black p-2 transition-all active:scale-90">
+            <FaArrowLeft size={18} />
+          </button>
+          <div className="text-center">
+            <h1 className="font-black text-gray-900 text-lg tracking-tight">Reel Studio</h1>
+            <p className="hidden sm:block text-[10px] uppercase font-bold text-blue-500 tracking-[0.2em]">Creative Mode</p>
+          </div>
+          <button onClick={handleSubmit} disabled={loading || !preview} className="bg-black text-white px-6 py-2 rounded-full font-black text-xs active:scale-95 transition-all disabled:opacity-30">
+            {loading ? <Loader size="14px" color="#fff" /> : "PUBLISH"}
+          </button>
         </div>
 
-        {/* ================= RIGHT SIDE: FORM DETAILS ================= */}
-        <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-white/40 overflow-y-auto">
-          
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100 shrink-0">
-            <img 
-              src={getProfileImage(user)} 
-              className="w-10 h-10 rounded-full object-cover border border-gray-200"
-              alt="Profile"
-            />
-            <span className="font-bold text-gray-900">{user?.username || "Create New Reel"}</span>
-          </div>
-
-          <div className="flex flex-col gap-5 flex-1">
-            
-            {/* CAPTION */}
-            <div>
-              <textarea 
-                placeholder="Write a caption for your reel..." 
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                rows="3"
-                className={`${inputStyles} resize-none bg-transparent border-none px-0 focus:ring-0 focus:border-transparent text-[15px]`}
-              />
-            </div>
-
-            <hr className="border-gray-100" />
-
-            {/* 🎛 PLAYBACK SPEED EFFECT PREVIEW */}
-            <div>
-              <p className="text-[13px] font-bold text-gray-500 uppercase tracking-wide mb-2">Effect Preview (Speed)</p>
-              <div className="flex gap-2">
-                {[0.5, 1, 1.5, 2].map((speed) => (
-                  <button
-                    key={speed}
-                    onClick={() => handleSpeedChange(speed)}
-                    disabled={!preview}
-                    className={`flex-1 py-1.5 rounded-lg text-[13px] font-bold transition-all shadow-sm ${
-                      playbackSpeed === speed 
-                        ? "bg-[#0095f6] text-white" 
-                        : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    }`}
-                  >
-                    {speed}x
-                  </button>
-                ))}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+          {!preview ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50"
+              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => { e.preventDefault(); processFile(e.dataTransfer.files[0]); }}
+            >
+              <div className={`p-10 w-full max-w-sm rounded-[40px] border-4 border-dashed transition-all ${dragActive ? "border-blue-500 bg-blue-50 scale-105" : "border-gray-200 bg-white"}`}>
+                <FaVideo size={60} className="mx-auto text-gray-200 mb-6" />
+                <h2 className="text-xl font-black text-gray-800 mb-2">Upload your Reel</h2>
+                <p className="text-xs text-gray-400 mb-8 font-bold uppercase">Vertical video works best</p>
+                <button onClick={() => fileInputRef.current.click()} className="w-full bg-blue-600 text-white py-4 rounded-[20px] font-black text-xs tracking-widest active:scale-95 shadow-lg shadow-blue-200 transition-all">SELECT VIDEO</button>
               </div>
+              <input type="file" ref={fileInputRef} onChange={(e) => processFile(e.target.files[0])} accept="video/*" className="hidden" />
             </div>
+          ) : (
+            <>
+              {/* VIDEO PREVIEW - 100% height on mobile, 50% width on desktop */}
+              <div className="w-full h-[45vh] md:h-full md:w-[50%] bg-[#0a0a0a] relative flex items-center justify-center group shrink-0"
+                onMouseMove={handlePointerMove} onTouchMove={handlePointerMove} onMouseUp={() => setIsDraggingText(false)} onTouchEnd={() => setIsDraggingText(false)}>
+                
+                <video ref={videoRef} src={preview} autoPlay loop muted={muted} playsInline className="w-full h-full object-contain pointer-events-none" />
+                
+                {overlayText && (
+                  <div onMouseDown={handlePointerDown} onTouchStart={handlePointerDown}
+                    className={`absolute z-20 cursor-move transition-transform duration-75 ${overlayFont}`}
+                    style={{ 
+                      transform: `translate(${textPos.x}px, ${textPos.y}px)`, 
+                      color: overlayColor,
+                      textShadow: '0 4px 15px rgba(0,0,0,0.8)'
+                    }}>
+                    <p className="text-3xl md:text-5xl font-black whitespace-nowrap px-4 py-2 uppercase tracking-tighter">{overlayText}</p>
+                  </div>
+                )}
 
-            {/* OVERLAY TEXT & FONT SELECTOR */}
-            <div className="flex flex-col gap-3">
-              <p className="text-[13px] font-bold text-gray-500 uppercase tracking-wide">Draggable Text Overlay</p>
-              <div className="relative flex items-center">
-                <FaFont className="absolute left-3 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Type to add text on video..." 
-                  value={overlayText}
-                  onChange={(e) => setOverlayText(e.target.value)}
-                  maxLength={40}
-                  disabled={!preview}
-                  className={`${inputStyles} pl-10 ${!preview && "opacity-50 cursor-not-allowed"}`}
-                />
-              </div>
-
-              {preview && overlayText && (
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
-                  {fontOptions.map((font) => (
-                    <button
-                      key={font.value}
-                      onClick={() => setOverlayFont(font.value)}
-                      className={`px-4 py-1.5 rounded-full text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
-                        overlayFont === font.value 
-                          ? "bg-gray-800 text-white scale-105" 
-                          : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                      } ${font.value}`}
-                    >
-                      {font.label}
-                    </button>
-                  ))}
+                <div className="absolute bottom-6 left-6 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { playing ? videoRef.current.pause() : videoRef.current.play(); setPlaying(!playing); }} className="bg-white/10 backdrop-blur-xl border border-white/20 text-white p-3.5 rounded-2xl active:scale-90"><FaPause /></button>
+                    <button onClick={() => { videoRef.current.muted = !muted; setMuted(!muted); }} className="bg-white/10 backdrop-blur-xl border border-white/20 text-white p-3.5 rounded-2xl active:scale-90">{muted ? <FaVolumeMute /> : <FaVolumeUp />}</button>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* LOCATION */}
-            <div className="relative flex items-center">
-              <FaMapMarkerAlt className="absolute left-3 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Add location" 
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className={`${inputStyles} pl-10`}
-              />
-            </div>
+              {/* DETAILS FORM - Scrollable sidebar */}
+              <div className="flex-1 h-full flex flex-col bg-white overflow-y-auto scrollbar-hide border-l border-gray-100">
+                <div className="p-6 flex items-center gap-3 border-b border-gray-50">
+                  <img src={getProfileImage(user)} className="w-10 h-10 rounded-xl border border-gray-200 object-cover" alt="" />
+                  <span className="font-black text-gray-900 text-sm tracking-tight">{user?.username}</span>
+                </div>
 
-            {/* TAGS */}
-            <div className="relative flex items-center">
-              <FaHashtag className="absolute left-3 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Add tags (comma separated)" 
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                className={`${inputStyles} pl-10`}
-              />
-            </div>
-          </div>
+                <div className="p-6 space-y-8 pb-12">
+                  <textarea placeholder="Write a catchy caption..." value={caption} onChange={(e) => setCaption(e.target.value)} rows="3" className="w-full text-sm outline-none bg-gray-50 rounded-2xl p-4 placeholder:text-gray-400 font-bold border border-gray-100 focus:border-black transition-all resize-none" />
 
-          {/* SUBMIT BUTTON */}
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !file}
-            className="mt-8 w-full bg-[#0095f6] hover:bg-[#1877f2] text-white py-3.5 rounded-xl font-bold text-[15px] transition-all duration-300 disabled:opacity-50 shadow-md active:scale-95 flex items-center justify-center gap-2 shrink-0"
-          >
-            {loading ? (
-              <Loader size="20px" color="#ffffff" />
-            ) : (
-              <>
-                Upload Reel <FaPaperPlane size={14} />
-              </>
-            )}
-          </button>
+                  {/* PRIVACY TOGGLE */}
+                  <div className="bg-gray-50 p-5 rounded-[28px] border border-gray-100">
+                    <div className="flex items-center justify-between">
+                       <span className="font-black text-xs text-gray-800 uppercase tracking-tight">Public Visibility</span>
+                       <div onClick={() => setIsPublic(!isPublic)} className={`w-12 h-6.5 rounded-full p-1 cursor-pointer transition-colors duration-300 flex items-center ${isPublic ? 'bg-black' : 'bg-gray-300'}`}>
+                          <div className={`bg-white w-4.5 h-4.5 rounded-full shadow-md transition-transform duration-300 ${isPublic ? 'translate-x-5.5' : 'translate-x-0'}`}></div>
+                       </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-bold mt-3 leading-relaxed tracking-wide uppercase">{isPublic ? "Visible to the campus." : "Visible to connects only."}</p>
+                  </div>
 
+                  {/* SPEED CONTROL */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Speed Effect</label>
+                    <div className="flex gap-2">
+                       {[0.5, 1, 1.5, 2].map(speed => (
+                          <button key={speed} onClick={() => handleSpeedChange(speed)} className={`flex-1 py-2.5 rounded-xl text-[11px] font-black transition-all ${playbackSpeed === speed ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-50 text-gray-400'}`}>{speed}x</button>
+                       ))}
+                    </div>
+                  </div>
+
+                  {/* FORM FIELDS */}
+                  <div className="space-y-4">
+                    <div className="relative"><FaMapMarkerAlt className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-900" /><input placeholder="LOCATION" value={location} onChange={(e) => setLocation(e.target.value)} className={`${inputStyles} pl-12`} /></div>
+                    <div className="relative"><FaHashtag className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-900" /><input placeholder="TAGS" value={tags} onChange={(e) => setTags(e.target.value)} className={`${inputStyles} pl-12`} /></div>
+                    <div className="relative"><FaUserTag className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-900" /><input placeholder="MENTIONS" value={mentions} onChange={(e) => setMentions(e.target.value)} className={`${inputStyles} pl-12`} /></div>
+                  </div>
+
+                  {/* TEXT OVERLAY STUDIO */}
+                  <div className="bg-neutral-900 p-6 rounded-[36px] space-y-5">
+                    <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Video Text Editor</label>
+                    <input placeholder="TYPE ON VIDEO..." value={overlayText} onChange={(e) => setOverlayText(e.target.value)} maxLength={20} className="bg-white/10 px-5 py-4 rounded-2xl border border-white/10 outline-none text-xs w-full font-black tracking-widest text-white" />
+                    
+                    {overlayText && (
+                      <div className="space-y-4 pt-2">
+                        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                          {fontOptions.map(f => (
+                            <button key={f.value} onClick={() => setOverlayFont(f.value)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all shrink-0 ${overlayFont === f.value ? "bg-white text-black" : "bg-white/10 text-white"}`}>{f.label}</button>
+                          ))}
+                        </div>
+                        <div className="flex gap-4 justify-center pt-2">
+                          {colors.map(c => (
+                            <button key={c} onClick={() => setOverlayColor(c)} className={`w-8 h-8 rounded-full border-4 transition-transform active:scale-75 ${overlayColor === c ? "border-white scale-125" : "border-transparent opacity-60"}`} style={{ backgroundColor: c }}></button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

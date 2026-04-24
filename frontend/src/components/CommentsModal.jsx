@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { getProfileImage } from "../utils/getProfileImage";
 import { addComment, likeComment } from "../services/commentService";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
+import { IoSend } from "react-icons/io5"; // New Send Icon
 
 function CommentsModal({ item, type, onClose, onSync }) {
   const [comments, setComments] = useState(item.comments || []);
@@ -12,14 +13,14 @@ function CommentsModal({ item, type, onClose, onSync }) {
     setComments(item.comments || []);
   }, [item]);
 
-  // 🔥 ADD COMMENT (optimistic)
   const handleAdd = async () => {
     if (!text.trim()) return;
+    setLoading(true);
 
     const temp = {
       _id: Date.now(),
       text,
-      user: item.user, // current user (optimistic)
+      user: item.user,
       likes: [],
     };
 
@@ -28,19 +29,17 @@ function CommentsModal({ item, type, onClose, onSync }) {
 
     try {
       const res = await addComment(type, item._id, text);
-
-      // If backend returns updated item:
       if (res.item) {
         setComments(res.item.comments);
-        onSync?.(res.item); // update parent (Feed/Reels/Story)
+        onSync?.(res.item);
       }
     } catch (e) {
-      // rollback (simple)
       setComments((prev) => prev.filter((c) => c._id !== temp._id));
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ❤️ LIKE (optimistic + sync)
   const toggleLike = async (commentId) => {
     setComments((prev) =>
       prev.map((c) =>
@@ -63,84 +62,129 @@ function CommentsModal({ item, type, onClose, onSync }) {
         )
       );
     } catch (e) {
-      // optional rollback
+      console.error(e);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end z-50">
-      <div className="bg-[#0f0f0f] text-white w-full h-[70%] rounded-t-2xl p-4 flex flex-col">
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-end md:items-center justify-center z-[100] p-0 md:p-4 transition-all duration-500 animate-fadeIn"
+      onClick={onClose}
+    >
+      <div 
+        className={`
+          relative flex flex-col transition-all duration-500
+          bg-[#121212] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)]
+          h-[85%] md:h-[650px] w-full md:max-w-lg md:rounded-[32px] rounded-t-[32px]
+          animate-slideUp
+          ${loading ? 'opacity-80 pointer-events-none' : 'opacity-100'}
+        `}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Handle for Mobile */}
+        <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mt-4 mb-1 md:hidden" />
 
         {/* HEADER */}
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="font-semibold text-lg capitalize">
+        <div className="flex justify-between items-center px-6 py-5 border-b border-white/5">
+          <h2 className="font-bold text-lg md:text-xl text-white tracking-tight capitalize">
             {type} comments
           </h2>
-          <button onClick={onClose} className="text-xl">✕</button>
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-all active:scale-90"
+          >
+            <span className="text-white text-lg">✕</span>
+          </button>
         </div>
 
-        {/* LIST */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+        {/* COMMENT LIST */}
+        <div className="flex-1 overflow-y-auto space-y-6 p-6 scrollbar-hide">
           {comments.length ? (
-            comments.map((c) => (
-              <div key={c._id} className="flex gap-3">
+            comments.map((c, index) => (
+              <div 
+                key={c._id} 
+                className="flex gap-4 group animate-fadeIn"
+                style={{ animationDelay: `${index * 30}ms` }}
+              >
                 <img
                   src={getProfileImage(c.user)}
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-md"
+                  alt="user"
                 />
 
                 <div className="flex-1">
-                  <p className="text-sm">
-                    <span className="font-semibold mr-2">
+                  <div className="bg-white/[0.03] border border-white/5 rounded-2xl rounded-tl-none p-4">
+                    <p className="text-[13px] font-bold text-blue-400 mb-1">
                       {c.user?.username || "user"}
-                    </span>
-                    {c.text}
-                  </p>
+                    </p>
+                    <p className="text-[14px] leading-relaxed text-gray-200">
+                      {c.text}
+                    </p>
+                  </div>
 
-                  <div className="flex gap-4 text-xs text-gray-400 mt-1">
-                    <div
+                  <div className="flex gap-5 text-[11px] font-bold text-gray-500 mt-2 ml-1 uppercase tracking-widest">
+                    <button
                       onClick={() => toggleLike(c._id)}
-                      className="flex items-center gap-1 cursor-pointer"
+                      className={`flex items-center gap-1.5 transition ${c.likes?.includes("me") ? "text-red-500" : "hover:text-white"}`}
                     >
-                      {c.likes?.includes("me") ? (
-                        <FaHeart className="text-red-500" />
-                      ) : (
-                        <FaRegHeart />
-                      )}
+                      {c.likes?.includes("me") ? <FaHeart className="scale-110" /> : <FaRegHeart className="scale-110" />}
                       <span>{c.likes?.length || 0}</span>
-                    </div>
+                    </button>
 
-                    <span className="cursor-pointer hover:text-white">
-                      Reply
-                    </span>
+                    <button className="hover:text-white transition">Reply</button>
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <p className="text-gray-500 text-center mt-10">
-              No comments yet
-            </p>
+            <div className="flex flex-col items-center justify-center h-full text-white/20 space-y-4">
+               <div className="p-6 bg-white/5 rounded-full text-5xl">💬</div>
+               <p className="text-sm font-semibold tracking-wide">No comments yet</p>
+            </div>
           )}
         </div>
 
-        {/* INPUT */}
-        <div className="flex mt-3 gap-2 border-t border-gray-700 pt-3">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="flex-1 bg-transparent p-2 outline-none text-white placeholder-gray-400"
-            placeholder="Add a comment..."
-          />
-          <button
-            onClick={handleAdd}
-            disabled={loading}
-            className="text-blue-500 font-semibold"
-          >
-            Post
-          </button>
+        {/* INPUT BOX */}
+        <div className="p-6 border-t border-white/5 bg-[#0a0a0a]/50 md:rounded-b-[32px] pb-[env(safe-area-inset-bottom)]">
+          <div className="flex items-center gap-3 bg-white/5 rounded-2xl px-5 py-3 border border-white/10 focus-within:border-white/20 focus-within:bg-white/[0.07] transition-all duration-300">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              className="flex-1 bg-transparent outline-none text-[15px] text-white placeholder-white/30"
+              placeholder="Add a comment..."
+            />
+            <button
+              onClick={handleAdd}
+              disabled={!text.trim() || loading}
+              className={`transition-all ${!text.trim() || loading ? 'text-white/10' : 'text-blue-500 hover:text-blue-400 active:scale-90 hover:scale-110'}`}
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <IoSend size={22} />
+              )}
+            </button>
+          </div>
         </div>
       </div>
+
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+          .animate-fadeIn { animation: fadeIn 0.3s ease-in-out forwards; }
+          .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+          .scrollbar-hide::-webkit-scrollbar { display: none; }
+          .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        `}
+      </style>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import unmute from './unmute.png'
 import login from './login.png'
 import loginreel from './loginreel.mp4'
 import shutter from './shutter.png'
+import createreel from './createreel.png'
 
 export const Assets = {
     // menu,
@@ -57,7 +58,8 @@ export const Assets = {
     unmute,
     login,
     loginreel,
-    shutter
+    shutter,
+    createreel
     
     // about,
     // contact,

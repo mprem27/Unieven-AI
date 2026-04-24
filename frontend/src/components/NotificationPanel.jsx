@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-// ✅ ALL imports now come smoothly from your notificationService
 import {
   getNotifications,
   deleteNotification,
   markAsRead,
   acceptFollowRequest,
   rejectFollowRequest,
-} from "../services/notificationService";// ✅ FIXED IMPORTS
+} from "../services/notificationService";
 import { getProfileImage } from "../utils/getProfileImage";
 import Loader from "./Loader";
-import { FaTrash, FaCheck, FaTimes } from "react-icons/fa";
+import { FaTrash, FaCheck, FaTimes, FaChevronLeft } from "react-icons/fa";
 
-// 🔥 HELPER: Format Time (e.g., 5m, 2h, 1d)
 const formatTimeAgo = (dateString) => {
   const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
   let interval = seconds / 31536000;
@@ -38,8 +36,13 @@ function NotificationPanel({ isOpen, onClose }) {
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
-      markAsRead().catch(() => null); // ✅ Mark as read when opened
+      markAsRead().catch(() => null);
+      // Prevent background scrolling on mobile when open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
     }
+    return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
   const fetchNotifications = async () => {
@@ -54,33 +57,22 @@ function NotificationPanel({ isOpen, onClose }) {
     }
   };
 
-  // 🧠 GROUP BY DATE
   const groupByDate = (list) => {
-    const groups = {
-      Today: [],
-      Yesterday: [],
-      "This Week": [],
-      Earlier: [],
-    };
-
+    const groups = { Today: [], Yesterday: [], "This Week": [], Earlier: [] };
     const now = new Date();
-
     list.forEach((n) => {
       const date = new Date(n.createdAt);
       const diff = (now - date) / (1000 * 60 * 60 * 24);
-
       if (diff < 1) groups.Today.push(n);
       else if (diff < 2) groups.Yesterday.push(n);
       else if (diff < 7) groups["This Week"].push(n);
       else groups.Earlier.push(n);
     });
-
     return groups;
   };
 
   const grouped = groupByDate(notifications);
 
-  // ✅ ACCEPT
   const handleAccept = async (id) => {
     try {
       await acceptFollowRequest(id);
@@ -90,7 +82,6 @@ function NotificationPanel({ isOpen, onClose }) {
     }
   };
 
-  // ❌ REJECT
   const handleReject = async (id) => {
     try {
       await rejectFollowRequest(id);
@@ -100,10 +91,8 @@ function NotificationPanel({ isOpen, onClose }) {
     }
   };
 
-  // 🗑 DELETE
   const handleDelete = async (id) => {
     try {
-      // Optimistic UI update
       setNotifications((prev) => prev.filter((n) => n._id !== id));
       await deleteNotification(id);
     } catch (error) {
@@ -114,84 +103,97 @@ function NotificationPanel({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex justify-end bg-black/20 backdrop-blur-[2px] font-['Poppins',sans-serif]">
+    <div className="fixed inset-0 z-[200] flex justify-end bg-black/40 md:backdrop-blur-[2px] font-['Poppins',sans-serif]">
       
-      {/* 👆 CLICK OUTSIDE TO CLOSE */}
-      <div className="absolute inset-0" onClick={onClose}></div>
+      {/* OVERLAY (Desktop only) */}
+      <div className="hidden md:block absolute inset-0" onClick={onClose}></div>
 
-      {/* PANEL */}
-      <div className="relative w-full max-w-[420px] h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] overflow-y-auto flex flex-col animate-in slide-in-from-right duration-300">
+      {/* PANEL CONTAINER */}
+      <div 
+        className={`
+          relative w-full md:max-w-[420px] h-full bg-white flex flex-col 
+          shadow-[-10px_0_30px_rgba(0,0,0,0.1)] 
+          animate-in slide-in-from-right duration-300
+        `}
+      >
 
-        {/* HEADER */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white/90 backdrop-blur-md z-10">
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Notifications</h2>
+        {/* HEADER - Mobile optimized */}
+        <div className="flex justify-between items-center px-4 py-4 md:px-6 md:py-5 border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur-md z-10">
+          <div className="flex items-center gap-3">
+            {/* Back button for mobile looks better */}
+            <button onClick={onClose} className="md:hidden p-2 -ml-2 text-gray-700">
+              <FaChevronLeft size={20} />
+            </button>
+            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Notifications</h2>
+          </div>
           <button 
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
+            className="hidden md:flex p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
           >
             <FaTimes size={18} />
           </button>
         </div>
 
-        <div className="flex-1 p-4">
+        {/* NOTIFICATIONS CONTENT */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 md:p-4">
           {loading ? (
-            <div className="flex justify-center py-10">
-              <Loader size="30px" color="#3b82f6" />
+            <div className="flex justify-center py-20">
+              <Loader size="35px" />
             </div>
           ) : notifications.length === 0 ? (
-            <div className="text-center py-20 text-gray-500 font-medium">
-              <span className="text-4xl block mb-3">📭</span>
-              No notifications yet.
+            <div className="flex flex-col items-center justify-center py-32 text-gray-400">
+              <span className="text-6xl mb-4">🔔</span>
+              <p className="text-lg font-medium">Nothing to see here</p>
+              <p className="text-sm">When you get notifications, they'll appear here.</p>
             </div>
           ) : (
-            /* GROUPED DATA */
             Object.entries(grouped).map(([title, items]) =>
               items.length > 0 && (
                 <div key={title} className="mb-6">
-                  <h4 className="text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-3 px-2">
+                  <h4 className="text-[12px] md:text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-3 px-3">
                     {title}
                   </h4>
 
                   {items.map((n) => {
-                    // Check if it's a pending follow request
                     const isPendingRequest = n.type === "follow_request" && n.followRequestData?.status === "pending";
 
                     return (
                       <div
                         key={n._id}
-                        className="group flex items-center gap-3 mb-2 bg-transparent hover:bg-gray-50 p-3 rounded-2xl transition-colors cursor-pointer relative"
-                        onClick={() => navigate(`/profile/${n.fromUser?.username}`)}
+                        className="group flex items-start gap-3 mb-1 bg-transparent hover:bg-gray-50 p-3 rounded-2xl transition-colors cursor-pointer relative"
+                        onClick={() => {
+                          navigate(`/user/${n.fromUser?.username}`);
+                          if(window.innerWidth < 768) onClose(); // Close on mobile navigation
+                        }}
                       >
                         <img
                           src={getProfileImage(n.fromUser)}
-                          className="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                          className="w-11 h-11 md:w-12 md:h-12 rounded-full object-cover border border-gray-100 flex-shrink-0"
                           alt="avatar"
                         />
 
-                        <div className="flex-1 pr-6">
-                          <p className="text-[14px] text-gray-800 leading-snug">
-                            <span className="font-bold text-gray-900 mr-1">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <p className="text-[14px] text-gray-800 leading-[1.3]">
+                            <span className="font-bold text-gray-900">
                               {n.fromUser?.username}
                             </span> 
-                            {/* 🔥 FIX: use n.message */}
-                            {n.message?.replace(n.fromUser?.username, "").trim()}
-                            <span className="text-gray-400 font-medium ml-2 text-[12px]">
+                            {" "}{n.message?.replace(n.fromUser?.username, "").trim()}
+                            <span className="text-gray-400 font-medium ml-2 text-[12px] whitespace-nowrap">
                               {formatTimeAgo(n.createdAt)}
                             </span>
                           </p>
 
-                          {/* 🔥 FIX: Use nested requestId */}
                           {isPendingRequest && (
-                            <div className="flex gap-2 mt-3">
+                            <div className="flex gap-2 mt-3 w-full">
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleAccept(n.followRequestData.requestId); }}
-                                className="bg-[#0095f6] hover:bg-[#1877f2] text-white px-5 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
                               >
                                 Accept
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleReject(n.followRequestData.requestId); }}
-                                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
                               >
                                 Delete
                               </button>
@@ -199,15 +201,14 @@ function NotificationPanel({ isOpen, onClose }) {
                           )}
                         </div>
 
-                        {/* DELETE ICON (Shows on Hover) */}
+                        {/* DELETE BUTTON - Visible on hover on Desktop, always icon available via padding on mobile */}
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(n._id); }}
-                          className="absolute right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white hover:bg-red-50 p-2 rounded-full shadow-sm"
+                          className="md:opacity-0 md:group-hover:opacity-100 p-2 text-gray-300 hover:text-red-500 transition-all active:scale-90"
                           title="Delete notification"
                         >
                           <FaTrash size={12} />
                         </button>
-
                       </div>
                     );
                   })}

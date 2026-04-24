@@ -29,6 +29,11 @@ router.put(
   "/update",
   authMiddleware,
   uploadImage.single("image"),
+  (req, res, next) => {
+    console.log("FILE:", req.file);   
+    console.log("BODY:", req.body);   
+    next();
+  },
   asyncHandler(updateUserProfile)
 );
 

@@ -1,365 +1,469 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Assets } from "../assets/Assets";
-import CommentsModal from "../components/CommentsModal";
-import ShareModal from "../components/ShareModal"; // ✅ Added Share Modal
-import { getReels, likeReel, viewReel } from "../services/reelService";
-import { deletePost, savePost } from "../services/postService"; // ✅ Added for Delete/Save actions
-import { getProfileImage } from "../utils/getProfileImage"; // ✅ Added Profile Image Util
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getReels, likeReel, viewReel } from "../services/reelService";
+import { savePost, deletePost } from "../services/postService";
+import { getProfileImage } from "../utils/getProfileImage";
+import CommentsModal from "../components/CommentsModal";
+import ShareModal from "../components/ShareModal";
+import RoleBadge from "../components/RoleBadge";
+import { Assets } from "../assets/Assets"; 
 import { toast } from "react-toastify";
-import { FaMusic, FaPlay, FaVolumeMute, FaVolumeUp } from "react-icons/fa";
+import {
+  FaBookmark,
+  FaRegBookmark,
+  FaVolumeMute,
+  FaVolumeUp,
+  FaMapMarkerAlt,
+  FaPlay,
+  FaTrash,
+  FaFlag,
+  FaArrowLeft,
+  FaMusic
+} from "react-icons/fa";
 
 function Reels() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const videoRefs = useRef([]);
+  const containerRef = useRef(null);
 
   const [reels, setReels] = useState([]);
   const [liked, setLiked] = useState({});
-  const [showHeart, setShowHeart] = useState(null);
+  const [saved, setSaved] = useState({});
   const [muted, setMuted] = useState(true);
-  const [progress, setProgress] = useState({});
   const [activeReel, setActiveReel] = useState(null);
-  const [isPlaying, setIsPlaying] = useState({});
-  
-  // ✅ States for Modals/Menus
   const [openShare, setOpenShare] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState({});
+  const [progress, setProgress] = useState({});
+  const [showHeart, setShowHeart] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [expandedCaption, setExpandedCaption] = useState({});
 
-  // 🔥 FETCH REELS
-  const fetchReels = async () => {
-    try {
-      const data = await getReels();
-      const fetchedReels = data.reels || [];
-      setReels(fetchedReels);
-      
-      // Initialize play states and likes
-      const initialPlayState = {};
-      const initialLikedState = {};
-      fetchedReels.forEach((reel, i) => {
-        initialPlayState[i] = true;
-        // ✅ Check if current user liked it
-        initialLikedState[i] = reel.likes?.includes(user?._id) || reel.likes?.includes("me"); 
-      });
-      setIsPlaying(initialPlayState);
-      setLiked(initialLikedState);
-
-    } catch (err) {
-      console.log(err);
-      toast.error("Failed to load reels");
-    }
-  };
-
+  // ─── FETCH ───────────────────────────────────────────────
   useEffect(() => {
+    const fetchReels = async () => {
+      try {
+        setLoading(true);
+        const res = await getReels();
+        const data = res.reels || [];
+        setReels(data);
+
+        const likeState = {};
+        const playState = {};
+        data.forEach((r, i) => {
+          likeState[i] = r.likes?.includes(user?._id);
+          playState[i] = false;
+        });
+        setLiked(likeState);
+        setIsPlaying(playState);
+      } catch (err) {
+        toast.error("Failed to load reels");
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchReels();
   }, [user]);
 
-  // 🔥 AUTO PLAY & VIEW TRACKING (Intersection Observer)
+  // ─── INTERSECTION OBSERVER (AUTO-PLAY) ───────────────────
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          const index = Number(entry.target.dataset.index);
-          const video = videoRefs.current[index];
-          const reel = reels[index];
-
-          if (!video || !reel) return;
+          const i = Number(entry.target.dataset.index);
+          const video = videoRefs.current[i];
+          if (!video) return;
 
           if (entry.isIntersecting) {
-            video.play().then(() => {
-              setIsPlaying((prev) => ({ ...prev, [index]: true }));
-            }).catch(() => {});
-            viewReel(reel._id); 
+            video.play().catch(() => {});
+            setIsPlaying((p) => ({ ...p, [i]: true }));
+            setCurrentIndex(i);
+            if (reels[i]?._id) viewReel(reels[i]._id).catch(() => {});
           } else {
             video.pause();
-            setIsPlaying((prev) => ({ ...prev, [index]: false }));
+            setIsPlaying((p) => ({ ...p, [i]: false }));
           }
         });
       },
-      { threshold: 0.7 }
+      { threshold: 0.75 }
     );
 
-    videoRefs.current.forEach((video) => {
-      if (video) observer.observe(video);
-    });
-
+    videoRefs.current.forEach((v) => v && observer.observe(v));
     return () => observer.disconnect();
   }, [reels]);
 
-  // ▶️ PLAY / PAUSE TOGGLE
-  const handlePlayPause = (index) => {
-    const video = videoRefs.current[index];
-    if (!video) return;
-
-    if (video.paused) {
-      video.play();
-      setIsPlaying((prev) => ({ ...prev, [index]: true }));
-    } else {
-      video.pause();
-      setIsPlaying((prev) => ({ ...prev, [index]: false }));
-    }
+  // ─── PROGRESS ────────────────────────────────────────────
+  const handleTimeUpdate = (i) => {
+    const v = videoRefs.current[i];
+    if (!v?.duration) return;
+    setProgress((p) => ({ ...p, [i]: (v.currentTime / v.duration) * 100 }));
   };
 
-  // ❤️ DOUBLE TAP TO LIKE
-  const handleDoubleTap = (index) => {
-    if (!liked[index]) {
-      handleLike(index);
-    }
-    setShowHeart(index);
-    setTimeout(() => setShowHeart(null), 800);
-  };
-
-  // ❤️ LIKE LOGIC
-  const handleLike = async (index) => {
-    const reel = reels[index];
+  // ─── LIKE ─────────────────────────────────────────────────
+  const handleLike = async (i) => {
+    const reel = reels[i];
+    const wasLiked = liked[i];
+    setLiked((p) => ({ ...p, [i]: !p[i] }));
+    setReels((prev) =>
+      prev.map((r, idx) =>
+        idx === i
+          ? {
+              ...r,
+              likes: wasLiked
+                ? (r.likes || []).filter((id) => id !== user?._id)
+                : [...(r.likes || []), user?._id],
+            }
+          : r
+      )
+    );
     try {
-      setLiked((prev) => ({ ...prev, [index]: !prev[index] }));
       await likeReel(reel._id);
-    } catch (err) {
-      console.log(err);
-      // Revert if failed
-      setLiked((prev) => ({ ...prev, [index]: !prev[index] }));
+    } catch {
+      setLiked((p) => ({ ...p, [i]: wasLiked }));
     }
   };
 
-  // 🔊 MUTE TOGGLE
+  // ─── DOUBLE TAP LIKE ─────────────────────────────────────
+  const handleDoubleTap = (i) => {
+    if (!liked[i]) handleLike(i);
+    setShowHeart(i);
+    setTimeout(() => setShowHeart(null), 900);
+  };
+
+  // ─── PLAY/PAUSE TOGGLE ───────────────────────────────────
+  const handlePlayPause = (i) => {
+    const v = videoRefs.current[i];
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setIsPlaying((p) => ({ ...p, [i]: true }));
+    } else {
+      v.pause();
+      setIsPlaying((p) => ({ ...p, [i]: false }));
+    }
+  };
+
+  // ─── MUTE ─────────────────────────────────────────────────
   const toggleMute = (e) => {
-    e.stopPropagation();
+    e?.stopPropagation();
     const newMute = !muted;
     setMuted(newMute);
-    videoRefs.current.forEach((video) => {
-      if (video) video.muted = newMute;
-    });
+    videoRefs.current.forEach((v) => v && (v.muted = newMute));
   };
 
-  // ⏱️ PROGRESS BAR
-  const handleTimeUpdate = (index) => {
-    const video = videoRefs.current[index];
-    if (!video || !video.duration) return;
-    const percent = (video.currentTime / video.duration) * 100;
-    setProgress((prev) => ({ ...prev, [index]: percent }));
-  };
-
-  // 🔖 SAVE REEL
-  const handleSaveReel = async (reelId) => {
+  // ─── SAVE ─────────────────────────────────────────────────
+  const handleSave = async (i, reelId) => {
+    setSaved((p) => ({ ...p, [i]: !p[i] }));
     try {
-      await savePost(reelId); // Reusing savePost logic as it saves IDs to user model
-      toast.success("Reel saved to your profile!");
-    } catch (error) {
-      toast.error(error.message || "Already saved or failed to save");
-    } finally {
-      setOpenMenuId(null);
+      await savePost(reelId);
+      toast.success(saved[i] ? "Removed from saved" : "Saved!");
+    } catch (err) {
+      setSaved((p) => ({ ...p, [i]: !p[i] }));
+      toast.error(err?.message || "Failed to save");
     }
+    setOpenMenuId(null);
   };
 
-  // 🗑️ DELETE REEL
-  const handleDeleteReel = async (reelId) => {
-    if (!window.confirm("Are you sure you want to remove this Reel?")) return;
+  // ─── DELETE ───────────────────────────────────────────────
+  const handleDelete = async (reelId) => {
+    if (!window.confirm("Delete this reel?")) return;
     try {
-      await deletePost(reelId); // Reusing delete logic
+      await deletePost(reelId);
       setReels((prev) => prev.filter((r) => r._id !== reelId));
-      toast.success("Reel deleted successfully");
-    } catch (error) {
-      toast.error("Failed to delete reel");
-    } finally {
-      setOpenMenuId(null);
+      toast.success("Reel deleted");
+    } catch {
+      toast.error("Failed to delete");
     }
+    setOpenMenuId(null);
   };
+
+  // ─── FORMAT COUNT ─────────────────────────────────────────
+  const fmt = (n = 0) => {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+    if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+    return n;
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[100dvh] bg-black flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!reels.length) {
+    return (
+      <div className="h-[100dvh] bg-black flex flex-col items-center justify-center text-white gap-4">
+        <div className="text-5xl">🎬</div>
+        <p className="text-lg font-semibold">No reels yet</p>
+        <button onClick={() => navigate("/create/reel")} className="px-6 py-2.5 bg-white text-black font-bold rounded-full text-sm">
+          Create First Reel
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="flex justify-center bg-[#121212] min-h-screen sm:py-6">
-        
-        {/* 📱 PHONE CONTAINER WITH HIDDEN SCROLLBAR */}
-        <div className="w-full max-w-[420px] h-[100dvh] sm:h-[90vh] sm:rounded-[24px] overflow-y-scroll snap-y snap-mandatory relative bg-black shadow-2xl 
-          [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+    <div className="h-[100dvh] bg-[#000] flex items-center justify-center overflow-hidden font-['SF_Pro_Display',system-ui,sans-serif] selection:bg-none">
 
-          {reels.map((reel, index) => (
-            <div key={reel._id} className="h-full w-full snap-start relative bg-black group overflow-hidden">
+      {/* 🔝 FIXED BACK HEADER */}
+      {/* Reduced max-width to 400px to match narrower reels container */}
+      <div className="fixed top-0 left-0 right-0 max-w-[400px] mx-auto flex justify-between items-center px-4 py-4 z-[60] pointer-events-none">
+        <button onClick={() => navigate(-1)} className="drop-shadow-lg active:scale-90 transition-transform pointer-events-auto">
+          <FaArrowLeft className="text-white text-xl" />
+        </button>
+      </div>
 
-              {/* 🎥 VIDEO ELEMENT */}
-              <video
-                ref={(el) => (videoRefs.current[index] = el)}
-                data-index={index}
-                src={reel.video || reel.mediaUrl || reel.media}
-                autoPlay
-                loop
-                muted={muted}
-                playsInline
-                className="w-full h-full object-cover"
-                onClick={() => handlePlayPause(index)}
-                onDoubleClick={() => handleDoubleTap(index)}
-                onTimeUpdate={() => handleTimeUpdate(index)}
+      {/* 📱 REELS CONTAINER */}
+      {/* Changed max-w-[480px] to max-w-[400px] for taller aspect ratio */}
+      <div
+        ref={containerRef}
+        className="w-full max-w-[400px] h-[100dvh] overflow-y-scroll snap-y snap-mandatory relative bg-black scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      >
+        {reels.map((reel, i) => (
+          <div
+            key={reel._id}
+            className="h-[100dvh] w-full snap-start relative bg-[#111] flex items-center justify-center overflow-hidden"
+          >
+            {/* VIDEO PLAYER */}
+            <video
+              ref={(el) => (videoRefs.current[i] = el)}
+              data-index={i}
+              src={reel.video || reel.mediaUrl || reel.media}
+              loop
+              muted={muted}
+              playsInline
+              className="w-full h-full object-cover cursor-pointer"
+              onClick={() => handlePlayPause(i)}
+              onDoubleClick={() => handleDoubleTap(i)}
+              onTimeUpdate={() => handleTimeUpdate(i)}
+            />
+
+            {/* GRADIENT OVERLAYS */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80 pointer-events-none z-10" />
+
+            {/* PROGRESS BAR */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 z-30">
+              <div className="h-full bg-white/90 transition-all duration-75 ease-linear" style={{ width: `${progress[i] || 0}%` }} />
+            </div>
+
+            {/* PLAY ICON (paused state) */}
+            {!isPlaying[i] && (
+              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                <div className="bg-black/30 backdrop-blur-sm w-16 h-16 rounded-full flex items-center justify-center">
+                  <FaPlay className="text-white text-2xl ml-1 opacity-90" />
+                </div>
+              </div>
+            )}
+
+            {/* DOUBLE TAP HEART */}
+            {showHeart === i && (
+              <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                <img src={Assets.liked} className="w-32 opacity-95 animate-ping drop-shadow-2xl" alt="liked" />
+              </div>
+            )}
+
+            {/* MUTE BUTTON (Floating top-right) */}
+            <button
+              onClick={toggleMute}
+              className="absolute top-5 right-4 z-40 bg-black/40 backdrop-blur-md w-8 h-8 rounded-full flex items-center justify-center border border-white/20"
+            >
+              {muted ? <FaVolumeMute className="text-white text-[12px]" /> : <FaVolumeUp className="text-white text-[12px]" />}
+            </button>
+
+            {/* ── RIGHT ACTION PANEL ── */}
+            <div className="absolute right-3 bottom-16 flex flex-col items-center gap-5 z-40 pb-2">
+              
+              {/* LIKE */}
+              <ActionBtn
+                icon={<img src={liked[i] ? Assets.liked : Assets.like} className={`w-[26px] drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] ${!liked[i] && "invert"}`} alt="like" />}
+                count={fmt(reel.likes?.length || 0)}
+                onClick={() => handleLike(i)}
               />
 
-              {/* ✅ RENDER DRAGGABLE TEXT IF IT EXISTS */}
-              {reel.overlayText && (
-                <div 
-                  className="absolute z-10 pointer-events-none px-4 py-2"
-                  style={{
-                    top: "50%",
-                    left: "50%",
-                    transform: `translate(calc(-50% + ${reel.overlayX || 0}px), calc(-50% + ${reel.overlayY || 0}px))`
-                  }}
-                >
-                  <p className={`text-center text-3xl text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] whitespace-nowrap ${reel.overlayFont || "font-sans"}`}>
-                    {reel.overlayText}
-                  </p>
-                </div>
-              )}
+              {/* COMMENT */}
+              <ActionBtn
+                icon={<img src={Assets.comment} className="w-[26px] drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] invert" alt="comment" />}
+                count={fmt(reel.comments?.length || 0)}
+                onClick={() => setActiveReel(reel)}
+              />
 
-              {/* 🌑 GRADIENT OVERLAYS FOR READABILITY */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80 pointer-events-none z-0" />
+              {/* SHARE */}
+              <ActionBtn
+                icon={<img src={Assets.share} className="w-[26px] drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] invert" alt="share" />}
+                count="Share"
+                onClick={() => setOpenShare(reel)}
+              />
 
-              {/* ⏱️ TOP PROGRESS BAR */}
-              <div className="absolute top-0 left-0 w-full h-[3px] bg-white/20 z-10">
-                <div
-                  className="h-full bg-white/90 backdrop-blur-sm transition-all duration-75"
-                  style={{ width: `${progress[index] || 0}%` }}
+              {/* SAVE / BOOKMARK */}
+              <ActionBtn
+                icon={saved[i] ? <FaBookmark className="text-[24px] text-white drop-shadow-md" /> : <FaRegBookmark className="text-[24px] text-white drop-shadow-md" />}
+                count="Save"
+                onClick={() => handleSave(i, reel._id)}
+              />
+
+              {/* MORE (3 DOTS) */}
+              <div className="relative">
+                <ActionBtn
+                  icon={<img src={Assets.dots} className="w-5 rotate-90 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] invert mt-1" alt="more" />}
+                  onClick={() => setOpenMenuId(openMenuId === reel._id ? null : reel._id)}
                 />
               </div>
 
-              {/* ⏸️ PLAY ICON OVERLAY (Shows only when paused) */}
-              {!isPlaying[index] && (
-                <div className="absolute inset-0 flex justify-center items-center pointer-events-none z-10">
-                  <div className="bg-black/40 p-5 rounded-full backdrop-blur-sm">
-                    <FaPlay className="text-white text-4xl ml-1 opacity-90" />
-                  </div>
-                </div>
-              )}
-
-              {/* ❤️ BIG HEART ANIMATION */}
-              {showHeart === index && (
-                <div className="absolute inset-0 flex justify-center items-center pointer-events-none z-20">
-                  <img src={Assets.liked} className="w-28 animate-ping drop-shadow-2xl" alt="liked" />
-                </div>
-              )}
-
-              {/* 🔊 SOUND TOGGLE (Top Right) */}
-              <div
-                onClick={toggleMute}
-                className="absolute top-6 right-4 bg-black/30 p-2.5 rounded-full cursor-pointer backdrop-blur-md z-20 hover:bg-black/50 transition"
-              >
-                {muted ? <FaVolumeMute className="text-white text-lg" /> : <FaVolumeUp className="text-white text-lg" />}
+              {/* AVATAR DISC (Music) */}
+              <div className="mt-1 w-8 h-8 rounded-md border-[1.5px] border-white/70 overflow-hidden shadow-lg animate-spin-slow">
+                <img src={getProfileImage(reel.user)} className="w-full h-full object-cover" alt="" />
               </div>
+            </div>
 
-              {/* ➡ RIGHT SIDE ACTION ICONS */}
-              <div className="absolute right-3 bottom-24 flex flex-col items-center gap-6 text-white z-20">
-                
-                {/* LIKE */}
-                <div className="flex flex-col items-center gap-1 cursor-pointer hover:scale-110 transition-transform" onClick={() => handleLike(index)}>
-                  <img src={liked[index] ? Assets.liked : Assets.like} className="w-8 drop-shadow-lg" alt="like" />
-                  <p className="text-[13px] font-bold drop-shadow-md">
-                    {liked[index] ? (reel.likes?.length || 0) + (reel.likes?.includes(user?._id) ? 0 : 1) : reel.likes?.length || 0}
-                  </p>
-                </div>
+            {/* ── BOTTOM USER INFO ── */}
+            <div className="absolute bottom-6 left-4 right-16 z-30 text-white flex flex-col gap-2.5 pb-2">
+              
+              <div className="flex items-start gap-3 mb-3">
+                <Link to={`/user/${encodeURIComponent(reel.user?.username || "")}`}>
+                  <img
+                    src={getProfileImage(reel.user)}
+                    className="w-10 h-10 rounded-full object-cover border-[1px] border-white/50 shadow-sm"
+                    alt={reel.user?.username}
+                  />
+                </Link>
 
-                {/* COMMENT */}
-                <div className="flex flex-col items-center gap-1 cursor-pointer hover:scale-110 transition-transform" onClick={() => setActiveReel(reel)}>
-                  <img src={Assets.comment} className="w-8 drop-shadow-lg" alt="comment" />
-                  <p className="text-[13px] font-bold drop-shadow-md">
-                    {reel.comments?.length || 0}
-                  </p>
-                </div>
-
-                {/* SHARE */}
-                <div className="flex flex-col items-center gap-1 cursor-pointer hover:scale-110 transition-transform" onClick={() => setOpenShare(reel)}>
-                  <img src={Assets.share} className="w-8 drop-shadow-lg" alt="share" />
-                  <p className="text-[13px] font-bold drop-shadow-md">Share</p>
-                </div>
-
-                {/* MORE (DOTS) */}
-                <div className="relative">
-                  <div className="cursor-pointer hover:scale-110 transition-transform p-2" onClick={() => setOpenMenuId(openMenuId === reel._id ? null : reel._id)}>
-                    <img src={Assets.dots} className="w-5 rotate-90 drop-shadow-lg invert" alt="more" />
+                <div className="flex flex-col justify-center mt-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={`/user/${encodeURIComponent(reel.user?.username || "")}`}
+                      className="font-bold text-white text-[14px] hover:underline flex items-center gap-1 drop-shadow-md tracking-wide"
+                    >
+                      {reel.user?.username}
+                      <RoleBadge role={reel.user?.role} />
+                    </Link>
+                    <button className="border border-white/80 text-white text-[11px] font-bold px-3 py-[3px] rounded-md hover:bg-white hover:text-black transition-colors shrink-0 shadow-sm ml-1">
+                      Follow
+                    </button>
                   </div>
                   
-                  {/* ✅ OPTIONS MENU */}
-                  {openMenuId === reel._id && (
-                    <>
-                      {/* Invisible Background to handle click-outside */}
-                      <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)}></div>
-                      
-                      {/* Popup Menu */}
-                      <div className="absolute right-10 bottom-0 w-36 bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                        
-                        <button onClick={() => handleSaveReel(reel._id)} className="w-full px-4 py-3 text-left text-gray-800 font-bold text-[13px] hover:bg-white transition-colors border-b border-gray-200/50">
-                          Save
-                        </button>
-
-                        <button onClick={() => { toast.info("Reported to admins."); setOpenMenuId(null); }} className="w-full px-4 py-3 text-left text-orange-600 font-bold text-[13px] hover:bg-white transition-colors border-b border-gray-200/50">
-                          Report
-                        </button>
-
-                        {user?._id === reel.user?._id && (
-                          <button onClick={() => handleDeleteReel(reel._id)} className="w-full px-4 py-3 text-left text-red-600 font-black text-[13px] hover:bg-white transition-colors border-b border-gray-200/50">
-                            Delete
-                          </button>
-                        )}
-                        
-                        <button onClick={() => setOpenMenuId(null)} className="w-full px-4 py-3 text-left text-gray-500 font-bold text-[13px] hover:bg-white transition-colors">
-                          Cancel
-                        </button>
-                      </div>
-                    </>
+                  {reel.location && (
+                    <div className="flex items-center gap-1 mt-[2px]">
+                      <FaMapMarkerAlt className="text-white/80 text-[10px] drop-shadow-sm" />
+                      <span className="text-white/90 text-[12px] drop-shadow-sm font-medium">{reel.location}</span>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* ⬇ BOTTOM LEFT USER INFO */}
-              <div className="absolute bottom-6 left-4 text-white pr-20 z-20 w-full max-w-[85%]">
-                
-                {/* ✅ Profile Header (Fixed Image Source) */}
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden border-[1.5px] border-white shadow-sm bg-gray-800">
-                    <img src={getProfileImage(reel.user)} className="w-full h-full object-cover" alt="avatar" />
-                  </div>
-                  <p className="font-bold text-[15px] drop-shadow-md">{reel.user?.username || "campus_student"}</p>
-                  <button className="border border-white/70 px-3 py-1 rounded-md text-[12px] font-bold backdrop-blur-sm hover:bg-white hover:text-black transition">
-                    Follow
-                  </button>
-                </div>
-
-                {/* Caption */}
-                <p className="text-[14px] leading-snug drop-shadow-md line-clamp-2 mb-3 whitespace-pre-wrap">
-                  {reel.caption || "Living the campus life 🎓✨"}
-                </p>
-
-                {/* Audio Ticker */}
-                <div className="flex items-center gap-2 bg-white/20 w-max px-3 py-1 rounded-full backdrop-blur-md">
-                  <FaMusic className="text-[10px]" />
-                  <p className="text-[12px] font-semibold tracking-wide">
-                    UniEven Original Audio
+              {/* Caption */}
+              {reel.caption && (
+                <div className="pr-4">
+                  <p className="text-white text-[14px] leading-snug drop-shadow-md font-normal">
+                    {expandedCaption[i] || reel.caption.length <= 60
+                      ? reel.caption
+                      : reel.caption.slice(0, 60) + "..."}
+                    {reel.caption.length > 60 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedCaption((p) => ({ ...p, [i]: !p[i] }));
+                        }}
+                        className="text-white/70 ml-1 font-semibold text-[13px] hover:text-white"
+                      >
+                        {expandedCaption[i] ? " less" : " more"}
+                      </button>
+                    )}
                   </p>
                 </div>
+              )}
 
+              {/* Audio tag */}
+              <div className="flex items-center gap-2 text-white drop-shadow-md mt-1">
+                <FaMusic className="text-[12px]" />
+                <div className="overflow-hidden whitespace-nowrap max-w-[200px]">
+                  <span className="inline-block text-[13px] font-medium">
+                    UniEven Original Audio
+                  </span>
+                </div>
               </div>
 
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
-      {/* 💬 COMMENTS MODAL */}
+      {/* ═══════════════════ UNIFIED POPUP MENU (PROJECT STYLE) ═══════════════════ */}
+      {openMenuId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpenMenuId(null)}></div>
+          <div className="bg-white w-full max-w-[300px] rounded-[28px] overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+             
+             {/* Save Button */}
+             <button 
+               onClick={() => {
+                 const idx = reels.findIndex(r => r._id === openMenuId);
+                 handleSave(idx, openMenuId);
+               }} 
+               className="w-full py-4 text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-black"
+             >
+               {saved[reels.findIndex(r => r._id === openMenuId)] ? "Unsave Reel" : "Save Reel"}
+             </button>
+             
+             {/* Report Button */}
+             <button onClick={() => { toast.info("Reported to admins."); setOpenMenuId(null); }} className="w-full py-4 text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-orange-500">
+               Report
+             </button>
+
+             {/* Delete Button (Only if owner) */}
+             {user?._id === reels.find(r => r._id === openMenuId)?.user?._id && (
+               <button onClick={() => handleDelete(openMenuId)} className="w-full py-4 text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-red-500">
+                 Delete Reel
+               </button>
+             )}
+
+             {/* Cancel Button */}
+             <button onClick={() => setOpenMenuId(null)} className="w-full py-4 text-sm font-medium text-gray-500 hover:bg-gray-50">
+               Cancel
+             </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════ MODALS ═══════════════════ */}
       {activeReel && (
         <CommentsModal
           item={activeReel}
           type="reel"
           onClose={() => setActiveReel(null)}
-          onSync={(updatedReel) => {
-            setReels((prev) => prev.map((r) => r._id === updatedReel._id ? updatedReel : r));
-            setActiveReel(updatedReel);
+          onSync={(updated) => {
+            setReels((prev) => prev.map((r) => (r._id === updated._id ? updated : r)));
+            setActiveReel(updated);
           }}
         />
       )}
 
-      {/* 🚀 SHARE MODAL */}
-      {openShare && (
-        <ShareModal
-          post={openShare}
-          onClose={() => setOpenShare(null)}
-        />
+      {openShare && <ShareModal post={openShare} onClose={() => setOpenShare(null)} />}
+    </div>
+  );
+}
+
+/* ─── ACTION BUTTON COMPONENT ─── */
+function ActionBtn({ icon, count, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center gap-[2px] group transition-transform duration-200 hover:scale-110 active:scale-95"
+    >
+      <div className="flex items-center justify-center opacity-95 group-hover:opacity-100">
+        {icon}
+      </div>
+      {count !== undefined && (
+        <span className="text-white text-[13px] font-semibold tabular-nums drop-shadow-md">
+          {count}
+        </span>
       )}
-    </>
+    </button>
   );
 }
 

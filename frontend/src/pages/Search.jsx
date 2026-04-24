@@ -144,97 +144,106 @@ function Search() {
   }
 
   return (
-    <div className="w-full flex flex-col items-center bg-[#fafafa] min-h-screen font-['Poppins',sans-serif] antialiased pb-20">
+    // ✅ Added pt-[80px] sm:pt-[96px] so content starts below the fixed search bar
+    <div className="w-full flex flex-col items-center bg-[#fafafa] min-h-screen font-['Poppins',sans-serif] antialiased pt-[80px] sm:pt-[96px] pb-20">
 
-      {/* 🔍 SEARCH BAR */}
-      <div className="w-full max-w-[800px] p-4 sticky top-0 z-30 bg-[#fafafa]/80 backdrop-blur-xl">
-        <div className="relative group">
-          <FaSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+      {/* 🔍 FIXED SEARCH BAR */}
+      <div className="fixed top-0 left-0 w-full z-50 bg-[#fafafa]/90 backdrop-blur-xl px-4 py-3 sm:py-4 flex justify-center border-b border-gray-200/50">
+        <div className="w-full max-w-[800px] relative group">
+          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors text-lg z-10" />
           <input
             ref={inputRef}
             type="text"
             placeholder="Search users, reels, events..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-white border border-gray-200 pl-12 pr-12 py-3.5 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm font-medium text-gray-800 placeholder:text-gray-400"
+            className="w-full bg-white border border-gray-200 pl-11 pr-12 py-3.5 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm font-medium text-gray-800 placeholder:text-gray-400 text-sm sm:text-base relative"
           />
 
           {loading && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10">
               <Loader size="18px" color="#3b82f6" />
             </div>
           )}
-        </div>
 
-        {/* 🔥 LIVE USERS DROPDOWN */}
-        {query && users.length > 0 && !loading && (
-          <div className="absolute left-4 right-4 top-[calc(100%-4px)] bg-white/95 backdrop-blur-2xl border border-gray-100 mt-2 rounded-2xl shadow-2xl max-h-[300px] overflow-y-auto z-40 p-2 animate-in fade-in slide-in-from-top-2 duration-200">
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 pt-2 pb-1">Accounts</h4>
-            {users.map((u) => (
-              <div
-                key={u._id}
-                onClick={() => navigate(`/user/${encodeURIComponent(u.username)}`)}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-blue-50 cursor-pointer transition-colors group"
-              >
-                <div className="flex items-center gap-4">
-                  <img
-                    src={getProfileImage(u)}
-                    className="w-12 h-12 rounded-full object-cover border border-gray-200 shadow-sm"
-                    alt={u.username}
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-bold text-[15px] flex items-center gap-1.5 text-gray-900 leading-tight">
-                      {u.username}
-                      <RoleBadge role={u.role} />
-                    </span>
-                    <span className="text-xs font-medium text-gray-500">{u.name}</span>
+          {/* 🔥 LIVE USERS DROPDOWN (Attached to input) */}
+          {query && users.length > 0 && !loading && (
+            <div className="absolute left-0 right-0 top-[calc(100%+8px)] bg-white/95 backdrop-blur-2xl border border-gray-100 rounded-2xl shadow-2xl max-h-[50vh] overflow-y-auto z-40 p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <h4 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider px-3 pt-2 pb-1">Accounts</h4>
+              {users.map((u) => (
+                <div
+                  key={u._id}
+                  onClick={() => navigate(`/user/${encodeURIComponent(u.username)}`)}
+                  className="flex items-center justify-between p-2 sm:p-3 rounded-xl hover:bg-blue-50 cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <img
+                      src={getProfileImage(u)}
+                      className="w-10 h-10 sm:w-12 h-12 rounded-full object-cover border border-gray-200 shadow-sm"
+                      alt={u.username}
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-bold text-[14px] sm:text-[15px] flex items-center gap-1.5 text-gray-900 leading-tight">
+                        {u.username}
+                        <RoleBadge role={u.role} />
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-medium text-gray-500">{u.name}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ❌ NO RESULTS */}
       {!loading && query && users.length === 0 && displayReels.length === 0 && displayEvents.length === 0 && (
-        <div className="flex flex-col items-center justify-center mt-32 text-center animate-in fade-in zoom-in-95">
+        <div className="flex flex-col items-center justify-center flex-1 w-full text-center animate-in fade-in zoom-in-95 px-4 mt-20">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-5 shadow-inner">
             <FaSearch className="text-3xl text-gray-300" />
           </div>
-          <h3 className="text-xl font-black text-gray-800">No results found</h3>
-          <p className="text-sm text-gray-500 font-medium mt-2">Try searching for different keywords or usernames.</p>
+          <h3 className="text-lg sm:text-xl font-black text-gray-800">No results found</h3>
+          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-2 max-w-[250px] sm:max-w-none">Try searching for different keywords or usernames.</p>
         </div>
       )}
 
-      {/* 🔥 MAIN CONTENT AREA */}
+      {/* 🔥 MAIN CONTENT AREA (Scrolls underneath the fixed header) */}
       {(displayReels.length > 0 || displayEvents.length > 0) && (
-        <div className="w-full max-w-[1000px] px-1 sm:px-2 mt-4 animate-in fade-in duration-500">
+        <div className="w-full max-w-[1000px] px-2 sm:px-4 animate-in fade-in duration-500">
           
           {/* 🌟 REELS SECTION */}
           {displayReels.length > 0 && (
-            <div className="mb-10 px-2">
-              <h4 className="text-sm font-black text-gray-800 mb-4 tracking-wide flex items-center gap-2 uppercase">
+            <div className="mb-8 sm:mb-12">
+              <h4 className="text-xs sm:text-sm font-black text-gray-800 mb-3 sm:mb-4 tracking-wide flex items-center gap-2 uppercase px-1">
                 <FaPlay className="text-blue-500" /> {query.trim() ? "Reels Results" : "Top Reels"}
               </h4>
               
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 md:gap-2">
+              {/* Responsive Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
                 {displayReels.map((item, index) => (
                   <div 
                     key={item._id || index} 
                     onClick={() => navigate("/reels")}
-                    className="relative aspect-[9/16] group overflow-hidden bg-black cursor-pointer md:rounded-xl shadow-sm"
+                    className="relative aspect-[9/16] group overflow-hidden bg-black cursor-pointer rounded-lg sm:rounded-xl shadow-sm"
                   >
-                    <video src={item.media} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" muted autoPlay loop playsInline />
+                    <video 
+                      src={item.media} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      muted 
+                      autoPlay 
+                      loop 
+                      playsInline 
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     
                     <div className="absolute top-2 right-2 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] z-10">
-                      <FaPlay className="text-[12px] md:text-[14px]" />
+                      <FaPlay className="text-[12px] sm:text-[14px]" />
                     </div>
 
                     {item.overlayText && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 p-2">
-                        <p className={`text-center text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] text-[10px] md:text-[14px] font-black leading-tight truncate w-full`}>
+                        <p className="text-center text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] text-[11px] sm:text-[14px] font-black leading-tight truncate w-full">
                           {item.overlayText}
                         </p>
                       </div>
@@ -247,29 +256,40 @@ function Search() {
 
           {/* 🌟 EVENTS SECTION */}
           {displayEvents.length > 0 && (
-            <div className="mb-10 px-2">
-              <h4 className="text-sm font-black text-gray-800 mb-4 tracking-wide flex items-center gap-2 uppercase pt-4 border-t border-gray-200">
+            <div className="mb-10">
+              <h4 className="text-xs sm:text-sm font-black text-gray-800 mb-3 sm:mb-4 tracking-wide flex items-center gap-2 uppercase pt-4 sm:pt-6 border-t border-gray-200 px-1">
                 <FaCalendarAlt className="text-purple-500" /> {query.trim() ? "Events Results" : "Upcoming Events"}
               </h4>
               
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
                 {displayEvents.map((item, index) => (
                   <div 
                     key={item._id || index} 
                     onClick={() => navigate("/events")}
-                    className="relative aspect-square group overflow-hidden bg-gray-200 cursor-pointer rounded-lg md:rounded-2xl shadow-sm hover:shadow-md transition-shadow"
+                    className="relative aspect-square group overflow-hidden bg-gray-200 cursor-pointer rounded-lg sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow"
                   >
-                    <img src={item.media || "/placeholder.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="event content" />
+                    <img 
+                      src={item.media || "/placeholder.png"} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      alt="event content" 
+                      loading="lazy"
+                    />
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                     
                     <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded shadow-sm text-center border border-white/50">
-                       <p className="text-[8px] md:text-[10px] font-black text-purple-600 uppercase tracking-widest">{new Date(item.date || item.createdAt).toLocaleDateString('en-US', {month: 'short'})}</p>
-                       <p className="text-sm md:text-lg font-black text-gray-900 leading-none">{new Date(item.date || item.createdAt).getDate()}</p>
+                       <p className="text-[8px] sm:text-[10px] font-black text-purple-600 uppercase tracking-widest">
+                         {new Date(item.date || item.createdAt).toLocaleDateString('en-US', {month: 'short'})}
+                       </p>
+                       <p className="text-sm sm:text-lg font-black text-gray-900 leading-none">
+                         {new Date(item.date || item.createdAt).getDate()}
+                       </p>
                     </div>
 
                     <div className="absolute bottom-2 left-2 right-2 text-white">
-                       <p className="text-[12px] md:text-[14px] font-black line-clamp-1 leading-snug drop-shadow-md">{item.title || "Campus Event"}</p>
+                       <p className="text-[11px] sm:text-[14px] font-black line-clamp-1 leading-snug drop-shadow-md">
+                         {item.title || "Campus Event"}
+                       </p>
                     </div>
                   </div>
                 ))}

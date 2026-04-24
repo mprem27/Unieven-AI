@@ -13,7 +13,7 @@ export const getProfile = async (username) => {
 };
 
 /**
- * 📸 GET USER POSTS (🔥 FIX ADDED)
+ * 📸 GET USER POSTS
  */
 export const getUserPosts = async (userId) => {
   try {
@@ -21,23 +21,21 @@ export const getUserPosts = async (userId) => {
     return data;
   } catch (error) {
     console.log("getUserPosts error:", error);
-    return { posts: [] }; // safe fallback
+    return { posts: [] };
   }
 };
 
 /**
- * ✏️ UPDATE PROFILE
+ * ✏️ UPDATE PROFILE (🔥 FIXED)
  */
 export const updateProfile = async (formData) => {
   try {
-    const { data } = await API.put("/users/update", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    const { data } = await API.put("/users/update", formData);
+    // ❌ removed headers
 
     return data;
   } catch (error) {
+    console.error("Update Profile Error:", error);
     throw error.response?.data || { message: "Failed to update profile" };
   }
 };
@@ -56,7 +54,7 @@ export const getSuggestedUsers = async () => {
 };
 
 /**
- * 🔥 FOLLOW / UNFOLLOW
+ * 🔥 FOLLOW USER
  */
 export const followUser = async (userId) => {
   try {
@@ -69,7 +67,7 @@ export const followUser = async (userId) => {
 };
 
 /**
- * 🔥 UNFOLLOW (OPTIONAL BUT RECOMMENDED)
+ * 🔥 UNFOLLOW USER
  */
 export const unfollowUser = async (userId) => {
   try {

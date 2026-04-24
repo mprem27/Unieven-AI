@@ -27,7 +27,6 @@ export const getUserProfile = async (req, res) => {
 };
 
 
-// --- 2. UPDATE USER PROFILE ---
 export const updateUserProfile = async (req, res) => {
   try {
     const { name, bio, gender, username, isPrivate } = req.body;
@@ -42,7 +41,7 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
-    // 🔥 USERNAME UNIQUE CHECK
+    // ✅ USERNAME UNIQUE CHECK
     if (username && username.toLowerCase() !== user.username) {
       const exists = await userModel.findOne({
         username: username.toLowerCase(),
@@ -59,33 +58,52 @@ export const updateUserProfile = async (req, res) => {
       user.username = username.toLowerCase();
     }
 
-    // 🔥 UPDATE FIELDS
+    // ✅ SAFE FIELD UPDATES
     if (name) user.name = name;
     if (bio !== undefined) user.bio = bio;
     if (gender) user.gender = gender;
-    if (typeof isPrivate === "boolean") user.isPrivate = isPrivate;
 
-    // 🔥 IMAGE UPLOAD
-    if (imageFile) {
-      const upload = await cloudinary.uploader.upload(imageFile.path, {
-        resource_type: "image",
-      });
-      user.image = upload.secure_url;
+    // 🔥 FIX BOOLEAN (IMPORTANT)
+    if (isPrivate !== undefined) {
+      user.isPrivate =
+        isPrivate === "true" || isPrivate === true;
     }
+
+    
+ if (imageFile && imageFile.path) {
+  try {
+    
+    const fixedPath = imageFile.path.replace(/\\/g, "/");
+
+    const uploadRes = await cloudinary.uploader.upload(fixedPath);
+
+    user.image = uploadRes.secure_url;
+
+  } catch (err) {
+    console.error("Cloudinary Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Image upload failed",
+    });
+  }
+}
 
     await user.save();
 
     res.json({
       success: true,
       message: "Profile updated",
-      user, // ✅ includes role → auto update UI
+      user,
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("UPDATE ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
 
 // --- 3. GET USER POSTS ---
 export const getUserPosts = async (req, res) => {
