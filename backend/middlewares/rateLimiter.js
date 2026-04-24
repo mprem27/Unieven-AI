@@ -1,6 +1,6 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
-// 🔥 COMMON HANDLER
+//  COMMON HANDLER
 const limiterHandler = (req, res) => {
   res.status(429).json({
     success: false,
@@ -8,26 +8,24 @@ const limiterHandler = (req, res) => {
   });
 };
 
-// 🔥 SAFE KEY GENERATOR
+//  SAFE KEY GENERATOR (FIXED)
 const keyGenerator = (req) => {
-  // ❗ BEFORE LOGIN → use IP
-  if (!req.user) return req.ip;
+  // ❗ BEFORE LOGIN → use SAFE IP handler
+  if (!req.user) return ipKeyGenerator(req);
 
-  // ✅ AFTER LOGIN → use USER ID
+  //  AFTER LOGIN → use USER ID
   return req.user.id;
 };
 
-// 🔥 SKIP TRUSTED USERS
+//  SKIP TRUSTED USERS
 const skipForTrustedUsers = (req) => {
   return req.user?.role === "admin" || req.user?.role === "faculty";
 };
 
-// -----------------------------
-// 🔐 AUTH LIMITER (LOGIN / REGISTER)
-// -----------------------------
+
 export const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 🔥 reduced to 5 min
-  max: 50, // 🔥 increased (fix 429 issue)
+  windowMs: 5 * 60 * 1000,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -40,9 +38,7 @@ export const authLimiter = rateLimit({
   },
 });
 
-// -----------------------------
-// 👥 FOLLOW LIMITER
-// -----------------------------
+
 export const followLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -56,9 +52,7 @@ export const followLimiter = rateLimit({
   },
 });
 
-// -----------------------------
-// 💬 COMMENT LIMITER
-// -----------------------------
+
 export const commentLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
@@ -72,9 +66,7 @@ export const commentLimiter = rateLimit({
   },
 });
 
-// -----------------------------
-// 📸 POST / REEL LIMITER
-// -----------------------------
+
 export const postLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -88,12 +80,9 @@ export const postLimiter = rateLimit({
   },
 });
 
-// -----------------------------
-// 🌐 GLOBAL API LIMITER
-// -----------------------------
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300, // 🔥 increased
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
