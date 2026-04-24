@@ -34,7 +34,7 @@ const getEmailType = (email) => {
 };
 
 //////////////////////////////////////////////////////
-// 🔥 SEND REGISTER OTP
+// 🔥 SEND REGISTER OTP (FIXED - NO USER CREATION)
 //////////////////////////////////////////////////////
 export const sendRegisterOTP = async (req, res) => {
   try {
@@ -54,8 +54,9 @@ export const sendRegisterOTP = async (req, res) => {
       });
     }
 
-    const exists = await userModel.findOne({ email: emailLower });
-    if (exists && exists.password) {
+    const existing = await userModel.findOne({ email: emailLower });
+
+    if (existing && existing.password) {
       return res.status(409).json({
         success: false,
         message: "User already exists",
@@ -65,19 +66,14 @@ export const sendRegisterOTP = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOTP = await bcrypt.hash(otp, 10);
 
-    await userModel.updateOne(
-      { email: emailLower },
-      {
-        $set: {
-          email: emailLower,
-          registerOTP: hashedOTP,
-          otpExpires: Date.now() + 5 * 60 * 1000,
-        },
-      },
-      { upsert: true }
-    );
+    // ✅ only update existing user
+    if (existing) {
+      existing.registerOTP = hashedOTP;
+      existing.otpExpires = Date.now() + 5 * 60 * 1000;
+      await existing.save();
+    }
+    // ❌ DO NOT create user here
 
-    // Passes the exact context for the new HTML Email Template
     await sendOTPEmail(emailLower, otp, "Account Verification");
 
     res.json({
@@ -90,11 +86,10 @@ export const sendRegisterOTP = async (req, res) => {
 };
 
 //////////////////////////////////////////////////////
-// 🔥 REGISTER USER (FULL FIXED)
+// 🔥 REGISTER USER (FINAL FIXED)
 //////////////////////////////////////////////////////
 export const registerUser = async (req, res) => {
   try {
-    // ✅ Extract dob here so it saves to the database
     let { username, email, password, name, phone, otp, dob } = req.body;
 
     // 🔥 NORMALIZE INPUT
@@ -180,6 +175,7 @@ export const registerUser = async (req, res) => {
       }
     }
 
+    // ✅ CREATE USER ONLY HERE
     if (!user) user = new userModel({ email });
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -189,8 +185,6 @@ export const registerUser = async (req, res) => {
     user.name = name;
     user.phone = phone;
     user.role = role;
-    
-    // ✅ SAVE DATE OF BIRTH
     if (dob) user.dob = dob;
 
     user.registerOTP = undefined;
@@ -302,7 +296,6 @@ export const sendResetOTP = async (req, res) => {
 
     await user.save();
 
-    // ✅ Pass dynamic purpose for Password Reset email template
     await sendOTPEmail(email, otp, "Password Reset");
 
     res.json({
