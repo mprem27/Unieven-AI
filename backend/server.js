@@ -32,26 +32,23 @@ const port = process.env.PORT || 4000;
 connectDB();
 connectCloudinary();
 
-//  CORS CONFIG (FIXED)
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://unieven-ai.vercel.app", // your frontend
-];
-
-// remove undefined values
-const filteredOrigins = allowedOrigins.filter(Boolean);
-
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests without origin (Postman, mobile apps)
+    origin: (origin, callback) => {
+      // allow Postman / mobile apps
       if (!origin) return callback(null, true);
 
-      if (filteredOrigins.includes(origin)) {
+      //  allow localhost (development)
+      if (origin.includes("localhost")) {
         return callback(null, true);
       }
 
-      console.log("CORS Blocked:", origin);
+      //  allow ALL Vercel deployments (preview + production)
+      if (origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
+
+      console.log(" CORS Blocked:", origin);
       return callback(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "POST", "PUT", "DELETE"],
@@ -59,6 +56,8 @@ app.use(
   })
 );
 
+//  Handle preflight requests (VERY IMPORTANT)
+app.options("*", cors());
 
 // BODY PARSER
 app.use(express.json());
