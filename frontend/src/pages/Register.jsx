@@ -41,7 +41,7 @@ function Register() {
   // Generate Date Arrays
   const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
   
-  // 🔥 Map Month Names to their Numeric Values for proper formatting
+  // Map Month Names to their Numeric Values for proper formatting
   const monthMap = {
     "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", 
     "May": "05", "Jun": "06", "Jul": "07", "Aug": "08", 
@@ -50,7 +50,7 @@ function Register() {
   const months = Object.keys(monthMap);
   const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
 
-  // 🔥 EMAIL TYPE DETECTION
+  // EMAIL TYPE DETECTION
   const getEmailType = (email) => {
     const e = email.toLowerCase();
     if (e.startsWith("tts") && e.includes(".edu.in")) return "faculty";
@@ -60,7 +60,7 @@ function Register() {
 
   const emailType = getEmailType(form.email);
 
-  // 🔥 USERNAME CHECK (Debounced)
+  // USERNAME CHECK (Debounced)
   useEffect(() => {
     const delay = setTimeout(() => {
       if (form.username.length >= 3) checkUsername(form.username);
@@ -93,7 +93,7 @@ function Register() {
     }
   };
 
-  // 🔥 SEND OTP
+  // SEND OTP
   const handleSendOtp = async () => {
     if (!form.email) return toast.error("Enter email first");
     setSendingOtp(true);
@@ -115,13 +115,24 @@ function Register() {
   };
 
   const handleUsernameChange = (e) => {
-    const value = e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, "");
+    // FIXED: Strips invalid characters, converts to lowercase, and limits to 20 chars
+    const value = e.target.value
+      .toLowerCase()
+      .replace(/[^a-z0-9._]/g, "")
+      .slice(0, 20);
+    
     setForm({ ...form, username: value });
   };
 
-  // 🔥 REGISTER SUBMIT
+  // REGISTER SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // FIXED: Hard validation for username
+    if (!form.username || form.username.trim() === "") {
+      return toast.error("Username is required");
+    }
+
     if (!usernameAvailable) return toast.error("Username not available");
     if (emailType !== "normal" && !otpVerified) return toast.error("Verify OTP first");
     
@@ -153,7 +164,16 @@ function Register() {
     }
   };
 
-  const isFormValid = form.email && form.password.length >= 6 && form.name && usernameAvailable && form.day && form.month && form.year;
+  // FIXED: Added form.username requirement to isFormValid
+  const isFormValid = 
+    form.email && 
+    form.password.length >= 6 && 
+    form.name && 
+    form.username &&
+    usernameAvailable && 
+    form.day && 
+    form.month && 
+    form.year;
 
   // RESPONSIVE UI STYLES
   const inputStyle = "w-full bg-white/60 backdrop-blur-md border border-white/40 rounded-[16px] sm:rounded-2xl px-4 sm:px-5 py-3.5 sm:py-4 text-[14px] sm:text-[16px] outline-none focus:bg-white focus:border-[#1877f2] focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm";

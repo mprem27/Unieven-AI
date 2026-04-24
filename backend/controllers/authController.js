@@ -18,10 +18,8 @@ const createToken = (id, role) => {
 //////////////////////////////////////////////////////
 const detectRole = (email) => {
   const e = email.toLowerCase();
-
   if (e.startsWith("tts") && e.includes(".edu.in")) return "faculty";
   if (e.startsWith("vtu") && e.includes(".edu.in")) return "student";
-
   return "student";
 };
 
@@ -30,11 +28,8 @@ const detectRole = (email) => {
 //////////////////////////////////////////////////////
 const getEmailType = (email) => {
   const e = email.toLowerCase();
-
   if (e.startsWith("tts") && e.includes(".edu.in")) return "faculty";
-  if (e.startsWith("vtu") && e.includes(".edu.in"))
-    return "collegeStudent";
-
+  if (e.startsWith("vtu") && e.includes(".edu.in")) return "collegeStudent";
   return "normal";
 };
 
@@ -46,9 +41,7 @@ export const sendRegisterOTP = async (req, res) => {
     const { email } = req.body;
 
     if (!validator.isEmail(email)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid email" });
+      return res.status(400).json({ success: false, message: "Invalid email" });
     }
 
     const emailLower = email.toLowerCase();
@@ -69,12 +62,8 @@ export const sendRegisterOTP = async (req, res) => {
       });
     }
 
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedOTP = await bcrypt.hash(otp, salt);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOTP = await bcrypt.hash(otp, 10);
 
     await userModel.updateOne(
       { email: emailLower },
@@ -88,30 +77,39 @@ export const sendRegisterOTP = async (req, res) => {
       { upsert: true }
     );
 
-    await sendOTPEmail(emailLower, otp);
+    // Passes the exact context for the new HTML Email Template
+    await sendOTPEmail(emailLower, otp, "Account Verification");
 
-    const message =
-      type === "faculty"
-        ? "OTP sent to faculty email"
-        : "OTP sent to student college email";
-
-    res.json({ success: true, message });
+    res.json({
+      success: true,
+      message: "OTP sent successfully",
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 //////////////////////////////////////////////////////
-// 🔥 REGISTER USER
+// 🔥 REGISTER USER (FULL FIXED)
 //////////////////////////////////////////////////////
 export const registerUser = async (req, res) => {
   try {
-    const { username, email, password, name, phone, otp } =
-      req.body;
+    // ✅ Extract dob here so it saves to the database
+    let { username, email, password, name, phone, otp, dob } = req.body;
 
-    if (!username || !email || !password) {
+    // 🔥 NORMALIZE INPUT
+    username = username?.toLowerCase().trim();
+    email = email?.toLowerCase().trim();
+
+    // 🔥 STRONG VALIDATION
+    if (!username || username === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Username is required",
+      });
+    }
+
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields",
@@ -125,32 +123,54 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    const emailLower = email.toLowerCase();
-    const type = getEmailType(emailLower);
-    const role = detectRole(emailLower);
+    // ======================
+    // EMAIL CHECK
+    // ======================
+    let user = await userModel.findOne({ email });
 
-    let user = await userModel.findOne({ email: emailLower });
+    if (user && user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
 
-    // 🔥 OTP CHECK
+    // ======================
+    // USERNAME CHECK (CASE SAFE)
+    // ======================
+    const existingUsername = await userModel.findOne({
+      username: { $regex: `^${username}$`, $options: "i" },
+    });
+
+    if (existingUsername && existingUsername.email !== email) {
+      return res.status(400).json({
+        success: false,
+        message: "Username already taken",
+      });
+    }
+
+    const type = getEmailType(email);
+    const role = detectRole(email);
+
+    // ======================
+    // OTP CHECK
+    // ======================
     if (type === "faculty" || type === "collegeStudent") {
       if (!otp) {
         return res.status(400).json({
           success: false,
-          message: "OTP required for college email",
+          message: "OTP required",
         });
       }
 
       if (!user || !user.registerOTP || user.otpExpires < Date.now()) {
         return res.status(400).json({
           success: false,
-          message: "OTP expired or not found",
+          message: "OTP expired",
         });
       }
 
-      const isOtpValid = await bcrypt.compare(
-        otp,
-        user.registerOTP
-      );
+      const isOtpValid = await bcrypt.compare(otp, user.registerOTP);
 
       if (!isOtpValid) {
         return res.status(400).json({
@@ -160,32 +180,37 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    if (!user) user = new userModel({ email: emailLower });
+    if (!user) user = new userModel({ email });
 
-    const exists = await userModel.findOne({
-      username: username.toLowerCase(),
-    });
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    if (exists && exists.email !== emailLower) {
-      return res.status(409).json({
-        success: false,
-        message: "Username already exists",
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    user.username = username.toLowerCase();
+    user.username = username;
     user.password = hashedPassword;
     user.name = name;
     user.phone = phone;
     user.role = role;
+    
+    // ✅ SAVE DATE OF BIRTH
+    if (dob) user.dob = dob;
 
     user.registerOTP = undefined;
     user.otpExpires = undefined;
 
-    await user.save();
+    // ======================
+    // 🔥 SAVE WITH SAFETY
+    // ======================
+    try {
+      await user.save();
+    } catch (error) {
+      if (error.code === 11000) {
+        const field = Object.keys(error.keyValue)[0];
+        return res.status(400).json({
+          success: false,
+          message: `${field} already exists`,
+        });
+      }
+      throw error;
+    }
 
     const token = createToken(user._id, user.role);
 
@@ -196,12 +221,11 @@ export const registerUser = async (req, res) => {
         id: user._id,
         name: user.name,
         role: user.role,
+        username: user.username,
       },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -226,10 +250,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({
@@ -247,12 +268,11 @@ export const loginUser = async (req, res) => {
         id: user._id,
         name: user.name,
         role: user.role,
+        username: user.username,
       },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -274,9 +294,7 @@ export const sendResetOTP = async (req, res) => {
       });
     }
 
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const salt = await bcrypt.genSalt(10);
     user.resetOTP = await bcrypt.hash(otp, salt);
@@ -284,16 +302,15 @@ export const sendResetOTP = async (req, res) => {
 
     await user.save();
 
-    await sendOTPEmail(email, otp);
+    // ✅ Pass dynamic purpose for Password Reset email template
+    await sendOTPEmail(email, otp, "Password Reset");
 
     res.json({
       success: true,
       message: "OTP sent successfully",
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -315,10 +332,7 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    const isOtpValid = await bcrypt.compare(
-      otp,
-      user.resetOTP
-    );
+    const isOtpValid = await bcrypt.compare(otp, user.resetOTP);
 
     if (!isOtpValid) {
       return res.status(400).json({
@@ -340,14 +354,12 @@ export const resetPassword = async (req, res) => {
       message: "Password reset successful",
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 //////////////////////////////////////////////////////
-// 👤 GET CURRENT USER (FIXED)
+// 👤 GET CURRENT USER
 //////////////////////////////////////////////////////
 export const getCurrentUser = async (req, res) => {
   try {
@@ -367,8 +379,6 @@ export const getCurrentUser = async (req, res) => {
       user,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
