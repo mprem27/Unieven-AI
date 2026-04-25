@@ -42,26 +42,14 @@ export const sendRegisterOTP = async (req, res) => {
     const { email } = req.body;
 
     if (!validator.isEmail(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email" });
+      return res.status(400).json({ success: false, message: "Invalid email format" });
     }
 
-    const emailLower = email.toLowerCase();
-    const type = getEmailType(emailLower);
-
-    if (type === "normal") {
-      return res.status(400).json({
-        success: false,
-        message: "OTP not required for this email",
-      });
-    }
-
+    const emailLower = email.toLowerCase().trim();
     const existing = await userModel.findOne({ email: emailLower });
 
     if (existing && existing.password) {
-      return res.status(409).json({
-        success: false,
-        message: "User already exists",
-      });
+      return res.status(409).json({ success: false, message: "User already exists" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -81,10 +69,7 @@ export const sendRegisterOTP = async (req, res) => {
 
     await sendOTPEmail(emailLower, otp, "Account Verification");
 
-    res.json({
-      success: true,
-      message: "OTP sent successfully",
-    });
+    res.json({ success: true, message: "OTP sent successfully" });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -96,89 +81,50 @@ export const sendRegisterOTP = async (req, res) => {
 //////////////////////////////////////////////////////
 export const registerUser = async (req, res) => {
   try {
-    let { username, email, password, name, phone, otp, dob } = req.body;
+    let { username, email, password, name, phone, otp } = req.body;
 
     username = username?.toLowerCase().trim();
     email = email?.toLowerCase().trim();
 
-    if (!username) {
-      return res.status(400).json({ success: false, message: "Username required" });
-    }
-
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Missing fields" });
-    }
-
-    if (!validator.isEmail(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email" });
-    }
-
     let user = await userModel.findOne({ email });
 
     if (user && user.password) {
-      return res.status(400).json({ success: false, message: "Email exists" });
+      return res.status(400).json({ success: false, message: "Email already registered" });
     }
 
-    const existingUsername = await userModel.findOne({
-      username: { $regex: `^${username}$`, $options: "i" },
-    });
-
+    // Check if username is taken by someone else
+    const existingUsername = await userModel.findOne({ username });
     if (existingUsername && existingUsername.email !== email) {
-      return res.status(400).json({
-        success: false,
-        message: "Username already taken",
-      });
+      return res.status(400).json({ success: false, message: "Username already taken" });
     }
 
-    const type = getEmailType(email);
-    const role = detectRole(email);
-
-    if (type !== "normal") {
-      if (!otp || !user || !user.registerOTP || user.otpExpires < Date.now()) {
-        return res.status(400).json({
-          success: false,
-          message: "OTP expired or missing",
-        });
+    if (user?.registerOTP) {
+      if (user.otpExpires < Date.now()) {
+        return res.status(400).json({ success: false, message: "OTP expired" });
       }
 
-      const isOtpValid = await bcrypt.compare(otp, user.registerOTP);
-
-      if (!isOtpValid) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid OTP",
-        });
+      const isValid = await bcrypt.compare(otp, user.registerOTP);
+      if (!isValid) {
+        return res.status(400).json({ success: false, message: "Invalid OTP" });
       }
     }
 
     if (!user) user = new userModel({ email });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     user.username = username;
-    user.password = hashedPassword;
+    user.password = await bcrypt.hash(password, 10);
     user.name = name;
     user.phone = phone;
-    user.role = role;
-    if (dob) user.dob = dob;
+    user.role = detectRole(email);
 
-    user.registerOTP = undefined;
-    user.otpExpires = undefined;
+    user.registerOTP = null;
+    user.otpExpires = null;
 
     await user.save();
 
     const token = createToken(user._id, user.role);
 
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        role: user.role,
-        username: user.username,
-      },
-    });
+    res.json({ success: true, token, user });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -186,82 +132,34 @@ export const registerUser = async (req, res) => {
 };
 
 //////////////////////////////////////////////////////
-// 🔐 LOGIN (FIXED FOR EMAIL + USERNAME)
+// 🔐 LOGIN
 //////////////////////////////////////////////////////
 export const loginUser = async (req, res) => {
   try {
     const { identity, password } = req.body;
 
     if (!identity || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Please enter email/username and password",
-      });
+      return res.status(400).json({ success: false, message: "Please enter email/username and password" });
     }
 
-    const cleanIdentity = identity.toLowerCase().trim();
+    const clean = identity.toLowerCase().trim();
 
-    // 🔥 FIX: supports both email + username
     const user = await userModel.findOne({
       $or: [
-        { email: cleanIdentity },
-        { username: { $regex: `^${cleanIdentity}$`, $options: "i" } },
+        { email: clean },
+        { username: { $regex: `^${clean}$`, $options: "i" } },
       ],
     });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // 🔐 check password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const match = await bcrypt.compare(password, user.password);
 
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
+    if (!match) return res.status(401).json({ success: false, message: "Invalid credentials" });
 
     const token = createToken(user._id, user.role);
 
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        role: user.role,
-        username: user.username,
-      },
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-//////////////////////////////////////////////////////
-// 🔑 FORGOT PASSWORD (Spring)
-//////////////////////////////////////////////////////
-export const forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const user = await userModel.findOne({ email: email.toLowerCase() });
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    await sendOtp(email);
-
-    res.json({ success: true, message: "OTP sent successfully" });
+    res.json({ success: true, token, user });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -269,90 +167,88 @@ export const forgotPassword = async (req, res) => {
 };
 
 //////////////////////////////////////////////////////
-// ✅ VERIFY OTP (FIXED)
+// 🔑 FORGOT PASSWORD (SPRING)
+//////////////////////////////////////////////////////
+export const forgotPassword = async (req, res) => {
+  try {
+    const email = req.body.email.toLowerCase().trim();
+
+    const user = await userModel.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    await sendOtp(email);
+
+    // Matching the string exactly so the React frontend triggers success
+    res.json({ success: true, message: "OTP sent to email" });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+//////////////////////////////////////////////////////
+// ✅ VERIFY OTP (CLEAN & SAFE FIX)
 //////////////////////////////////////////////////////
 export const verifyOtpController = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const email = req.body.email.toLowerCase().trim();
+    const { otp } = req.body;
 
     const response = await verifyOtp(email, otp);
 
-    if (response.data === "OTP verified") {
+    // ✅ ALWAYS NORMALIZE RESPONSE
+    const message =
+      typeof response === "string"
+        ? response
+        : response?.message || response?.data;
 
-      const user = await userModel.findOne({
-        email: email.toLowerCase(),
-      });
+    if (message === "OTP verified") {
+      await userModel.updateOne(
+        { email },
+        { $set: { resetOTP: "VERIFIED" } }
+      );
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      // 🔥 IMPORTANT FIX
-      user.resetOTP = "VERIFIED";
-      await user.save();
-
-      return res.json({
-        success: true,
-        message: "OTP verified",
-      });
+      return res.json({ success: true, message: "OTP verified" });
     }
 
     return res.status(400).json({
       success: false,
-      message: response.data,
+      message: message || "Verification failed",
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error("VERIFY ERROR:", error?.response?.data || error);
+
+    return res.status(400).json({
       success: false,
-      message: "Verification failed",
+      message:
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        "Verification failed",
     });
   }
 };
 
 //////////////////////////////////////////////////////
-// 🔁 RESET PASSWORD (FIXED)
+// 🔁 RESET PASSWORD
 //////////////////////////////////////////////////////
 export const resetPassword = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
+    const email = req.body.email.toLowerCase().trim();
+    const { newPassword } = req.body;
 
-    const user = await userModel.findOne({
-      email: email.toLowerCase(),
-    });
+    const user = await userModel.findOne({ email });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+    if (!user || user.resetOTP !== "VERIFIED") {
+      return res.status(400).json({ success: false, message: "Verify OTP first" });
     }
 
-    // 🔥 MUST VERIFY FIRST
-    if (user.resetOTP !== "VERIFIED") {
-      return res.status(400).json({
-        success: false,
-        message: "Verify OTP first",
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    user.password = hashedPassword;
-
-    // Clear OTP
+    user.password = await bcrypt.hash(newPassword, 10);
     user.resetOTP = null;
-    user.otpExpires = null;
 
     await user.save();
 
-    res.json({
-      success: true,
-      message: "Password updated successfully",
-    });
+    res.json({ success: true, message: "Password updated successfully" });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -364,22 +260,10 @@ export const resetPassword = async (req, res) => {
 //////////////////////////////////////////////////////
 export const getCurrentUser = async (req, res) => {
   try {
-    const user = await userModel
-      .findById(req.user.id)
-      .select("-password");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      user,
-    });
-
+    const user = await userModel.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    
+    res.json({ success: true, user });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

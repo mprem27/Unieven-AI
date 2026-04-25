@@ -11,6 +11,7 @@ function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // ONLY CHANGE: removed debug log + cleaned error handling with SAFE CHECK
   const handleSendOTP = async (e) => {
     e.preventDefault();
 
@@ -22,31 +23,32 @@ function ForgotPassword() {
 
     try {
       const res = await AUTH_API.post("/auth/forgot-password", {
-        email: email.toLowerCase().trim()
+        email: email.toLowerCase().trim(),
       });
 
       const data = res.data;
 
-      // ✅ Handle Spring string response (and fallback for Node JSON)
-      if (
-        data === "OTP sent to email" || 
-        data?.message === "OTP sent to email" || 
-        data?.success || 
-        data?.message === "OTP sent successfully"
-      ) {
+      // ✅ SAFE CHECK (WORKS FOR BOTH STRING & OBJECT)
+      const message = typeof data === "string" ? data : data?.message;
+
+      if (message === "OTP sent to email") {
         toast.success("Verification code sent!");
 
         navigate("/verify-otp", {
-          state: { email: email.toLowerCase().trim() }
+          state: { email: email.toLowerCase().trim() },
         });
 
       } else {
-        toast.error(data?.message || data || "Something went wrong");
+        toast.error(message || "Something went wrong");
       }
 
     } catch (error) {
+      console.error("SEND OTP ERROR:", error?.response?.data || error);
+
       toast.error(
-        error.response?.data?.message || error.response?.data || "Server error"
+        error.response?.data?.message ||
+        error.response?.data ||
+        "Server error"
       );
     } finally {
       setLoading(false);
