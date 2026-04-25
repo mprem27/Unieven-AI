@@ -33,13 +33,12 @@ function UserProfile() {
       try {
         setLoading(true);
         
-        // 🔥 FIXED HERE
         const res = await getProfile(decodedUsername);
         
         if (res && res.user) {
           setProfileData(res.user);
           
-          // ✅ 🔥 FIX INITIAL STATE (IMPORTANT)
+          // ✅ SYNC INITIAL STATE
           if (res.user.isFollowing) {
             setFollowState("following");
           } else if (res.user.isRequested) {
@@ -63,25 +62,22 @@ function UserProfile() {
     loadUserProfile();
   }, [decodedUsername]);
 
-  // ✅ 🔥 FINAL FIX (ONLY LOGIC CHANGE)
+  // ✅ PERFECT BACKEND SYNC LOGIC
   const handleFollowClick = async () => {
     if (!profileData?._id || actionLoading) return;
 
     setActionLoading(true);
 
     try {
-      // ❌ REMOVE GUESS LOGIC
-      // ✅ WAIT FOR BACKEND RESPONSE ONLY
-
       const res = await followUser(profileData._id);
 
-      // 🔥 STRICT BACKEND CONTROL
-      if (res?.status === "requested") {
+      // 🔥 Match EXACT strings from your authController smart toggle
+      if (res?.message === "Unfollowed / Request cancelled") {
+        setFollowState("follow");
+      } else if (res?.status === "requested") {
         setFollowState("requested");
       } else if (res?.status === "accepted") {
         setFollowState("following");
-      } else if (res?.status === "unfollowed") {
-        setFollowState("follow");
       } else {
         setFollowState("follow");
       }
@@ -95,7 +91,7 @@ function UserProfile() {
 
   if (loading) {
     return (
-      <div className="h-screen flex justify-center items-center bg-[#F8FAFC]">
+      <div className="min-h-screen flex justify-center items-center bg-[#F8FAFC]">
         <Loader size="40px" color="#3b82f6" />
       </div>
     );
@@ -103,7 +99,7 @@ function UserProfile() {
 
   if (!profileData) {
     return (
-      <div className="h-screen flex justify-center items-center bg-[#F8FAFC]">
+      <div className="min-h-screen flex justify-center items-center bg-[#F8FAFC]">
         <h2 className="text-xl font-bold text-gray-500">User not found</h2>
       </div>
     );
@@ -111,22 +107,25 @@ function UserProfile() {
 
   const eventPosts = posts.filter((p) => p.isEvent);
   
-  // ✅ 🔥 CONTENT VISIBILITY (KEEP THIS)
-  const canViewContent = followState === "following"; 
+  // ✅ SMART VISIBILITY: Allow viewing if public OR if connected
+  const isPrivate = profileData.isPrivate === true || profileData.isPrivate === "true";
+  const canViewContent = !isPrivate || followState === "following"; 
 
   return (
-    <div className="w-full min-h-screen flex justify-center bg-[#F8FAFC] font-['Poppins',sans-serif] antialiased text-gray-900">
+    <div className="w-full min-h-screen flex justify-center bg-[#F8FAFC] font-['Poppins',sans-serif] antialiased text-gray-900 pb-20">
       
-      <div className="fixed top-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-100 rounded-full blur-[120px] opacity-40 -z-10" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-purple-100 rounded-full blur-[120px] opacity-40 -z-10" />
+      {/* Background blobs */}
+      <div className="fixed top-[-10%] left-[-10%] w-[300px] h-[300px] md:w-[400px] md:h-[400px] bg-blue-100 rounded-full blur-[100px] md:blur-[120px] opacity-40 -z-10 pointer-events-none" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[300px] h-[300px] md:w-[400px] md:h-[400px] bg-purple-100 rounded-full blur-[100px] md:blur-[120px] opacity-40 -z-10 pointer-events-none" />
 
-      <div className="w-full max-w-[935px] px-4 py-8">
+      <div className="w-full max-w-[935px] px-2 sm:px-4 py-6 md:py-8">
 
         {/* ================= HEADER SECTION ================= */}
-        <header className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-20 mb-12 bg-white/40 backdrop-blur-xl border border-white/60 p-8 rounded-[40px] shadow-sm">
+        <header className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-20 mb-8 md:mb-12 bg-white/60 backdrop-blur-xl border border-white/80 p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-sm">
           
+          {/* Profile Picture */}
           <div className="relative group flex-shrink-0">
-            <div className="w-[160px] h-[160px] rounded-full p-[4px] bg-gradient-to-tr from-gray-200 to-gray-300 shadow-lg">
+            <div className="w-[100px] h-[100px] sm:w-[130px] sm:h-[130px] md:w-[160px] md:h-[160px] rounded-full p-[3px] md:p-[4px] bg-gradient-to-tr from-gray-200 to-gray-300 shadow-lg">
               <div className="bg-white p-1 rounded-full w-full h-full">
                 <img
                   src={getProfileImage(profileData)}
@@ -137,9 +136,11 @@ function UserProfile() {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col items-center md:items-start">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-6">
-              <h2 className="text-[28px] font-black tracking-tight flex items-center gap-2">
+          <div className="flex-1 flex flex-col items-center md:items-start w-full">
+            
+            {/* Username & Action Button */}
+            <div className="flex flex-col sm:flex-row items-center md:items-start gap-4 mb-4 sm:mb-6 w-full md:w-auto">
+              <h2 className="text-[22px] sm:text-[28px] font-black tracking-tight flex items-center gap-2 text-center md:text-left">
                 {profileData.username}
                 <RoleBadge role={profileData.role} />
               </h2>
@@ -148,7 +149,7 @@ function UserProfile() {
                 <button 
                   onClick={handleFollowClick}
                   disabled={actionLoading}
-                  className={`px-8 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center min-w-[120px]
+                  className={`px-6 sm:px-8 py-2 rounded-xl text-[13px] sm:text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center min-w-[110px] sm:min-w-[120px]
                     ${followState === "following" 
                       ? "bg-white/80 hover:bg-white border border-gray-200 text-gray-800" 
                       : followState === "requested"
@@ -157,33 +158,38 @@ function UserProfile() {
                     }`}
                 >
                   {actionLoading ? (
-                    <Loader size="16px" color={followState === "follow" ? "#fff" : "#000"} />
+                    <div className={`w-4 h-4 border-2 border-t-transparent rounded-full animate-spin ${followState === "follow" ? "border-white/50" : "border-gray-500"}`}></div>
                   ) : followState === "following" ? (
-                    "Following"
+                    "Connected" // 🔥 UPDATED HERE
                   ) : followState === "requested" ? (
                     "Requested"
                   ) : (
-                    "Follow"
+                    "Connect"   // 🔥 UPDATED HERE
                   )}
                 </button>
               </div>
             </div>
 
-            <div className="hidden md:flex gap-10 mb-6">
-              <div className="text-center md:text-left">
-                <span className="font-black text-lg">{posts.length}</span> <span className="text-gray-500 font-medium ml-1">posts</span>
+            {/* Stats (Posts, Followers, Following) */}
+            <div className="flex gap-6 sm:gap-10 mb-4 sm:mb-6 w-full justify-center md:justify-start border-y border-gray-200/50 md:border-none py-3 md:py-0">
+              <div className="text-center md:text-left flex flex-col md:flex-row md:gap-1">
+                <span className="font-black text-base sm:text-lg">{posts.length}</span> 
+                <span className="text-gray-500 font-medium text-[13px] sm:text-base">posts</span>
               </div>
-              <div className="text-center md:text-left cursor-pointer">
-                <span className="font-black text-lg">{profileData.followers?.length || 0}</span> <span className="text-gray-500 font-medium ml-1">followers</span>
+              <div className="text-center md:text-left flex flex-col md:flex-row md:gap-1 cursor-pointer">
+                <span className="font-black text-base sm:text-lg">{profileData.followers?.length || 0}</span> 
+                <span className="text-gray-500 font-medium text-[13px] sm:text-base">followers</span>
               </div>
-              <div className="text-center md:text-left cursor-pointer">
-                <span className="font-black text-lg">{profileData.following?.length || 0}</span> <span className="text-gray-500 font-medium ml-1">following</span>
+              <div className="text-center md:text-left flex flex-col md:flex-row md:gap-1 cursor-pointer">
+                <span className="font-black text-base sm:text-lg">{profileData.following?.length || 0}</span> 
+                <span className="text-gray-500 font-medium text-[13px] sm:text-base">following</span>
               </div>
             </div>
 
-            <div className="text-center md:text-left">
-              <p className="font-bold text-lg mb-1">{profileData.name}</p>
-              <p className="text-gray-600 font-medium whitespace-pre-wrap leading-relaxed max-w-[450px]">
+            {/* Bio Section */}
+            <div className="text-center md:text-left px-2 md:px-0">
+              <p className="font-bold text-[15px] sm:text-lg mb-0.5 sm:mb-1">{profileData.name}</p>
+              <p className="text-gray-600 font-medium whitespace-pre-wrap leading-relaxed max-w-[450px] text-[13px] sm:text-[15px]">
                 {profileData.bio || "No bio available."}
               </p>
             </div>
@@ -193,20 +199,22 @@ function UserProfile() {
         {/* ================= CONTENT VISIBILITY ================= */}
         {!canViewContent ? (
           
-          <div className="flex flex-col items-center justify-center mt-12 py-20 bg-white/40 backdrop-blur-md rounded-[40px] border border-white/60 shadow-sm text-center px-4">
-            <div className="w-20 h-20 rounded-full border-2 border-gray-800 flex items-center justify-center mb-6">
-               <FaLock className="text-gray-800 text-3xl" />
+          <div className="flex flex-col items-center justify-center mt-6 md:mt-12 py-16 md:py-20 bg-white/60 backdrop-blur-md rounded-[30px] md:rounded-[40px] border border-white/80 shadow-sm text-center px-4">
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-gray-800 flex items-center justify-center mb-4 md:mb-6">
+               <FaLock className="text-gray-800 text-2xl md:text-3xl" />
             </div>
-            <h2 className="text-[26px] font-black text-gray-900 tracking-tight mb-2">Content Hidden</h2>
-            <p className="text-gray-500 font-medium text-[16px] max-w-[300px]">
-              Follow <span className="font-bold text-gray-800">@{profileData.username}</span> to see their posts and events.
+            <h2 className="text-[20px] md:text-[26px] font-black text-gray-900 tracking-tight mb-2">This Account is Private</h2>
+            <p className="text-gray-500 font-medium text-[14px] md:text-[16px] max-w-[300px]">
+              {/* 🔥 UPDATED HERE */}
+              Connect with <span className="font-bold text-gray-800">@{profileData.username}</span> to see their photos and videos.
             </p>
           </div>
 
         ) : (
 
           <>
-            <div className="flex justify-center border-t border-gray-200/60 mt-4">
+            {/* TABS */}
+            <div className="flex justify-center border-t border-gray-200/60 mt-2 md:mt-4">
               <div className="flex gap-12 sm:gap-16">
                 {[
                   { id: "posts", label: "POSTS", icon: <FaTh /> },
@@ -215,20 +223,21 @@ function UserProfile() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 py-4 text-[12px] font-black tracking-widest transition-all ${
+                    className={`flex items-center gap-2 py-3 sm:py-4 text-[11px] sm:text-[12px] font-black tracking-widest transition-all ${
                       activeTab === tab.id
-                        ? "border-t-2 border-blue-600 text-blue-600"
-                        : "text-gray-400 hover:text-gray-600"
+                        ? "border-t-[2px] sm:border-t-[3px] border-blue-600 text-blue-600"
+                        : "text-gray-400 hover:text-gray-600 border-t-[2px] sm:border-t-[3px] border-transparent"
                     }`}
                   >
-                    {tab.icon}
+                    <span className="text-sm sm:text-base">{tab.icon}</span>
                     <span className="hidden sm:inline">{tab.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:gap-4 mt-6">
+            {/* GRID */}
+            <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4 mt-2 sm:mt-6">
               {(activeTab === "posts" ? posts : eventPosts).length > 0 ? (
                 (activeTab === "posts" ? posts : eventPosts).map((post) => {
                   
@@ -236,7 +245,7 @@ function UserProfile() {
                   const mediaSrc = post.mediaUrl || post.media || post.image || post.video;
 
                   return (
-                    <div key={post._id} className="relative group aspect-square rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 bg-gray-100">
+                    <div key={post._id} className="relative group aspect-square md:rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 bg-gray-100 cursor-pointer">
                       
                       {isVideo ? (
                         <video src={mediaSrc} className="w-full h-full object-cover" />
@@ -244,29 +253,29 @@ function UserProfile() {
                         <img src={mediaSrc} className="w-full h-full object-cover" alt="post" />
                       )}
 
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex justify-center items-center gap-6 text-white z-10 cursor-pointer">
-                        <span className="flex items-center gap-2 font-black text-lg">
-                          <FaHeart className="text-xl" /> {post.likesCount || post.likes?.length || 0}
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-6 text-white z-10">
+                        <span className="flex items-center gap-1.5 sm:gap-2 font-black text-sm sm:text-lg">
+                          <FaHeart className="text-base sm:text-xl" /> {post.likesCount || post.likes?.length || 0}
                         </span>
-                        <span className="flex items-center gap-2 font-black text-lg">
-                          <FaComment className="text-xl scale-x-[-1]" /> {post.comments?.length || 0}
+                        <span className="flex items-center gap-1.5 sm:gap-2 font-black text-sm sm:text-lg">
+                          <FaComment className="text-base sm:text-xl scale-x-[-1]" /> {post.comments?.length || 0}
                         </span>
                       </div>
 
                       {isVideo && (
-                        <div className="absolute top-3 right-3 z-20 bg-black/20 backdrop-blur-md p-1.5 rounded-lg border border-white/20">
-                          <FaPlay className="text-white text-[10px]" />
+                        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 bg-black/30 backdrop-blur-md p-1.5 sm:p-2 rounded-lg border border-white/20">
+                          <FaPlay className="text-white text-[8px] sm:text-[10px]" />
                         </div>
                       )}
                     </div>
                   );
                 })
               ) : (
-                 <div className="col-span-3 py-20 text-center flex flex-col items-center">
-                    <div className="w-16 h-16 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-2xl mb-4">
+                 <div className="col-span-3 py-16 sm:py-20 text-center flex flex-col items-center">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-xl sm:text-2xl mb-4">
                        {activeTab === "posts" ? <FaTh /> : <FaCalendarAlt />}
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">No {activeTab} yet</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-800">No {activeTab} yet</h3>
                  </div>
               )}
             </div>

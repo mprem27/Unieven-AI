@@ -27,8 +27,9 @@ const CornerSidebar = ({ position, isOpen, onClose }) => {
   const spacing = isMobile ? 62 : 75; // Tighter spacing for mobile
   const btnSize = isMobile ? 48 : 56; // Smaller buttons on mobile
   const padding = 12;
+  const toggleBtnSize = 56;
 
-  // 🔥 Decide direction based on screen position
+  // Decide direction based on screen position
   useEffect(() => {
     if (!position) return;
 
@@ -43,7 +44,8 @@ const CornerSidebar = ({ position, isOpen, onClose }) => {
 
   if (!isOpen || !position) return null;
 
-  const horizontalItems = [
+  // Combine ALL items into a single array
+  const allItems = [
     { name: "Home", path: "/feed", icon: Assets.home },
     { name: "Search", path: "/search", icon: Assets.search },
     { name: "Post", path: "/create/post", icon: Assets.create },
@@ -54,29 +56,72 @@ const CornerSidebar = ({ position, isOpen, onClose }) => {
       icon: getProfileImage(user),
       isProfile: true,
     },
-  ];
-
-  const verticalItems = [
     { name: "Reels", path: "/reels", icon: Assets.reels },
     { name: "Events", path: "/events", icon: Assets.blogs },
     { name: "Activity", path: "/my-events", icon: Assets.activity },
   ];
 
   if (user?.role === "faculty" || user?.role === "admin") {
-    verticalItems.push({
+    allItems.push({
       name: "Create Event",
       path: "/create/event",
       icon: Assets.events,
     });
   }
 
-  verticalItems.push({
+  allItems.push({
     name: "Logout",
     action: async () => {
       await logout();
       navigate("/login");
     },
     icon: Assets.logout,
+  });
+
+  // 🔥 Dynamically calculate how many items fit on each axis
+  let maxH = 0;
+  let maxV = 0;
+
+  if (direction.x === 1) {
+    maxH = Math.floor((windowSize.width - position.x - toggleBtnSize - padding) / spacing);
+  } else {
+    maxH = Math.floor((position.x - padding) / spacing);
+  }
+
+  if (direction.y === 1) {
+    maxV = Math.floor((windowSize.height - position.y - toggleBtnSize - padding) / spacing);
+  } else {
+    maxV = Math.floor((position.y - padding) / spacing);
+  }
+
+  maxH = Math.max(0, maxH);
+  maxV = Math.max(0, maxV);
+
+  // Distribute items based on available space
+  const horizontalItems = [];
+  const verticalItems = [];
+  let hSpace = maxH;
+  let vSpace = maxV;
+
+  allItems.forEach((item, index) => {
+    // Alternate placing items horizontally and vertically to create a balanced "L" shape
+    if (index % 2 === 0) {
+      if (hSpace > 0) {
+        horizontalItems.push(item);
+        hSpace--;
+      } else {
+        verticalItems.push(item);
+        vSpace--;
+      }
+    } else {
+      if (vSpace > 0) {
+        verticalItems.push(item);
+        vSpace--;
+      } else {
+        horizontalItems.push(item);
+        hSpace--;
+      }
+    }
   });
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -87,8 +132,7 @@ const CornerSidebar = ({ position, isOpen, onClose }) => {
     let x = position.x;
     let y = position.y;
 
-    // Adjust for button centering (diff between main toggle and branch buttons)
-    const toggleBtnSize = 56; 
+    // Adjust for button centering
     const centeringOffset = (toggleBtnSize - btnSize) / 2;
 
     if (!isVertical) {
@@ -115,7 +159,7 @@ const CornerSidebar = ({ position, isOpen, onClose }) => {
           top: y,
           transitionDelay: `${index * 40}ms`,
           width: btnSize,
-          height: btnSize
+          height: btnSize,
         }}
         className={`${containerClasses} z-[9995] animate-in fade-in zoom-in duration-200`}
       >
@@ -135,22 +179,26 @@ const CornerSidebar = ({ position, isOpen, onClose }) => {
             className={
               item.isProfile
                 ? "w-full h-full rounded-full object-cover"
-                : isMobile ? "w-5 h-5" : "w-6 h-6"
+                : isMobile
+                ? "w-5 h-5"
+                : "w-6 h-6"
             }
           />
 
-          {/* 🔥 RESPONSIVE TOOLTIP */}
+          {/* RESPONSIVE TOOLTIP */}
           <span
             className={`
               absolute px-2 py-1 rounded-md bg-black/80 text-white text-[9px] md:text-[10px]
               opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none
-              ${isVertical
-                ? direction.x === 1
-                  ? "left-full ml-2"
-                  : "right-full mr-2"
-                : direction.y === 1 
-                  ? "top-full mt-2" 
-                  : "bottom-full mb-2"}
+              ${
+                isVertical
+                  ? direction.x === 1
+                    ? "left-full ml-2"
+                    : "right-full mr-2"
+                  : direction.y === 1
+                  ? "top-full mt-2"
+                  : "bottom-full mb-2"
+              }
             `}
           >
             {item.name}

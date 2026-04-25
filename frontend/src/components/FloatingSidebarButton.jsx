@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { FaBars, FaTimes } from "react-icons/fa";
 
 const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
-  const [position, setPosition] = useState({ x: 20, y: 120 });
+  const [position, setPosition] = useState({ x: 5, y: 120 });
   const [isDragging, setIsDragging] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
 
@@ -12,6 +12,7 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
   const moved = useRef(false);
   const animationFrame = useRef(null);
   const idleTimer = useRef(null);
+  const buttonRef = useRef(null);
 
   const btnSize = 56;
 
@@ -23,13 +24,34 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
     }
   };
 
+  // ✅ FIXED: Using { capture: true } ensures the event is caught even if other elements stop propagation
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (isOpen && buttonRef.current && !buttonRef.current.contains(e.target)) {
+        if (typeof onClick === "function") {
+          onClick();
+        }
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside, { capture: true });
+      document.addEventListener("touchstart", handleClickOutside, { capture: true });
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, { capture: true });
+      document.removeEventListener("touchstart", handleClickOutside, { capture: true });
+    };
+  }, [isOpen, onClick]);
+
   useEffect(() => {
     positionRef.current = position;
   }, [position]);
 
   useEffect(() => {
     // Initial snap position
-    const initialPos = { x: 20, y: 120 };
+    const initialPos = { x: 5, y: 120 };
     setPosition(initialPos);
     setMenuPosition?.(initialPos);
     resetIdle();
@@ -61,7 +83,7 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
       let newY = clientY - offset.current.y;
 
       // Constraints to keep it within the screen while dragging
-      newX = Math.max(10, Math.min(window.innerWidth - btnSize - 10, newX));
+      newX = Math.max(0, Math.min(window.innerWidth - btnSize, newX));
       newY = Math.max(80, Math.min(window.innerHeight - btnSize - 10, newY));
 
       setPosition({ x: newX, y: newY });
@@ -81,14 +103,13 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
     const currentX = positionRef.current.x;
     const currentY = positionRef.current.y;
 
-    // ✅ EXACT 4-CORNER SNAPPING LOGIC
-    const paddingX = 20; // Distance from left/right edges
-    const paddingTop = 80; // Distance from top (avoids headers)
-    const paddingBottom = 40; // Distance from bottom (avoids nav bars)
+    // Left/Right edge snapping logic
+    const paddingX = 5; 
+    const paddingTop = 80; 
+    const paddingBottom = 40; 
 
-    // Calculate closest X and Y to snap to the nearest corner
     const snapX = currentX < screenWidth / 2 ? paddingX : screenWidth - btnSize - paddingX;
-    const snapY = currentY < screenHeight / 2 ? paddingTop : screenHeight - btnSize - paddingBottom;
+    const snapY = Math.max(paddingTop, Math.min(screenHeight - btnSize - paddingBottom, currentY));
 
     const finalPos = { x: snapX, y: snapY };
 
@@ -139,6 +160,7 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
       onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}

@@ -1,7 +1,7 @@
 import storyModel from "../models/Story.js";
 import storyArchiveModel from "../models/StoryArchive.js";
+import followModel from "../models/Follow.js"; // ✅ ADDED: Required to fetch followers
 import { v2 as cloudinary } from "cloudinary";
-
 
 // --- 1. UPLOAD STORY ---
 export const uploadStory = async (req, res) => {
@@ -42,42 +42,68 @@ export const uploadStory = async (req, res) => {
 };
 
 
-
-// --- 2. GET STORIES (GROUPED + ROLE FIX) ---
+// --- 2. GET STORIES (FOLLOWERS ONLY + SELF FIRST) ---
 export const getStories = async (req, res) => {
   try {
+    const userId = req.user.id;
+
+    // 🔥 Get accepted follows to only show stories of people the user follows
+    const acceptedFollows = await followModel.find({
+      from: userId,
+      status: "accepted",
+    });
+
+    const followingIds = acceptedFollows.map(f => f.to.toString());
+
+    // ✅ Include self in the allowed users array
+    const allowedUsers = [...followingIds, userId];
+
+    // 🔥 Fetch stories from the last 24 hours strictly for allowed users
     const stories = await storyModel
-      .find({})
-      .populate("user", "username image role") // ✅ FIX
-      .populate("tags", "username image role") // ✅ FIX
-      .sort({ createdAt: -1 });
+      .find({
+        user: { $in: allowedUsers },
+        createdAt: {
+          $gte: new Date(Date.now() - 24 * 60 * 60 * 1000), 
+        },
+      })
+      .populate("user", "username image role") 
+      .populate("tags", "username image role") 
+      .sort({ createdAt: 1 }); // ✅ FIX: Oldest → newest for correct story playback
 
     // 🔥 GROUP BY USER
     const grouped = {};
 
     stories.forEach((story) => {
-      const userId = story.user._id.toString();
+      const uid = story.user._id.toString();
 
-      if (!grouped[userId]) {
-        grouped[userId] = {
-          user: story.user, // already includes role
+      if (!grouped[uid]) {
+        grouped[uid] = {
+          user: story.user, 
           stories: [],
         };
       }
 
-      grouped[userId].stories.push(story);
+      grouped[uid].stories.push(story);
+    });
+
+    let usersArray = Object.values(grouped);
+
+    // 🔥 Sort to ensure the current logged-in user is ALWAYS first in the row
+    usersArray.sort((a, b) => {
+      if (a.user._id.toString() === userId) return -1;
+      if (b.user._id.toString() === userId) return 1;
+      return 0;
     });
 
     res.json({
       success: true,
-      users: Object.values(grouped),
+      users: usersArray,
     });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 
 // --- 3. VIEW STORY ---
@@ -106,7 +132,6 @@ export const viewStory = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 
 // --- 4. ARCHIVE STORY ---
@@ -155,13 +180,12 @@ export const archiveStory = async (req, res) => {
 };
 
 
-
 // --- 5. GET ARCHIVE ---
 export const getStoryArchive = async (req, res) => {
   try {
     const archive = await storyArchiveModel
       .find({ user: req.user.id })
-      .populate("tags", "username image role") // ✅ FIX
+      .populate("tags", "username image role") 
       .sort({ originalCreatedAt: -1 });
 
     res.json({ success: true, archive });
@@ -170,7 +194,6 @@ export const getStoryArchive = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 
 // --- 6. DELETE STORY ---

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Stories from "../components/Stories";
 import CommentsModal from "../components/CommentsModal";
@@ -16,6 +16,16 @@ import RoleBadge from "../components/RoleBadge";
 import { useAuth } from "../context/AuthContext";
 import { FaTicketAlt, FaBookmark, FaRegBookmark, FaCalendarAlt, FaMapMarkerAlt, FaFlag, FaTrash } from "react-icons/fa";
 
+// ✅ Helper function to randomly shuffle an array
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 function Feed() {
   const { user } = useAuth();
   const navigate = useNavigate(); 
@@ -30,6 +40,8 @@ function Feed() {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [expandedEvents, setExpandedEvents] = useState({});
 
+  const clickTimeouts = useRef({});
+
   const loadFeedData = async () => {
     try {
       setLoading(true);
@@ -37,13 +49,13 @@ function Feed() {
         getFeed(), getReels(), getStories(), getSuggestedUsers()
       ]);
 
-      const fetchedPosts = (postsRes.value?.posts || []).map(p => ({ 
+      const fetchedPosts = (postsRes.status === "fulfilled" ? (postsRes.value?.posts || postsRes.value?.data || []) : []).map(p => ({ 
         ...p, 
         feedItemType: "post",
         isSaved: p.savedBy?.includes(user?._id) || false 
       }));
       
-      const fetchedReels = (reelsRes.value?.reels || []).map(r => ({
+      const fetchedReels = (reelsRes.status === "fulfilled" ? (reelsRes.value?.reels || reelsRes.value?.data || []) : []).map(r => ({
         ...r, 
         feedItemType: "reel", 
         media: r.video || r.media, 
@@ -51,13 +63,30 @@ function Feed() {
         isSaved: r.savedBy?.includes(user?._id) || false
       }));
 
-      const combinedFeed = [...fetchedPosts, ...fetchedReels].sort((a, b) => 
+      // 1. Sort strictly by date first
+      const sortedFeed = [...fetchedPosts, ...fetchedReels].sort((a, b) => 
         new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now())
       );
 
-      setPosts(combinedFeed);
-      if (storiesRes.value) setStories(storiesRes.value.users || []);
-      if (usersRes.value) setSuggestedUsers(usersRes.value.users || []);
+      // 🔥 SMART SHUFFLE FOR FEED:
+      // Keep the 2 most recent posts at the top, shuffle the rest to make the feed feel "alive"
+      const recentPosts = sortedFeed.slice(0, 2);
+      const olderPosts = sortedFeed.slice(2);
+      const shuffledOlderPosts = shuffleArray(olderPosts);
+      
+      setPosts([...recentPosts, ...shuffledOlderPosts]);
+      
+      if (storiesRes.status === "fulfilled") {
+        setStories(storiesRes.value?.users || storiesRes.value?.data || []);
+      }
+      
+      // 🔥 SHUFFLE FOR SUGGESTIONS:
+      // Randomize the users so different people show up every time you refresh
+      if (usersRes.status === "fulfilled") {
+        const allSuggestions = usersRes.value?.users || usersRes.value?.data || [];
+        setSuggestedUsers(shuffleArray(allSuggestions)); 
+      }
+      
     } catch (err) {
       toast.error("Failed to load feed");
     } finally {
@@ -65,7 +94,9 @@ function Feed() {
     }
   };
 
-  useEffect(() => { loadFeedData(); }, [user?._id]);
+  useEffect(() => { 
+    loadFeedData(); 
+  }, [user?._id]);
 
   const handleLike = async (item) => {
     if (!user) return toast.error("Please login");
@@ -79,27 +110,29 @@ function Feed() {
 
     try {
       item.feedItemType === "reel" ? await likeReel(id) : await likePost(id);
-    } catch { loadFeedData(); }
+    } catch { 
+      loadFeedData(); 
+    }
   };
 
-  // Improved Double Tap logic
-  let clickTimeout = null;
   const handleMediaClick = (post) => {
-    if (clickTimeout) {
-      clearTimeout(clickTimeout);
-      clickTimeout = null;
-      // Double tap detected
+    const postId = post._id;
+
+    if (clickTimeouts.current[postId]) {
+      clearTimeout(clickTimeouts.current[postId]);
+      delete clickTimeouts.current[postId]; 
+      
       if (!post.likes?.includes(user?._id)) handleLike(post);
-      setShowHeart(post._id);
+      
+      setShowHeart(postId);
       setTimeout(() => setShowHeart(null), 800);
     } else {
-      clickTimeout = setTimeout(() => {
-        clickTimeout = null;
-        // Single tap detected - Navigate to reels page if it's a reel
+      clickTimeouts.current[postId] = setTimeout(() => {
+        delete clickTimeouts.current[postId]; 
         if (post.feedItemType === "reel") {
-          navigate(`/reels/${post._id}`);
+          navigate(`/reels/${postId}`);
         }
-      }, 300); // 300ms delay to distinguish between single and double tap
+      }, 300);
     }
   };
 
@@ -109,6 +142,7 @@ function Feed() {
     const isCurrentlySaved = item.isSaved;
 
     setPosts(prev => prev.map(p => p._id === id ? { ...p, isSaved: !isCurrentlySaved } : p));
+    setOpenMenuId(null);
 
     try {
       if (isCurrentlySaved) {
@@ -122,7 +156,6 @@ function Feed() {
       loadFeedData();
       toast.error("Could not update save status");
     }
-    setOpenMenuId(null);
   };
 
   const handleDeleteItem = async (itemId) => {
@@ -180,7 +213,6 @@ function Feed() {
                       </div>
                     </div>
 
-                    {/* ✅ UPDATED 3 DOTS INLINE DROPDOWN */}
                     <div className="relative">
                       <img 
                         src={Assets.dots} 
@@ -216,7 +248,7 @@ function Feed() {
                     </div>
                   </div>
 
-                  {/* MEDIA - ✅ Integrated Single/Double Tap Logic */}
+                  {/* MEDIA */}
                   <div 
                     onClick={() => handleMediaClick(post)} 
                     className={`relative bg-black w-full h-[400px] sm:h-[480px] flex items-center justify-center overflow-hidden ${post.feedItemType === "reel" ? "cursor-pointer" : ""}`}
@@ -227,7 +259,6 @@ function Feed() {
                       <img src={post.media} className="w-full h-full object-contain pointer-events-none" alt="" />
                     )}
                     
-                    {/* Event/Reel Overlay Text */}
                     {post.overlayText && (
                       <div 
                         className={`absolute z-30 px-4 py-2 ${isEventPost ? "cursor-pointer hover:scale-105 transition-transform" : "pointer-events-none"}`}
@@ -248,7 +279,6 @@ function Feed() {
                       </div>
                     )}
 
-                    {/* Double Tap Heart Animation */}
                     {showHeart === post._id && (
                       <div className="absolute inset-0 flex justify-center items-center z-20 pointer-events-none">
                         <img src={Assets.liked} className="w-28 animate-ping drop-shadow-2xl" alt="liked" />
@@ -332,7 +362,7 @@ function Feed() {
         </div>
       </div>
 
-      {activePost && <CommentsModal item={activePost} type={activePost.feedItemType === "reel" ? "reel" : "post"} onClose={() => setActivePost(null)} onSync={(updated) => setPosts(prev => prev.map(p => p._id === updated._id ? updated : p))} />}
+      {activePost && <CommentsModal item={activePost} type={activePost.feedItemType === "reel" ? "reel" : "post"} onClose={() => setActivePost(null)} onSync={(updated) => setPosts(prev => prev.map(p => p._id === updated._id ? { ...p, comments: updated.comments } : p))} />}
       {openShare && <ShareModal post={openShare} onClose={() => setOpenShare(null)} />}
     </>
   );

@@ -2,7 +2,6 @@ import followModel from "../models/Follow.js";
 import userModel from "../models/User.js";
 import notificationModel from "../models/Notification.js";
 
-
 // --- 1. FOLLOW / REQUEST / CANCEL (SMART TOGGLE) ---
 export const followUser = async (req, res) => {
   try {
@@ -10,61 +9,43 @@ export const followUser = async (req, res) => {
     const { toUserId } = req.params;
 
     if (fromUserId === toUserId) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot follow yourself",
-      });
+      return res.status(400).json({ success: false, message: "You cannot follow yourself" });
     }
 
     const targetUser = await userModel.findById(toUserId);
     if (!targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const existing = await followModel.findOne({
-      from: fromUserId,
-      to: toUserId,
-    });
+    const existing = await followModel.findOne({ from: fromUserId, to: toUserId });
 
-    // 🔥 TOGGLE LOGIC
+    // 🔥 TOGGLE LOGIC: UNFOLLOW / CANCEL
     if (existing) {
-      // cancel request or unfollow
       await followModel.deleteOne({ _id: existing._id });
 
-      await userModel.findByIdAndUpdate(fromUserId, {
-        $pull: { following: toUserId },
+      if (existing.status === "accepted") {
+        await userModel.findByIdAndUpdate(fromUserId, { $pull: { following: toUserId } });
+        await userModel.findByIdAndUpdate(toUserId, { $pull: { followers: fromUserId } });
+      }
+
+      // Cleanup pending notifications to prevent dead links
+      await notificationModel.deleteMany({
+        toUser: toUserId,
+        fromUser: fromUserId,
+        type: { $in: ["follow", "follow_request"] }
       });
 
-      await userModel.findByIdAndUpdate(toUserId, {
-        $pull: { followers: fromUserId },
-      });
-
-      return res.json({
-        success: true,
-        message: "Unfollowed / Request cancelled",
-      });
+      return res.json({ success: true, message: "Unfollowed / Request cancelled" });
     }
 
-    // 🔥 PRIVATE / PUBLIC
+    // 🔥 FOLLOW / REQUEST
     const status = targetUser.isPrivate ? "requested" : "accepted";
 
-    const follow = await followModel.create({
-      from: fromUserId,
-      to: toUserId,
-      status,
-    });
+    await followModel.create({ from: fromUserId, to: toUserId, status });
 
     if (status === "accepted") {
-      await userModel.findByIdAndUpdate(fromUserId, {
-        $addToSet: { following: toUserId },
-      });
-
-      await userModel.findByIdAndUpdate(toUserId, {
-        $addToSet: { followers: fromUserId },
-      });
+      await userModel.findByIdAndUpdate(fromUserId, { $addToSet: { following: toUserId } });
+      await userModel.findByIdAndUpdate(toUserId, { $addToSet: { followers: fromUserId } });
     }
 
     // 🔔 Notification
@@ -85,8 +66,6 @@ export const followUser = async (req, res) => {
   }
 };
 
-
-
 // --- 2. ACCEPT FOLLOW REQUEST ---
 export const acceptFollowRequest = async (req, res) => {
   try {
@@ -95,34 +74,28 @@ export const acceptFollowRequest = async (req, res) => {
     const followReq = await followModel.findById(requestId);
 
     if (!followReq || followReq.to.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized",
-      });
+      return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
     followReq.status = "accepted";
     await followReq.save();
 
-    await userModel.findByIdAndUpdate(followReq.from, {
-      $addToSet: { following: followReq.to },
+    await userModel.findByIdAndUpdate(followReq.from, { $addToSet: { following: followReq.to } });
+    await userModel.findByIdAndUpdate(followReq.to, { $addToSet: { followers: followReq.from } });
+
+    // 🔔 Notify the requester that their request was accepted
+    await notificationModel.create({
+      toUser: followReq.from,
+      fromUser: req.user.id,
+      type: "request_accepted",
     });
 
-    await userModel.findByIdAndUpdate(followReq.to, {
-      $addToSet: { followers: followReq.from },
-    });
-
-    res.json({
-      success: true,
-      message: "Request accepted",
-    });
+    res.json({ success: true, message: "Request accepted" });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 // --- 3. REJECT / CANCEL ---
 export const rejectFollowRequest = async (req, res) => {
@@ -131,30 +104,25 @@ export const rejectFollowRequest = async (req, res) => {
 
     const followReq = await followModel.findById(requestId);
 
-    if (
-      !followReq ||
-      (followReq.to.toString() !== req.user.id &&
-        followReq.from.toString() !== req.user.id)
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized",
-      });
+    if (!followReq || (followReq.to.toString() !== req.user.id && followReq.from.toString() !== req.user.id)) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
     await followModel.findByIdAndDelete(requestId);
 
-    res.json({
-      success: true,
-      message: "Request removed",
+    // Cleanup associated notification
+    await notificationModel.deleteMany({
+      toUser: followReq.to,
+      fromUser: followReq.from,
+      type: "follow_request"
     });
+
+    res.json({ success: true, message: "Request removed" });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 // --- 4. UNFOLLOW (EXPLICIT) ---
 export const unfollowUser = async (req, res) => {
@@ -162,30 +130,26 @@ export const unfollowUser = async (req, res) => {
     const fromUserId = req.user.id;
     const { toUserId } = req.params;
 
-    await followModel.findOneAndDelete({
-      from: fromUserId,
-      to: toUserId,
+    const followReq = await followModel.findOneAndDelete({ from: fromUserId, to: toUserId });
+
+    if (followReq && followReq.status === "accepted") {
+      await userModel.findByIdAndUpdate(fromUserId, { $pull: { following: toUserId } });
+      await userModel.findByIdAndUpdate(toUserId, { $pull: { followers: fromUserId } });
+    }
+
+    // Cleanup associated notifications
+    await notificationModel.deleteMany({
+      toUser: toUserId,
+      fromUser: fromUserId,
+      type: { $in: ["follow", "follow_request"] }
     });
 
-    await userModel.findByIdAndUpdate(fromUserId, {
-      $pull: { following: toUserId },
-    });
-
-    await userModel.findByIdAndUpdate(toUserId, {
-      $pull: { followers: fromUserId },
-    });
-
-    res.json({
-      success: true,
-      message: "Unfollowed",
-    });
+    res.json({ success: true, message: "Unfollowed" });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 // --- 5. GET FOLLOWERS ---
 export const getFollowers = async (req, res) => {
@@ -194,17 +158,12 @@ export const getFollowers = async (req, res) => {
       .findById(req.params.userId)
       .populate("followers", "username name image role");
 
-    res.json({
-      success: true,
-      followers: user?.followers || [],
-    });
+    res.json({ success: true, followers: user?.followers || [] });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 // --- 6. GET FOLLOWING ---
 export const getFollowing = async (req, res) => {
@@ -213,10 +172,7 @@ export const getFollowing = async (req, res) => {
       .findById(req.params.userId)
       .populate("following", "username name image role");
 
-    res.json({
-      success: true,
-      following: user?.following || [],
-    });
+    res.json({ success: true, following: user?.following || [] });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
