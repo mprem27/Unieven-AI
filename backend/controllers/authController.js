@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import validator from "validator";
 import { sendOTPEmail } from "../utils/sendEmail.js";
+import { sendOtp, verifyOtp } from "../services/otpService.js";
 
 //////////////////////////////////////////////////////
 // 🔐 TOKEN
@@ -56,7 +57,6 @@ export const sendRegisterOTP = async (req, res) => {
 
     const existing = await userModel.findOne({ email: emailLower });
 
-    // Prevent OTP sending if user is already fully registered
     if (existing && existing.password) {
       return res.status(409).json({
         success: false,
@@ -67,8 +67,6 @@ export const sendRegisterOTP = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOTP = await bcrypt.hash(otp, 10);
 
-    // ✅ BEST PRACTICE: updateOne with upsert. 
-    // This securely creates a temporary doc without triggering strict Schema validations (like missing password)
     await userModel.updateOne(
       { email: emailLower },
       {
@@ -87,6 +85,7 @@ export const sendRegisterOTP = async (req, res) => {
       success: true,
       message: "OTP sent successfully",
     });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -99,47 +98,27 @@ export const registerUser = async (req, res) => {
   try {
     let { username, email, password, name, phone, otp, dob } = req.body;
 
-    // 🔥 NORMALIZE INPUT
     username = username?.toLowerCase().trim();
     email = email?.toLowerCase().trim();
 
-    // 🔥 STRONG VALIDATION
-    if (!username || username === "") {
-      return res.status(400).json({
-        success: false,
-        message: "Username is required",
-      });
+    if (!username) {
+      return res.status(400).json({ success: false, message: "Username required" });
     }
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
+      return res.status(400).json({ success: false, message: "Missing fields" });
     }
 
     if (!validator.isEmail(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email",
-      });
+      return res.status(400).json({ success: false, message: "Invalid email" });
     }
 
-    // ======================
-    // EMAIL CHECK
-    // ======================
     let user = await userModel.findOne({ email });
 
     if (user && user.password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already registered",
-      });
+      return res.status(400).json({ success: false, message: "Email exists" });
     }
 
-    // ======================
-    // USERNAME CHECK (CASE-SAFE)
-    // ======================
     const existingUsername = await userModel.findOne({
       username: { $regex: `^${username}$`, $options: "i" },
     });
@@ -154,21 +133,11 @@ export const registerUser = async (req, res) => {
     const type = getEmailType(email);
     const role = detectRole(email);
 
-    // ======================
-    // OTP CHECK
-    // ======================
-    if (type === "faculty" || type === "collegeStudent") {
-      if (!otp) {
+    if (type !== "normal") {
+      if (!otp || !user || !user.registerOTP || user.otpExpires < Date.now()) {
         return res.status(400).json({
           success: false,
-          message: "OTP required",
-        });
-      }
-
-      if (!user || !user.registerOTP || user.otpExpires < Date.now()) {
-        return res.status(400).json({
-          success: false,
-          message: "OTP expired or not found",
+          message: "OTP expired or missing",
         });
       }
 
@@ -182,7 +151,6 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    // ✅ If 'normal' email, the placeholder doc won't exist, so create it now
     if (!user) user = new userModel({ email });
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -197,21 +165,7 @@ export const registerUser = async (req, res) => {
     user.registerOTP = undefined;
     user.otpExpires = undefined;
 
-    // ======================
-    // 🔥 FINAL SAVE
-    // ======================
-    try {
-      await user.save();
-    } catch (error) {
-      if (error.code === 11000) {
-        const field = Object.keys(error.keyValue)[0];
-        return res.status(400).json({
-          success: false,
-          message: `${field} already exists`,
-        });
-      }
-      throw error;
-    }
+    await user.save();
 
     const token = createToken(user._id, user.role);
 
@@ -225,22 +179,33 @@ export const registerUser = async (req, res) => {
         username: user.username,
       },
     });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 //////////////////////////////////////////////////////
-// 🔐 LOGIN
+// 🔐 LOGIN (FIXED FOR EMAIL + USERNAME)
 //////////////////////////////////////////////////////
 export const loginUser = async (req, res) => {
   try {
     const { identity, password } = req.body;
 
+    if (!identity || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter email/username and password",
+      });
+    }
+
+    const cleanIdentity = identity.toLowerCase().trim();
+
+    // 🔥 FIX: supports both email + username
     const user = await userModel.findOne({
       $or: [
-        { email: identity.toLowerCase() },
-        { username: identity.toLowerCase() },
+        { email: cleanIdentity },
+        { username: { $regex: `^${cleanIdentity}$`, $options: "i" } },
       ],
     });
 
@@ -251,6 +216,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // 🔐 check password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -272,17 +238,87 @@ export const loginUser = async (req, res) => {
         username: user.username,
       },
     });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+//////////////////////////////////////////////////////
+// 🔑 FORGOT PASSWORD (Spring)
+//////////////////////////////////////////////////////
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await userModel.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    await sendOtp(email);
+
+    res.json({ success: true, message: "OTP sent successfully" });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 //////////////////////////////////////////////////////
-// 🔑 SEND RESET OTP
+// ✅ VERIFY OTP (FIXED)
 //////////////////////////////////////////////////////
-export const sendResetOTP = async (req, res) => {
+export const verifyOtpController = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, otp } = req.body;
+
+    const response = await verifyOtp(email, otp);
+
+    if (response.data === "OTP verified") {
+
+      const user = await userModel.findOne({
+        email: email.toLowerCase(),
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // 🔥 IMPORTANT FIX
+      user.resetOTP = "VERIFIED";
+      await user.save();
+
+      return res.json({
+        success: true,
+        message: "OTP verified",
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: response.data,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Verification failed",
+    });
+  }
+};
+
+//////////////////////////////////////////////////////
+// 🔁 RESET PASSWORD (FIXED)
+//////////////////////////////////////////////////////
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
 
     const user = await userModel.findOne({
       email: email.toLowerCase(),
@@ -295,71 +331,36 @@ export const sendResetOTP = async (req, res) => {
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // 🔥 MUST VERIFY FIRST
+    if (user.resetOTP !== "VERIFIED") {
+      return res.status(400).json({
+        success: false,
+        message: "Verify OTP first",
+      });
+    }
 
-    const salt = await bcrypt.genSalt(10);
-    user.resetOTP = await bcrypt.hash(otp, salt);
-    user.otpExpires = Date.now() + 5 * 60 * 1000;
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+
+    // Clear OTP
+    user.resetOTP = null;
+    user.otpExpires = null;
 
     await user.save();
 
-    await sendOTPEmail(email, otp, "Password Reset");
-
     res.json({
       success: true,
-      message: "OTP sent successfully",
+      message: "Password updated successfully",
     });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 //////////////////////////////////////////////////////
-// 🔁 RESET PASSWORD
-//////////////////////////////////////////////////////
-export const resetPassword = async (req, res) => {
-  try {
-    const { email, otp, newPassword } = req.body;
-
-    const user = await userModel.findOne({
-      email: email.toLowerCase(),
-    });
-
-    if (!user || !user.resetOTP || user.otpExpires < Date.now()) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP expired or not found",
-      });
-    }
-
-    const isOtpValid = await bcrypt.compare(otp, user.resetOTP);
-
-    if (!isOtpValid) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid OTP",
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-
-    user.resetOTP = undefined;
-    user.otpExpires = undefined;
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Password reset successful",
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-//////////////////////////////////////////////////////
-// 👤 GET CURRENT USER
+// 👤 CURRENT USER
 //////////////////////////////////////////////////////
 export const getCurrentUser = async (req, res) => {
   try {
@@ -378,6 +379,7 @@ export const getCurrentUser = async (req, res) => {
       success: true,
       user,
     });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

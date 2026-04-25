@@ -11,6 +11,7 @@ import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import FloatingSidebarButton from "./components/FloatingSidebarButton";
 import CornerSidebar from "./components/CornerSidebar";
+import Loader from "./components/Loader"; // ✅ FIXED: Added missing Loader import
 
 // pages
 import Login from "./pages/Login";
@@ -31,6 +32,11 @@ import CreateEvent from "./pages/CreateEvent";
 // EVENTS
 import Events from "./pages/Events";
 
+// FORGOT PASSWORD
+import ForgotPassword from "./pages/ForgotPassword";
+import VerifyOtp from "./pages/VerifyOtp";
+import ResetPassword from "./pages/ResetPassword";
+
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" />;
@@ -44,17 +50,16 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState(null);
 
-  // 🔥 PAGE CHECKS
-  const isAuthPage =
-    location.pathname === "/login" ||
-    location.pathname === "/register";
+  // 🔥 PAGE CHECKS (FIXED: Added all auth-related pages)
+  const authRoutes = ["/login", "/register", "/forgot-password", "/verify-otp", "/reset-password"];
+  const isAuthPage = authRoutes.includes(location.pathname);
 
   const isReelsPage = location.pathname.startsWith("/reels");
 
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center text-gray-500">
-        Loading...
+        <Loader size="40px" color="#3b82f6" />
       </div>
     );
   }
@@ -87,11 +92,10 @@ function App() {
           className={`
             flex-1 transition-all duration-300 w-full
 
-            ${
-              isReelsPage
-                ? "m-0 h-screen bg-black"   
-                : !isAuthPage
-                ? "md:mt-[56px] lg:ml-20"    
+            ${isReelsPage
+              ? "m-0 h-screen bg-black"
+              : !isAuthPage
+                ? "md:mt-[56px] lg:ml-20"
                 : "h-screen"
             }
           `}
@@ -101,6 +105,11 @@ function App() {
             {/* AUTH */}
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/feed" />} />
             <Route path="/register" element={!user ? <Register /> : <Navigate to="/feed" />} />
+            
+            {/* FORGOT PASSWORD (FIXED: Protected from logged-in users) */}
+            <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/feed" />} />
+            <Route path="/verify-otp" element={!user ? <VerifyOtp /> : <Navigate to="/feed" />} />
+            <Route path="/reset-password" element={!user ? <ResetPassword /> : <Navigate to="/feed" />} />
 
             {/* MAIN */}
             <Route path="/" element={<PrivateRoute><Feed /></PrivateRoute>} />
@@ -134,11 +143,13 @@ function App() {
         </main>
       </div>
 
-      {/* ✅ MOBILE FLOAT MENU */}
+      {/* ✅ MOBILE FLOAT MENU (Also hidden on new auth pages) */}
       {!isAuthPage && !isReelsPage && (
         <div className="lg:hidden">
           <FloatingSidebarButton
+            isOpen={menuOpen}
             onClick={() => setMenuOpen((prev) => !prev)}
+            onClose={() => setMenuOpen(false)}
             setMenuPosition={setMenuPosition}
           />
           <CornerSidebar

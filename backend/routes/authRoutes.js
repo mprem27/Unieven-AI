@@ -3,9 +3,13 @@ import {
   registerUser,
   loginUser,
   sendRegisterOTP,
-  sendResetOTP,
   resetPassword,
   getCurrentUser,
+
+  // ✅ NEW
+  forgotPassword,
+  verifyOtpController,
+
 } from "../controllers/authController.js";
 
 // Middlewares
@@ -15,23 +19,15 @@ import { validateRequest } from "../middlewares/validateMiddleware.js";
 
 const router = express.Router();
 
-/**
- * 🔐 AUTH ROUTES
- */
-
-// -----------------------------
-// 🧑 SEND OTP FOR REGISTER
-// -----------------------------
+//  SEND OTP FOR REGISTER
 router.post(
   "/send-register-otp",
   authLimiter,
-  validateRequest("email"), // ✅ correct
+  validateRequest("email"),
   sendRegisterOTP
 );
 
-// -----------------------------
-// 🧑 REGISTER
-// -----------------------------
+//  REGISTER
 router.post(
   "/register",
   authLimiter,
@@ -39,9 +35,7 @@ router.post(
   registerUser
 );
 
-// -----------------------------
-// 🔐 LOGIN
-// -----------------------------
+//  LOGIN
 router.post(
   "/login",
   authLimiter,
@@ -49,30 +43,28 @@ router.post(
   loginUser
 );
 
-// -----------------------------
-// 🔑 SEND OTP (FOR PASSWORD RESET)
-// -----------------------------
+//  FORGOT PASSWORD 
 router.post(
-  "/send-otp",
+  "/forgot-password",
   authLimiter,
-  validateRequest("email"), // ✅ correct
-  sendResetOTP
+  validateRequest("email"),
+  forgotPassword
+);
+// VERIFY OTP 
+router.post(
+  "/verify-otp",
+  authLimiter,
+  validateRequest("email"),
+  verifyOtpController
 );
 
-// -----------------------------
-// 🔄 RESET PASSWORD
-// -----------------------------
-// 🔥 FIX: don't use "auth" here (it expects identity)
-// use custom validation or skip
+// RESET PASSWORD
 router.post(
   "/reset-password",
-  validateRequest("email"), // ✅ FIXED (was wrong before)
+  validateRequest("email"),
   resetPassword
 );
-
-// -----------------------------
-// 👤 CURRENT USER
-// -----------------------------
+//  CURRENT USER
 router.get(
   "/me",
   authMiddleware,

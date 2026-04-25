@@ -8,13 +8,13 @@ export const getNotifications = async () => {
     const { data } = await API.get("/notifications");
     return data || { notifications: [] };
   } catch (error) {
-    console.log("getNotifications error:", error);
-    return { notifications: [] }; // ✅ safe fallback
+    console.log("getNotifications error:", error?.response?.data || error);
+    return { notifications: [] };
   }
 };
 
 /**
- * ✅ MARK AS READ (single or all)
+ * ✅ MARK AS READ
  */
 export const markAsRead = async (notificationId = null) => {
   try {
@@ -23,7 +23,7 @@ export const markAsRead = async (notificationId = null) => {
     });
     return data;
   } catch (error) {
-    console.log("markAsRead error:", error);
+    console.log("markAsRead error:", error?.response?.data || error);
     return { success: false };
   }
 };
@@ -36,7 +36,7 @@ export const deleteNotification = async (id) => {
     const { data } = await API.delete(`/notifications/${id}`);
     return data;
   } catch (error) {
-    console.log("deleteNotification error:", error);
+    console.log("deleteNotification error:", error?.response?.data || error);
     return { success: false };
   }
 };
@@ -49,7 +49,7 @@ export const acceptFollowRequest = async (requestId) => {
     const { data } = await API.post(`/follow/accept/${requestId}`);
     return data;
   } catch (error) {
-    console.log("acceptFollowRequest error:", error);
+    console.log("acceptFollowRequest error:", error?.response?.data || error);
     return { success: false };
   }
 };
@@ -62,7 +62,7 @@ export const rejectFollowRequest = async (requestId) => {
     const { data } = await API.post(`/follow/reject/${requestId}`);
     return data;
   } catch (error) {
-    console.log("rejectFollowRequest error:", error);
+    console.log("rejectFollowRequest error:", error?.response?.data || error);
     return { success: false };
   }
 };

@@ -26,16 +26,21 @@ export const validateRequest = (type) => {
 
       // ================= AUTH (LOGIN) =================
       if (type === "auth") {
-        if ((isEmpty(body.email) && isEmpty(body.identity)) || isEmpty(body.password)) {
+        const identity = body.identity || body.email;
+
+        if (isEmpty(identity) || isEmpty(body.password)) {
           return res.status(400).json({
             success: false,
             message: "Email/Username and password are required",
           });
         }
 
-        if (!isEmpty(body.email)) {
+        // 🔥 ONLY validate if it's email
+        const isEmail = identity.includes("@");
+
+        if (isEmail) {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(body.email)) {
+          if (!emailRegex.test(identity)) {
             return res.status(400).json({
               success: false,
               message: "Invalid email format",
@@ -43,9 +48,8 @@ export const validateRequest = (type) => {
           }
         }
 
-        if (!body.identity && body.email) {
-          body.identity = body.email;
-        }
+        // normalize
+        body.identity = identity.toLowerCase().trim();
       }
 
       // ================= REGISTER =================
@@ -87,7 +91,7 @@ export const validateRequest = (type) => {
           });
         }
 
-        // 🔥 OTP CHECK (student/faculty only)
+        // 🔥 OTP CHECK
         const email = body.email.toLowerCase();
         const isStudent = email.startsWith("vtu");
         const isFaculty = email.startsWith("tts");
@@ -99,7 +103,6 @@ export const validateRequest = (type) => {
           });
         }
 
-        // DOB check
         if (isEmpty(body.dob)) {
           return res.status(400).json({
             success: false,
