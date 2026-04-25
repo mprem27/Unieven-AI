@@ -2,7 +2,13 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    username: { type: String, required: true, unique: true },
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      sparse: true,   // 🔥 FIX (prevents null duplicate error)
+    },
+
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
 
@@ -17,6 +23,7 @@ const userSchema = new mongoose.Schema(
       default: "student",
     },
 
+    registerOTP: { type: String, default: null }, // 🔥 ADD THIS
     resetOTP: { type: String, default: null },
     otpExpires: { type: Date, default: null },
 

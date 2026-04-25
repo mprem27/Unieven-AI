@@ -34,7 +34,7 @@ const getEmailType = (email) => {
 };
 
 //////////////////////////////////////////////////////
-// 🔥 SEND REGISTER OTP (FIXED - NO USER CREATION)
+// 🔥 SEND REGISTER OTP
 //////////////////////////////////////////////////////
 export const sendRegisterOTP = async (req, res) => {
   try {
@@ -56,6 +56,7 @@ export const sendRegisterOTP = async (req, res) => {
 
     const existing = await userModel.findOne({ email: emailLower });
 
+    // Prevent OTP sending if user is already fully registered
     if (existing && existing.password) {
       return res.status(409).json({
         success: false,
@@ -66,13 +67,19 @@ export const sendRegisterOTP = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOTP = await bcrypt.hash(otp, 10);
 
-    // ✅ only update existing user
-    if (existing) {
-      existing.registerOTP = hashedOTP;
-      existing.otpExpires = Date.now() + 5 * 60 * 1000;
-      await existing.save();
-    }
-    // ❌ DO NOT create user here
+    // ✅ BEST PRACTICE: updateOne with upsert. 
+    // This securely creates a temporary doc without triggering strict Schema validations (like missing password)
+    await userModel.updateOne(
+      { email: emailLower },
+      {
+        $set: {
+          email: emailLower,
+          registerOTP: hashedOTP,
+          otpExpires: Date.now() + 5 * 60 * 1000,
+        },
+      },
+      { upsert: true }
+    );
 
     await sendOTPEmail(emailLower, otp, "Account Verification");
 
@@ -86,7 +93,7 @@ export const sendRegisterOTP = async (req, res) => {
 };
 
 //////////////////////////////////////////////////////
-// 🔥 REGISTER USER (FINAL FIXED)
+// 🔥 REGISTER USER
 //////////////////////////////////////////////////////
 export const registerUser = async (req, res) => {
   try {
@@ -131,7 +138,7 @@ export const registerUser = async (req, res) => {
     }
 
     // ======================
-    // USERNAME CHECK (CASE SAFE)
+    // USERNAME CHECK (CASE-SAFE)
     // ======================
     const existingUsername = await userModel.findOne({
       username: { $regex: `^${username}$`, $options: "i" },
@@ -161,7 +168,7 @@ export const registerUser = async (req, res) => {
       if (!user || !user.registerOTP || user.otpExpires < Date.now()) {
         return res.status(400).json({
           success: false,
-          message: "OTP expired",
+          message: "OTP expired or not found",
         });
       }
 
@@ -175,7 +182,7 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    // ✅ CREATE USER ONLY HERE
+    // ✅ If 'normal' email, the placeholder doc won't exist, so create it now
     if (!user) user = new userModel({ email });
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -191,7 +198,7 @@ export const registerUser = async (req, res) => {
     user.otpExpires = undefined;
 
     // ======================
-    // 🔥 SAVE WITH SAFETY
+    // 🔥 FINAL SAVE
     // ======================
     try {
       await user.save();
