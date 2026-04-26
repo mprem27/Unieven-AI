@@ -2,20 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Loader from "../components/Loader";
-import { 
-  FaTimes, 
-  FaFont, 
-  FaMagic, 
-  FaCheck, 
-  FaChevronRight, 
-  FaImages, 
-  FaCircle,
-  FaPalette,
-  FaTrashAlt,
-  FaCamera,
-  FaSmile,
-  FaMusic
-} from "react-icons/fa";
+import { FaTimes, FaMagic, FaChevronRight, FaImages, FaPalette, FaTrashAlt, FaCamera, FaSmile, FaMusic, FaLayerGroup } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { createStory } from "../services/storyService";
 import { Assets } from "../assets/Assets";
@@ -25,35 +12,43 @@ function AddStory() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
-  const trashRef = useRef(null); // 🔥 Added ref for trash detection
+  const trashRef = useRef(null); 
+  const previewRef = useRef(null);
 
   const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [preview, setPreview] = useState(null);
-  const [mediaType, setMediaType] = useState(null); 
+  const [mediaType, setMediaType] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeTool, setActiveTool] = useState("none"); 
+  const [activeTool, setActiveTool] = useState("none");
 
   const [text, setText] = useState("");
   const [textColor, setTextColor] = useState("white");
   const [textFont, setTextFont] = useState("font-sans");
   const [textStyle, setTextStyle] = useState("classic");
+  const [textSize, setTextSize] = useState(36);
+  
   const [filter, setFilter] = useState("filter-none");
+  const [tempFilter, setTempFilter] = useState("filter-none");
   const [textBgIndex, setTextBgIndex] = useState(0);
 
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [isOverTrash, setIsOverTrash] = useState(false); // 🔥 Added hover state
-  const dragOffset = useRef({ x: 0, y: 0 });
+  const [isOverTrash, setIsOverTrash] = useState(false);
+  
+  const dragOffset = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
+  const hasDraggedRef = useRef(false);
 
-  const colors = ["white", "black", "#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
+  const colors = ["white", "black", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"];
   const fonts = [
     { name: "Classic", class: "font-sans font-bold" },
     { name: "Typewriter", class: "font-serif italic" },
     { name: "Modern", class: "font-mono uppercase tracking-widest" },
-    { name: "Impact", class: "font-black uppercase" },
-    { name: "Cursive", class: "font-[cursive]" }
+    { name: "Impact", class: "font-black uppercase tracking-tight" },
+    { name: "Cursive", class: "font-[cursive]" },
+    { name: "Marker", class: "font-[fantasy] tracking-wide" },
+    { name: "Sleek", class: "font-sans font-light tracking-[0.3em] uppercase" }
   ];
 
   const filters = [
@@ -73,29 +68,32 @@ function AddStory() {
     "from-gray-900 via-gray-800 to-black"
   ];
 
-  const textStyles = ["classic", "highlight", "neon", "playful"];
+  const textStyles = ["classic", "highlight", "neon", "playful", "outline", "glitch", "3d-pop", "elegant"];
 
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
-    if (selectedFile.type.startsWith("video/")) {
+    const selectedFiles = Array.from(e.target.files);
+    if (!selectedFiles.length) return;
+
+    const firstFile = selectedFiles[0];
+
+    if (firstFile.type.startsWith("video/")) {
       const videoNode = document.createElement("video");
       videoNode.preload = "metadata";
       videoNode.onloadedmetadata = () => {
         window.URL.revokeObjectURL(videoNode.src);
         if (videoNode.duration > 30) {
-          toast.error("Video must be 30s or less!");
+          toast.error("First video must be 30s or less!");
           return;
         }
-        setFile(selectedFile);
+        setFiles(selectedFiles);
         setMediaType("video");
-        setPreview(URL.createObjectURL(selectedFile));
+        setPreview(URL.createObjectURL(firstFile)); 
       };
-      videoNode.src = URL.createObjectURL(selectedFile);
-    } else if (selectedFile.type.startsWith("image/")) {
-      setFile(selectedFile);
+      videoNode.src = URL.createObjectURL(firstFile);
+    } else if (firstFile.type.startsWith("image/")) {
+      setFiles(selectedFiles);
       setMediaType("image");
-      setPreview(URL.createObjectURL(selectedFile));
+      setPreview(URL.createObjectURL(firstFile));
     }
   };
 
@@ -106,60 +104,104 @@ function AddStory() {
   };
 
   const handleStart = (e) => {
-    if (!text || activeTool !== "none") return;
+    if (!text || activeTool !== "none" || !previewRef.current) return;
+    
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const rect = previewRef.current.getBoundingClientRect();
+    
     setIsDragging(true);
-    dragOffset.current = { x: clientX - position.x, y: clientY - position.y };
+    hasDraggedRef.current = false; 
+    
+    dragOffset.current = { 
+      x: clientX - rect.left - position.x, 
+      y: clientY - rect.top - position.y,
+      startX: clientX,
+      startY: clientY
+    };
   };
 
   const handleMove = (e) => {
-    if (!isDragging) return;
+    if (!isDragging || !previewRef.current) return;
+    
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    setPosition({ x: clientX - dragOffset.current.x, y: clientY - dragOffset.current.y });
+    const rect = previewRef.current.getBoundingClientRect();
+    
+    const dist = Math.hypot(clientX - dragOffset.current.startX, clientY - dragOffset.current.startY);
+    if (dist > 5) hasDraggedRef.current = true; 
 
-    // 🔥 Detection Logic: Check if dragging over trash can
+    setPosition({ 
+      x: clientX - rect.left - dragOffset.current.x, 
+      y: clientY - rect.top - dragOffset.current.y 
+    });
+
     if (trashRef.current) {
-      const rect = trashRef.current.getBoundingClientRect();
-      const over = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
-      setIsOverTrash(over);
+      const trashRect = trashRef.current.getBoundingClientRect();
+      const trashCenterX = trashRect.left + trashRect.width / 2;
+      const trashCenterY = trashRect.top + trashRect.height / 2;
+      const distance = Math.hypot(clientX - trashCenterX, clientY - trashCenterY);
+      setIsOverTrash(distance < 70); 
     }
   };
 
   const handleEnd = () => {
-    // 🔥 Remove text if dropped on trash
+    if (!isDragging) return;
+    setIsDragging(false);
+
     if (isOverTrash) {
       clearText();
     }
-    setIsDragging(false);
     setIsOverTrash(false);
+  };
+
+  const handleTextClick = (e) => {
+    e.stopPropagation();
+    if (hasDraggedRef.current) return; 
+    setActiveTool("text");
   };
 
   const clearText = () => {
     setText("");
-    setPosition({ x: 0, y: 0 });
+    setPosition({ x: 0, y: 0 }); 
   };
 
   const handleSubmit = async () => {
-    if (!preview) return;
+    if (!preview && mediaType !== "text") return;
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append("type", mediaType);
-      if (file) formData.append("media", file);
-      if (text) {
+      
+      if (files && files.length > 0) {
+        files.forEach((file) => {
+          formData.append("media", file);
+        });
+      }
+
+      if (text && previewRef.current) {
         formData.append("text", text);
         formData.append("textColor", textColor);
         formData.append("textFont", textFont);
         formData.append("textStyle", textStyle);
-        formData.append("textX", position.x);
-        formData.append("textY", position.y);
+        formData.append("textSize", textSize);
+        
+        formData.append(
+          "textX",
+          ((position.x + previewRef.current.clientWidth / 2) / previewRef.current.clientWidth).toFixed(4)
+        );
+
+        formData.append(
+          "textY",
+          ((position.y + previewRef.current.clientHeight / 2) / previewRef.current.clientHeight).toFixed(4)
+        );
       }
+      
       if (mediaType === "text") formData.append("bgGradient", gradients[textBgIndex]);
       else formData.append("filter", filter);
+      
       await createStory(formData);
-      toast.success("Added to your story!");
+      toast.success(files.length > 1 ? `Uploaded ${files.length} stories!` : "Added to your story!");
       navigate("/feed");
     } catch (err) {
       toast.error("Failed to upload story");
@@ -169,30 +211,111 @@ function AddStory() {
   };
 
   const getDynamicTextClasses = () => {
-    let base = `absolute cursor-move px-6 py-3 text-4xl whitespace-nowrap select-none transition-all duration-200 ${textFont} z-30 touch-none`;
-    if (isOverTrash) base += " scale-75 opacity-50"; // 🔥 Visual feedback
-    if (textStyle === "highlight") base += ` rounded-xl`;
-    else if (textStyle === "neon") base += ` drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]`;
-    else if (textStyle === "playful") base += ` -rotate-6 scale-110 drop-shadow-[4px_4px_0_rgba(0,0,0,0.5)] skew-x-[-5deg]`;
-    else base += ` drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]`;
+    let base = `absolute cursor-move px-6 py-3 whitespace-pre-wrap break-words select-none transition-all duration-200 ${textFont} z-30 touch-none`;
+
+    if (isOverTrash) {
+      base += " scale-50 opacity-50";
+    } else {
+      if (textStyle === "playful") {
+        base += ` -rotate-6 scale-110 skew-x-[-5deg]`;
+      }
+    }
+
     return base;
   };
 
-  const getDynamicTextStyles = () => {
-    if (textStyle === "highlight") {
-      return {
-        backgroundColor: textColor,
-        color: textColor === "white" || textColor === "#eab308" ? "black" : "white",
-        transform: `translate(${position.x}px, ${position.y}px)`
-      };
+  const getDynamicStyles = (isEditing = false) => {
+    let baseTransform = `
+      translate(-50%, -50%)
+      translate3d(${position.x}px, ${position.y}px, 0)
+    `;
+
+    let style = {
+      position: "absolute",
+      left: "50%",
+      top: "50%",
+      color: textColor,
+      fontSize: `${textSize}px`,
+      display: "inline-block",
+      textAlign: "center",
+      whiteSpace: "pre-wrap",
+      lineHeight: "1.4",
+      maxWidth: "90%",
+      wordBreak: "break-word",
+      transform: baseTransform,
+      zIndex: 30,
+    };
+
+    if (!isEditing) {
+      style.transition = isDragging
+        ? "none"
+        : "transform 0.2s ease, opacity 0.2s ease";
+
+      if (isOverTrash) {
+        style.opacity = 0.5;
+      }
     }
-    return { color: textColor, transform: `translate(${position.x}px, ${position.y}px)` };
+
+    if (textStyle === "highlight") {
+      style.backgroundColor = textColor;
+      style.color =
+        textColor === "white" || textColor === "#eab308"
+          ? "black"
+          : "white";
+      style.padding = "8px 16px";
+      style.borderRadius = "12px";
+      style.boxDecorationBreak = "clone";
+      style.WebkitBoxDecorationBreak = "clone";
+
+    } else if (textStyle === "neon") {
+      style.textShadow = `
+        0 0 10px ${textColor},
+        0 0 20px ${textColor},
+        0 0 30px ${textColor}
+      `;
+      style.color = "white";
+
+    } else if (textStyle === "outline") {
+      style.WebkitTextStroke = `1.5px ${
+        textColor === "black" ? "white" : "black"
+      }`;
+
+    } else if (textStyle === "3d-pop") {
+      style.textShadow = `
+        2px 2px 0px #000,
+        4px 4px 0px #222,
+        6px 6px 0px #444
+      `;
+
+    } else if (textStyle === "glitch") {
+      style.textShadow = `
+        3px 0 0 red,
+        -3px 0 0 cyan
+      `;
+
+    } else if (textStyle === "playful") {
+      style.transform = `
+        ${baseTransform}
+        rotate(-5deg)
+      `;
+      style.textShadow = "3px 3px 0px rgba(0,0,0,0.5)";
+
+    } else if (textStyle === "elegant") {
+      style.textShadow = "0px 2px 4px rgba(0,0,0,0.3)";
+      style.letterSpacing = "2px";
+
+    } else {
+      style.textShadow = "0 2px 10px rgba(0,0,0,0.8)";
+    }
+
+    return style;
   };
 
   return (
     <div className="fixed inset-0 bg-[#050505] z-[100] flex flex-col h-[100dvh] overflow-hidden font-['Poppins',sans-serif] select-none text-white">
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" className="hidden" />
+      <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" className="hidden" />
 
+      {/* START SCREEN (No Preview) */}
       {!preview && (
         <div className="w-full h-full flex flex-col relative bg-neutral-950">
           <div className="absolute top-0 left-0 w-full p-6 flex justify-between z-20">
@@ -245,54 +368,78 @@ function AddStory() {
         </div>
       )}
 
+      {/* STORY EDITOR (Preview Mode) */}
       {preview && (
         <div className="relative w-full h-full flex justify-center items-center overflow-hidden"
-          onMouseMove={handleMove} onMouseUp={handleEnd} onTouchMove={handleMove} onTouchEnd={handleEnd}>
+          onMouseMove={handleMove} onMouseUp={handleEnd} onTouchMove={handleMove} onTouchEnd={handleEnd} onMouseLeave={handleEnd}>
           
+          {/* Top Navbar */}
           {activeTool === "none" && (
-            <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-start z-40 bg-gradient-to-b from-black/80 to-transparent">
-              <button onClick={() => { setPreview(null); setFile(null); clearText(); }} className="w-12 h-12 flex items-center justify-center bg-black/20 backdrop-blur-xl rounded-2xl border border-white/10 active:scale-90"><FaTimes size={22} /></button>
+            <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-start z-40 bg-gradient-to-b from-black/80 to-transparent pointer-events-auto">
+              <button onClick={() => { setPreview(null); setFiles([]); clearText(); }} className="w-12 h-12 flex items-center justify-center bg-black/20 backdrop-blur-xl rounded-2xl border border-white/10 active:scale-90"><FaTimes size={22} /></button>
               <div className="flex gap-4 p-2 bg-black/20 backdrop-blur-xl rounded-3xl border border-white/10">
                 {mediaType === "text" && <button onClick={() => setTextBgIndex((prev) => (prev + 1) % gradients.length)} className="p-3"><FaPalette size={22} /></button>}
-                {mediaType !== "text" && <button onClick={() => setActiveTool("filter")} className="p-3"><FaMagic size={22} /></button>}
+                {mediaType !== "text" && <button onClick={() => { setTempFilter(filter); setActiveTool("filter"); }} className="p-3"><FaMagic size={22} /></button>}
                 <button onClick={() => setActiveTool("text")} className="p-3"><span className="font-bold text-xl font-serif italic">Aa</span></button>
               </div>
             </div>
           )}
 
-          <div onClick={() => { if (activeTool === "none") setActiveTool("text"); }}
-            className={`relative w-full h-full md:max-w-[420px] md:h-[90%] md:rounded-[48px] shadow-2xl overflow-hidden bg-black flex items-center justify-center border border-white/5 ${mediaType === "text" ? `bg-gradient-to-br ${gradients[textBgIndex]}` : ""}`}>
-            {mediaType === "video" && <video src={preview} autoPlay loop muted playsInline className={`w-full h-full object-cover transition-all duration-700 ${filter}`} />}
-            {mediaType === "image" && <img src={preview} alt="Preview" className={`w-full h-full object-cover transition-all duration-700 ${filter}`} />}
+          {/* Media Container with Ref */}
+          <div ref={previewRef} onClick={() => { if (activeTool === "none") setActiveTool("text"); }}
+            className={`relative w-full max-w-[420px] h-[100dvh] sm:h-[90vh] sm:max-h-[850px] bg-black sm:rounded-[32px] overflow-hidden flex flex-col items-center justify-center border sm:border-white/10 ${mediaType === "text" ? `bg-gradient-to-br ${gradients[textBgIndex]}` : ""}`}>
+            
+            {mediaType === "video" && <video src={preview} autoPlay loop muted playsInline className={`w-full h-full object-cover transition-all duration-700 ${activeTool === 'filter' ? tempFilter : filter}`} />}
+            {mediaType === "image" && <img src={preview} alt="Preview" className={`w-full h-full object-cover transition-all duration-700 ${activeTool === 'filter' ? tempFilter : filter}`} />}
 
+            {/* Draggable Text Overlay */}
             {text && activeTool === "none" && (
-              <div onMouseDown={handleStart} onTouchStart={handleStart} className={getDynamicTextClasses()}
-                style={getDynamicTextStyles()}
-                onClick={(e) => { e.stopPropagation(); setActiveTool("text"); }}>
+              <div 
+                onMouseDown={handleStart} 
+                onTouchStart={handleStart} 
+                className={getDynamicTextClasses()}
+                style={getDynamicStyles(false)}
+                onClick={handleTextClick}
+              >
                 {text}
               </div>
             )}
           </div>
 
-          {/* 🔥 DYNAMIC TRASH CAN */}
+          {/* Trash Can UI */}
           {text && isDragging && (
-            <div ref={trashRef} className="absolute bottom-[130px] flex flex-col items-center gap-2 z-40 transition-all duration-200">
-                <div className={`p-5 rounded-full backdrop-blur-xl border transition-all duration-200 ${isOverTrash ? "bg-red-500 text-white scale-150 border-white shadow-lg" : "bg-red-500/20 text-red-500 border-red-500/20 scale-100"}`}>
-                    <FaTrashAlt size={isOverTrash ? 28 : 24} />
-                </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest transition-opacity ${isOverTrash ? "opacity-100" : "opacity-0"}`}>Release to Delete</span>
+            <div className="absolute bottom-20 left-0 w-full flex justify-center z-50 pointer-events-none transition-all duration-200">
+              <div 
+                ref={trashRef}
+                className={`flex items-center justify-center rounded-full backdrop-blur-xl border transition-all duration-200 ${
+                  isOverTrash 
+                    ? "w-16 h-16 bg-red-600 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.8)] scale-110" 
+                    : "w-12 h-12 bg-black/50 border-white/20 scale-100"
+                }`}
+              >
+                <FaTrashAlt size={isOverTrash ? 24 : 18} className={isOverTrash ? "text-white" : "text-white/80"} />
+              </div>
             </div>
           )}
 
+          {/* Bottom Footer (Submit) */}
           {activeTool === "none" && (
-            <div className="absolute bottom-10 right-6 z-40 flex items-center gap-3">
+            <div className="absolute bottom-10 right-6 z-40 flex items-center gap-3 pointer-events-auto">
+              
+              {files.length > 1 && (
+                <div className="bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-full text-xs font-black border border-white/10 flex items-center gap-2 shadow-lg">
+                  <FaLayerGroup size={14} className="text-blue-400" />
+                  {files.length} STORIES
+                </div>
+              )}
+
               <div className="bg-black/60 backdrop-blur-xl text-white pl-2 pr-5 py-2 rounded-full text-xs font-black border border-white/10 flex items-center gap-3 shadow-lg">
                 <div className="p-1 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500">
-                    <img src={user ? getProfileImage(user) : DEFAULT_AVATAR} alt="Profile" className="w-8 h-8 rounded-full object-cover border-2 border-black" />
+                  <img src={user ? getProfileImage(user) : DEFAULT_AVATAR} alt="Profile" className="w-8 h-8 rounded-full object-cover border-2 border-black" />
                 </div>
                 YOUR STORY
               </div>
-              <button onClick={handleSubmit} disabled={loading} className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center shadow-xl active:scale-90 disabled:opacity-50">
+              <button onClick={handleSubmit} disabled={loading} className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center shadow-xl active:scale-90 disabled:opacity-50 transition-all">
                 {loading ? <Loader size="24px" color="#000" /> : <FaChevronRight size={24} />}
               </button>
             </div>
@@ -300,62 +447,85 @@ function AddStory() {
         </div>
       )}
 
-      {/* TEXT EDITOR */}
+      {/* ACTIVE TEXT EDITING MODE */}
       {activeTool === "text" && preview && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col justify-between z-50 p-6 backdrop-blur-[30px] animate-in fade-in duration-300">
-          <div className="flex justify-between items-center mt-6">
-            <button onClick={() => {
-              const idx = textStyles.indexOf(textStyle);
-              setTextStyle(textStyles[(idx + 1) % textStyles.length]);
-            }} className="px-6 py-2.5 bg-white/10 text-white rounded-2xl font-black text-xs border border-white/10 uppercase tracking-widest">Style: {textStyle}</button>
-            <button onClick={() => setActiveTool("none")} className="text-blue-500 font-black text-lg p-2 active:scale-90">Done</button>
-          </div>
-          <div className="flex-1 flex items-center justify-center w-full px-4">
-            <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Type something..."
-              className={`bg-transparent text-center text-4xl sm:text-5xl w-full outline-none border-none resize-none overflow-hidden drop-shadow-2xl ${textFont}`}
-              style={{
-                color: textStyle === 'highlight' && (textColor === 'white' || textColor === '#eab308') ? 'black' : textColor,
-                backgroundColor: textStyle === 'highlight' ? textColor : 'transparent',
-                padding: textStyle === 'highlight' ? '20px' : '0',
-                borderRadius: '24px'
-              }}
-            />
-          </div>
-          <div className="flex flex-col items-center gap-8 mb-10">
-            <div className="flex gap-3 overflow-x-auto scrollbar-hide w-full px-4">
-              {fonts.map(f => (
-                <button key={f.name} onClick={() => setTextFont(f.class)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${textFont === f.class ? "bg-white text-black scale-105" : "bg-white/10 text-white/60"}`}>{f.name}</button>
-              ))}
+        <>
+          <div className="absolute inset-0 z-40 bg-black/80 backdrop-blur-[30px] animate-in fade-in duration-300" onClick={() => setActiveTool("none")}></div>
+          
+          <div className="absolute inset-0 flex flex-col justify-between z-50 p-6 pointer-events-none">
+            <div className="flex justify-between items-center mt-6 pointer-events-auto">
+              <button onClick={() => {
+                const idx = textStyles.indexOf(textStyle);
+                setTextStyle(textStyles[(idx + 1) % textStyles.length]);
+              }} className="px-6 py-2.5 bg-white/10 text-white rounded-2xl font-black text-xs border border-white/10 uppercase tracking-widest">
+                Style: {textStyle}
+              </button>
+              <div className="flex items-center gap-4">
+                <button onClick={clearText} className="text-white/60 hover:text-white font-bold text-xs uppercase tracking-widest">Clear</button>
+                <button onClick={() => setActiveTool("none")} className="text-blue-500 font-black text-lg p-2 active:scale-90">Done</button>
+              </div>
             </div>
-            <div className="flex gap-4 overflow-x-auto scrollbar-hide w-full justify-center px-4">
-              {colors.map(c => (
-                <button key={c} onClick={() => setTextColor(c)} className={`w-9 h-9 rounded-full border-4 shrink-0 transition-transform active:scale-75 ${textColor === c ? "border-white scale-125 shadow-lg" : "border-transparent opacity-60"}`} style={{ backgroundColor: c }}></button>
-              ))}
+            
+            <div className="flex-1 flex items-center justify-center w-full px-4 relative pointer-events-auto">
+              <div className="absolute left-0 h-48 w-1 bg-white/20 rounded-full flex flex-col justify-between items-center py-2">
+                <input 
+                  type="range" min="16" max="100" value={textSize} 
+                  onChange={(e) => setTextSize(Number(e.target.value))}
+                  className="w-48 h-1 -rotate-90 appearance-none bg-transparent cursor-pointer"
+                  style={{ WebkitAppearance: 'none', transformOrigin: 'center' }}
+                />
+              </div>
+              <div 
+                contentEditable
+                suppressContentEditableWarning
+                onInput={(e) => setText(e.currentTarget.textContent)}
+                className={`bg-transparent outline-none border-none min-w-[20px] empty:before:content-['Type_something...'] empty:before:opacity-50 cursor-text px-6 py-3 whitespace-pre-wrap break-words text-center inline-block max-w-[90%] ${textFont}`}
+                style={getDynamicStyles(true)}
+              >
+                {text}
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-center gap-8 mb-10 pointer-events-auto">
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide w-full px-4">
+                {fonts.map(f => (
+                  <button key={f.name} onClick={() => setTextFont(f.class)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${textFont === f.class ? "bg-white text-black scale-105" : "bg-white/10 text-white/60"}`}>{f.name}</button>
+                ))}
+              </div>
+              <div className="flex gap-4 overflow-x-auto scrollbar-hide w-full justify-center px-4">
+                {colors.map(c => (
+                  <button key={c} onClick={() => setTextColor(c)} className={`w-9 h-9 rounded-full border-4 shrink-0 transition-transform active:scale-75 ${textColor === c ? "border-white scale-125 shadow-lg" : "border-transparent opacity-60"}`} style={{ backgroundColor: c }}></button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* FILTER TRAY */}
       {activeTool === "filter" && preview && mediaType !== "text" && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end animate-in slide-in-from-bottom duration-500">
-          <div className="w-full bg-black/60 backdrop-blur-3xl border-t border-white/10 rounded-t-[40px] pt-10 pb-14 px-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-between items-center mb-8 px-2">
-              <h3 className="text-white font-black text-lg tracking-widest uppercase opacity-40">Filters</h3>
-              <button onClick={() => setActiveTool("none")} className="bg-white text-black font-black text-xs px-6 py-2.5 rounded-2xl active:scale-95 transition-all uppercase">Apply</button>
-            </div>
-            <div className="flex gap-5 overflow-x-auto scrollbar-hide snap-x pb-4">
-              {filters.map(f => (
-                <div key={f.name} onClick={() => setFilter(f.class)} className="flex flex-col items-center gap-3 cursor-pointer snap-center group shrink-0">
-                  <div className={`w-20 h-20 rounded-3xl overflow-hidden border-4 transition-all duration-300 shadow-xl ${filter === f.class ? "border-blue-500 scale-110 shadow-blue-500/20" : "border-white/5 opacity-50 grayscale hover:opacity-100 hover:grayscale-0"}`}>
-                    <img src={mediaType === "image" ? preview : "https://via.placeholder.com/150"} className={`w-full h-full object-cover ${f.class}`} alt={f.name} />
+        <>
+          <div className="absolute inset-0 z-40 bg-transparent" onClick={() => { setTempFilter(filter); setActiveTool("none"); }}></div>
+          <div className="absolute inset-x-0 bottom-0 z-50 flex flex-col justify-end animate-in slide-in-from-bottom duration-500 pointer-events-auto">
+            <div className="w-full bg-black/60 backdrop-blur-3xl border-t border-white/10 rounded-t-[40px] pt-8 pb-14 px-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+              <div className="flex justify-between items-center mb-6 px-2">
+                <button onClick={() => { setTempFilter(filter); setActiveTool("none"); }} className="text-white/60 hover:text-white font-bold text-xs uppercase tracking-widest px-2">Cancel</button>
+                <h3 className="text-white font-black text-lg tracking-widest uppercase opacity-40">Filters</h3>
+                <button onClick={() => { setFilter(tempFilter); setActiveTool("none"); }} className="bg-white text-black font-black text-xs px-6 py-2.5 rounded-2xl active:scale-95 transition-all uppercase">Apply</button>
+              </div>
+              <div className="flex gap-5 overflow-x-auto scrollbar-hide snap-x pb-4">
+                {filters.map(f => (
+                  <div key={f.name} onClick={() => setTempFilter(f.class)} className="flex flex-col items-center gap-3 cursor-pointer snap-center group shrink-0">
+                    <div className={`w-20 h-20 rounded-3xl overflow-hidden border-4 transition-all duration-300 shadow-xl ${tempFilter === f.class ? "border-blue-500 scale-110 shadow-blue-500/20" : "border-white/5 opacity-50 grayscale hover:opacity-100 hover:grayscale-0"}`}>
+                      <img src={mediaType === "image" ? preview : "https://via.placeholder.com/150"} className={`w-full h-full object-cover ${f.class}`} alt={f.name} />
+                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-tighter ${tempFilter === f.class ? "text-blue-400" : "text-white/40"}`}>{f.name}</span>
                   </div>
-                  <span className={`text-[10px] font-black uppercase tracking-tighter ${filter === f.class ? "text-blue-400" : "text-white/40"}`}>{f.name}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
     </div>

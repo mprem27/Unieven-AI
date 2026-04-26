@@ -10,19 +10,51 @@ const storyArchiveSchema = new mongoose.Schema(
 
     media: {
       type: String,
-      required: true,
+      default: "", // Removed required:true to support text-only stories
     },
 
     type: {
       type: String,
-      enum: ["image", "video"],
+      enum: ["image", "video", "text"], // Added "text" to support text stories
       default: "image",
     },
 
-    // 🔥 ADD THESE (IMPORTANT)
+    // STORY EDITOR FIELDS (Keeps text in the exact position with correct styles)
     text: {
       type: String,
       default: "",
+    },
+    textColor: {
+      type: String,
+      default: "white",
+    },
+    textFont: {
+      type: String,
+      default: "font-sans",
+    },
+    textStyle: {
+      type: String,
+      default: "classic",
+    },
+    textSize: {
+      type: Number,
+      default: 36,
+    },
+    textX: {
+      type: Number,
+      default: 0,
+    },
+    textY: {
+      type: Number,
+      default: 0,
+    },
+    bgGradient: {
+      type: String,
+      default: "", 
+    },
+    filter: {
+      type: String,
+      default: "", 
     },
 
     link: {

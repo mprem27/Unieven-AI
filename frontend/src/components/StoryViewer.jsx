@@ -1,66 +1,275 @@
 import React, { useEffect, useState, useRef } from "react";
-import { viewStory } from "../services/storyService";
-import { FaTimes, FaChevronLeft, FaPaperPlane } from "react-icons/fa";
+import { viewStory, deleteStory } from "../services/storyService";
+import {
+  FaTimes,
+  FaChevronLeft,
+  FaPaperPlane,
+  FaEllipsisV,
+  FaTrash,
+} from "react-icons/fa";
 import CommentsModal from "./CommentsModal";
 import { getProfileImage } from "../utils/getProfileImage";
 import RoleBadge from "../components/RoleBadge";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "react-toastify";
 
 function StoryViewer({ stories, currentIndex, onClose }) {
+  const { user: currentUser } = useAuth();
+
   const [index, setIndex] = useState(currentIndex || 0);
   const [progress, setProgress] = useState(0);
   const [showComments, setShowComments] = useState(false);
+
+  const [showMenu, setShowMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const timerRef = useRef(null);
+  const viewedStoriesRef = useRef(new Set());
 
-  const currentStory = stories[index];
+  const currentStory = stories?.[index];
 
-  // 🔥 TIMER + PROGRESS LOGIC
+  //////////////////////////////////////////////////////
+  // 🔥 SAFE STORY VIEW REGISTER
+  //////////////////////////////////////////////////////
   useEffect(() => {
-    if (!currentStory || showComments) return;
+    if (!currentStory || showComments || showMenu) return;
 
+    clearInterval(timerRef.current);
     setProgress(0);
-    viewStory(currentStory._id);
+
+    const storyId = currentStory._id;
+
+    if (storyId && !viewedStoriesRef.current.has(storyId)) {
+      viewedStoriesRef.current.add(storyId);
+
+      viewStory(storyId).catch((err) => {
+        if (
+          err?.message !== "Story not found" &&
+          err?.response?.data?.message !== "Story not found"
+        ) {
+          console.error("Story view failed:", err);
+        }
+      });
+    }
 
     timerRef.current = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(timerRef.current);
+
           if (index < stories.length - 1) {
             setIndex((prevIndex) => prevIndex + 1);
           } else {
-            onClose();
+            onClose?.();
           }
           return 100;
         }
-        return prev + 1.5; // Smooth speed
+        return prev + 1.5;
       });
     }, 100);
 
     return () => clearInterval(timerRef.current);
-  }, [index, currentStory, showComments]);
+  }, [index, currentStory?._id, showComments, showMenu, stories?.length, onClose]);
 
-  // 👉 CLICK NAVIGATION (Fixed 50/50 Split)
+  //////////////////////////////////////////////////////
+  // 🔥 CLICK NAVIGATION
+  //////////////////////////////////////////////////////
   const handleNavigation = (e) => {
-    // Ignore clicks on buttons/inputs
-    if (e.target.closest(".ignore-click")) return;
+    if (e.target.closest(".ignore-click")) {
+      if (!e.target.closest(".menu-container") && showMenu) {
+        setShowMenu(false);
+        setConfirmDelete(false);
+      }
+      return;
+    }
+
+    if (showMenu) {
+      setShowMenu(false);
+      setConfirmDelete(false);
+      return;
+    }
 
     const { clientX } = e;
     const { innerWidth } = window;
 
     if (clientX < innerWidth / 2) {
-      // Left Side: Previous
       if (index > 0) {
-        setIndex(index - 1);
+        setIndex((prev) => prev - 1);
       } else {
-        onClose(); // Optional: Close if first story and clicked left
+        onClose?.();
       }
     } else {
-      // Right Side: Next
       if (index < stories.length - 1) {
-        setIndex(index + 1);
+        setIndex((prev) => prev + 1);
       } else {
-        onClose();
+        onClose?.();
       }
     }
+  };
+
+  //////////////////////////////////////////////////////
+  // 🔥 DELETE STORY (FIXED INSTANT UI REMOVE)
+  //////////////////////////////////////////////////////
+  const executeDelete = async () => {
+    try {
+      if (!currentStory?._id) return;
+
+      await deleteStory(currentStory._id);
+      toast.success("Story deleted");
+
+      const updatedStories = stories.filter(
+        (story) => story._id !== currentStory._id
+      );
+
+      setShowMenu(false);
+      setConfirmDelete(false);
+
+      if (updatedStories.length === 0) {
+        onClose?.();
+        return;
+      }
+
+      stories.splice(0, stories.length, ...updatedStories);
+
+      if (index >= updatedStories.length) {
+        setIndex(updatedStories.length - 1);
+      } else {
+        setIndex(index);
+      }
+
+      setProgress(0);
+    } catch (err) {
+      console.error("Delete Story Error:", err);
+      toast.error(err?.message || "Failed to delete story");
+      setShowMenu(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  const getDynamicTextClasses = (story) => {
+    let base = `absolute whitespace-pre-wrap break-words select-none transition-all duration-200 z-30 pointer-events-none ${story.textFont || "font-sans"}`;
+
+    if (story.textStyle === "playful") {
+      base += ` -rotate-6 scale-110 skew-x-[-5deg]`;
+    }
+
+    return base;
+  };
+
+  const getDynamicTextStyles = (story) => {
+    const textColor = story.textColor || "white";
+    const textStyle = story.textStyle || "classic";
+    const textSize = Number(story.textSize) || 36;
+
+    // RESPONSIVE CONTAINER DIMENSIONS
+    const containerWidth =
+      window.innerWidth > 420
+        ? 420
+        : window.innerWidth;
+
+    const containerHeight =
+      window.innerWidth > 640
+        ? Math.min(
+            window.innerHeight * 0.9,
+            850
+          )
+        : window.innerHeight;
+
+    // 🔥 TRUE FIX: SAVED NORMALIZED POSITION TO CENTER ANCHORED OFFSETS
+    const normalizedX = Number(story.textX) || 0.5; // Default to 0.5 (center) if missing
+    const normalizedY = Number(story.textY) || 0.5;
+
+    const textX = normalizedX * containerWidth - containerWidth / 2;
+    const textY = normalizedY * containerHeight - containerHeight / 2;
+
+    // PERFECT CENTER-ANCHOR FIX
+    let style = {
+      position: "absolute",
+
+      left: "50%",
+      top: "50%",
+
+      color: textColor,
+      fontSize: `${textSize}px`,
+
+      display: "inline-block",
+      textAlign: "center",
+      whiteSpace: "pre-wrap",
+      lineHeight: "1.2",
+
+      maxWidth: "90%",
+      wordBreak: "break-word",
+
+      transform: `translate(-50%, -50%) translate3d(${textX}px, ${textY}px, 0)`,
+
+      zIndex: 30,
+    };
+
+    // 🔥 STYLE VARIANTS
+    if (textStyle === "highlight") {
+      style.backgroundColor = textColor;
+
+      style.color =
+        textColor === "white" ||
+        textColor === "#eab308"
+          ? "black"
+          : "white";
+
+      style.padding = "8px 16px";
+      style.borderRadius = "12px";
+
+      style.boxDecorationBreak = "clone";
+      style.WebkitBoxDecorationBreak = "clone";
+
+    } else if (textStyle === "neon") {
+      style.textShadow = `
+        0 0 10px ${textColor},
+        0 0 20px ${textColor},
+        0 0 30px ${textColor}
+      `;
+
+      style.color = "white";
+
+    } else if (textStyle === "outline") {
+      style.WebkitTextStroke = `1.5px ${
+        textColor === "black"
+          ? "white"
+          : "black"
+      }`;
+
+    } else if (textStyle === "3d-pop") {
+      style.textShadow = `
+        2px 2px 0px #000,
+        4px 4px 0px #222,
+        6px 6px 0px #444
+      `;
+
+    } else if (textStyle === "glitch") {
+      style.textShadow = `
+        3px 0 0 red,
+        -3px 0 0 cyan
+      `;
+
+    } else if (textStyle === "playful") {
+      style.transform = `
+        translate(-50%, -50%)
+        translate3d(${textX}px, ${textY}px, 0)
+        rotate(-5deg)
+      `;
+
+      style.textShadow = "3px 3px 0px rgba(0,0,0,0.5)";
+
+    } else if (textStyle === "elegant") {
+      style.textShadow = "0px 2px 4px rgba(0,0,0,0.3)";
+
+      style.letterSpacing = "2px";
+
+    } else {
+      // CLASSIC
+      style.textShadow = "0 2px 10px rgba(0,0,0,0.8)";
+    }
+
+    return style;
   };
 
   if (!currentStory) return null;
@@ -68,116 +277,197 @@ function StoryViewer({ stories, currentIndex, onClose }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/95 sm:backdrop-blur-2xl z-[200] flex justify-center items-center overflow-hidden touch-none font-['Poppins',sans-serif]">
-        
-        {/* Main Viewer Container */}
-        <div 
+        <div
           onClick={handleNavigation}
-          className="relative w-full max-w-[480px] h-full sm:h-[95vh] bg-black sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl border sm:border-white/10"
+          className="relative w-full max-w-[420px] h-[100dvh] sm:h-[90vh] sm:max-h-[850px] bg-black sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl border sm:border-white/10"
         >
-          
-          {/* 🔥 TOP OVERLAY: PROGRESS + HEADER */}
+          {/* TOP OVERLAY */}
           <div className="absolute top-0 left-0 right-0 z-[220] p-4 bg-gradient-to-b from-black/80 to-transparent">
-            
-            {/* Progress Bars */}
             <div className="flex gap-1.5 mb-4">
               {stories.map((_, i) => (
-                <div key={i} className="flex-1 h-[2px] bg-white/20 rounded-full overflow-hidden">
-                  <div 
+                <div
+                  key={i}
+                  className="flex-1 h-[2px] bg-white/20 rounded-full overflow-hidden"
+                >
+                  <div
                     className="h-full bg-white transition-all duration-100 ease-linear shadow-[0_0_10px_white]"
-                    style={{ width: i < index ? "100%" : i === index ? `${progress}%` : "0%" }}
+                    style={{
+                      width: i < index ? "100%" : i === index ? `${progress}%` : "0%",
+                    }}
                   />
                 </div>
               ))}
             </div>
 
-            {/* Header Content */}
+            {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {/* Back Arrow */}
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onClose(); }}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose?.();
+                  }}
                   className="ignore-click text-white p-1 hover:bg-white/10 rounded-full transition-colors"
                 >
                   <FaChevronLeft size={20} />
                 </button>
 
-                {/* Profile Info */}
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-full border-2 border-blue-500 p-[1.5px]">
-                    <img 
-                      src={getProfileImage(currentStory.user)} 
+                    <img
+                      src={getProfileImage(currentStory.user)}
                       className="w-full h-full rounded-full object-cover"
                       alt="User"
                     />
                   </div>
+
                   <div className="flex flex-col">
                     <span className="text-white text-sm font-bold flex items-center gap-1 drop-shadow-md">
                       {currentStory.user?.username}
                       <RoleBadge role={currentStory.user?.role} />
                     </span>
+
                     <span className="text-white/60 text-[10px] font-medium uppercase tracking-tighter">
-                       {new Date(currentStory.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(currentStory.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Close Button */}
-              <button 
-                onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="ignore-click text-white/80 hover:text-white p-2"
-              >
-                <FaTimes size={24} />
-              </button>
+              {/* Right actions */}
+              <div className="flex items-center gap-1 relative menu-container">
+                {currentUser?._id === currentStory.user?._id && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (showMenu) setConfirmDelete(false);
+                        setShowMenu(!showMenu);
+                      }}
+                      className="ignore-click text-white/90 hover:text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+                    >
+                      <FaEllipsisV size={18} />
+                    </button>
+
+                    {showMenu && (
+                      <div className="absolute top-12 right-2 w-48 bg-[#1c1c1e]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[999] flex flex-col">
+                        {!confirmDelete ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDelete(true);
+                            }}
+                            className="w-full px-4 py-3.5 flex items-center gap-3 text-sm font-bold text-red-500 hover:bg-white/10 transition-colors"
+                          >
+                            <FaTrash size={14} />
+                            Delete Story
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                executeDelete();
+                              }}
+                              className="w-full px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-500/10"
+                            >
+                              Yes, Delete
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDelete(false);
+                                setShowMenu(false);
+                              }}
+                              className="w-full px-4 py-3 text-sm font-bold text-white hover:bg-white/10"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose?.();
+                  }}
+                  className="ignore-click text-white/90 hover:text-white p-2 hover:bg-white/10 rounded-full transition-colors ml-1"
+                >
+                  <FaTimes size={22} />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* 📸 MEDIA AREA */}
-          <div className="flex-1 flex items-center justify-center bg-black relative">
-            {currentStory.type === "video" ? (
-              <video 
-                src={currentStory.media} 
-                className="w-full h-full object-contain sm:object-cover" 
-                autoPlay muted playsInline
-              />
-            ) : (
-              <img 
-                src={currentStory.media} 
-                className="w-full h-full object-contain sm:object-cover" 
-                alt="Story" 
+          {/* MEDIA - object-cover ensures videos/images aren't cropped */}
+          <div
+            className={`flex-1 flex items-center justify-center relative overflow-hidden ${
+              currentStory.type === "text"
+                ? `bg-gradient-to-br ${currentStory.bgGradient || "from-gray-900 to-black"}`
+                : "bg-black"
+            }`}
+          >
+            {currentStory.type === "video" && (
+              <video
+                src={currentStory.media}
+                className={`w-full h-full object-cover ${currentStory.filter || ""}`}
+                autoPlay
+                muted
+                playsInline
               />
             )}
 
-            {/* Text Overlay */}
+            {currentStory.type === "image" && (
+              <img
+                src={currentStory.media}
+                className={`w-full h-full object-cover ${currentStory.filter || ""}`}
+                alt="Story"
+              />
+            )}
+
             {currentStory.text && (
-              <div className="absolute inset-0 flex items-center justify-center px-10 pointer-events-none">
-                <p className="text-white text-xl font-black text-center drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] bg-black/30 px-4 py-2 rounded-xl backdrop-blur-sm">
-                  {currentStory.text}
-                </p>
+              <div
+                className={getDynamicTextClasses(currentStory)}
+                style={getDynamicTextStyles(currentStory)}
+              >
+                {currentStory.text}
               </div>
             )}
           </div>
 
-          {/* 💬 INTERACTIVE FOOTER */}
+          {/* FOOTER */}
           <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/90 to-transparent flex items-center gap-4 z-[220]">
-            <div 
-              onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowComments(true);
+              }}
               className="ignore-click flex-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-5 py-3 text-white/80 text-sm cursor-text transition-all backdrop-blur-md"
             >
               Send message...
             </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
-              className="ignore-click text-white hover:scale-110 transition-transform active:scale-95"
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowComments(true);
+              }}
+              className="ignore-click text-white hover:scale-110 transition-transform"
             >
               <FaPaperPlane size={22} />
             </button>
           </div>
-
         </div>
       </div>
 
-      {/* COMMENTS / REPLY MODAL */}
       {showComments && (
         <CommentsModal
           item={currentStory}

@@ -21,6 +21,19 @@ function Stories() {
     try {
       const res = await getStories();
       setUsers(res.users || []);
+
+      if (activeStories?.length > 0) {
+        const currentUserId = activeStories[0]?.user?._id;
+        const updatedStories = res.users?.find(
+          (u) => String(u.user?._id) === String(currentUserId)
+        );
+
+        if (updatedStories?.stories?.length > 0) {
+          setActiveStories(updatedStories.stories);
+        } else {
+          setActiveStories(null);
+        }
+      }
     } catch (err) {
       console.error("Fetch stories error:", err);
     }
@@ -34,53 +47,81 @@ function Stories() {
     const handleUpdate = () => fetchStories();
     window.addEventListener("profileUpdated", handleUpdate);
     return () => window.removeEventListener("profileUpdated", handleUpdate);
-  }, []);
+  }, [activeStories]);
 
   const handleOpen = (userStories) => {
+    if (!userStories?.stories || userStories.stories.length === 0) return;
+
     setActiveStories(userStories.stories);
     setStartIndex(0);
+
     if (!seenUsers.includes(userStories.user._id)) {
       setSeenUsers((prev) => [...prev, userStories.user._id]);
     }
   };
 
+  const myStoriesData = users.find(
+    (u) => String(u.user?._id) === String(user?._id)
+  );
+
+  const otherUsersStories = users.filter(
+    (u) => String(u.user?._id) !== String(user?._id)
+  );
+
+  const myStoriesSeen = myStoriesData
+    ? seenUsers.includes(myStoriesData.user._id)
+    : false;
+
   return (
     <>
-      {/* ✅ FINAL FIX: Removed pt/pb and added mt-0 for seamless alignment */}
       <div className="w-full bg-white border-b border-gray-100 overflow-hidden mt-0">
-        
-        {/* ✅ FINAL FIX: Updated gap-3, px-3, py-2 for perfect spacing */}
-        <div 
-          className="flex flex-row flex-nowrap overflow-x-auto overflow-y-hidden gap-3 px-3 py-1 items-start 
-                     snap-x snap-mandatory scroll-smooth
-                     [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-        >
+        <div className="flex flex-row flex-nowrap overflow-x-auto overflow-y-hidden gap-3 px-3 py-1 items-start snap-x snap-mandatory scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           
-          {/* 🔥 YOUR STORY (ADD BUTTON) */}
-          <div
-            onClick={() => navigate("/add-story")}
-            className="flex flex-col items-center cursor-pointer group min-w-[70px] sm:min-w-[80px] snap-start shrink-0"
-          >
+          {/* Your Story */}
+          <div className="flex flex-col items-center group min-w-[70px] sm:min-w-[80px] snap-start shrink-0">
             <div className="relative group-hover:scale-105 transition-transform duration-300">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-gray-100 shadow-sm p-[2px] bg-white">
-                <img
-                  src={user ? getProfileImage(user) : DEFAULT_AVATAR}
-                  onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
-                  className="w-full h-full rounded-full object-cover bg-gray-50"
-                  alt="Your Story"
-                />
+              <div
+                onClick={() =>
+                  myStoriesData ? handleOpen(myStoriesData) : navigate("/add-story")
+                }
+                className={`p-[2px] rounded-full transition-colors duration-500 cursor-pointer ${
+                  myStoriesData
+                    ? myStoriesSeen
+                      ? "bg-gray-200"
+                      : "bg-gradient-to-tr from-yellow-400 via-red-500 to-fuchsia-600"
+                    : "bg-transparent border-2 border-gray-100 shadow-sm"
+                }`}
+              >
+                <div className="bg-white p-[2px] rounded-full w-16 h-16 sm:w-20 sm:h-20 overflow-hidden">
+                  <img
+                    src={user ? getProfileImage(user) : DEFAULT_AVATAR}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = DEFAULT_AVATAR;
+                    }}
+                    className="w-full h-full rounded-full object-cover bg-gray-50"
+                    alt="Your Story"
+                  />
+                </div>
               </div>
-              <div className="absolute bottom-0 right-0 bg-blue-600 w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] rounded-full text-white flex items-center justify-center text-lg font-bold border-2 border-white shadow-md group-hover:bg-blue-700 transition-colors">
+
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/add-story");
+                }}
+                className="absolute bottom-0 right-0 bg-blue-600 w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] rounded-full text-white flex items-center justify-center text-lg font-bold border-2 border-white shadow-md hover:bg-blue-700 transition-colors cursor-pointer z-10"
+              >
                 +
               </div>
             </div>
-            <p className="text-[10px] sm:text-[11px] mt-1.5 font-semibold text-gray-400 truncate w-full text-center">
+            <p className="text-[10px] sm:text-[11px] mt-1.5 font-semibold text-gray-800 truncate w-full text-center">
               Your Story
             </p>
           </div>
 
-          {/* 🔥 USERS STORIES */}
-          {users.map((u) => {
+          {/* Other Users */}
+          {otherUsersStories.map((u) => {
             const isSeen = seenUsers.includes(u.user._id);
 
             return (
@@ -102,7 +143,10 @@ function Stories() {
                     <div className="bg-white p-[2px] rounded-full w-16 h-16 sm:w-20 sm:h-20">
                       <img
                         src={u.user ? getProfileImage(u.user) : DEFAULT_AVATAR}
-                        onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = DEFAULT_AVATAR;
+                        }}
                         className="w-full h-full rounded-full object-cover bg-gray-50"
                         alt={u.user?.username || "User"}
                       />
@@ -112,8 +156,15 @@ function Stories() {
 
                 <div className="flex flex-row items-center justify-center mt-1.5 w-full px-1">
                   <p className="text-[10px] sm:text-[11px] font-bold text-gray-700 truncate text-center flex items-center gap-0.5 max-w-full">
-                    <span className="truncate">{u.user?.username || "User"}</span>
-                    {u.user?.role && <RoleBadge role={u.user.role} className="scale-[0.7] origin-left" />}
+                    <span className="truncate">
+                      {u.user?.username || "User"}
+                    </span>
+                    {u.user?.role && (
+                      <RoleBadge
+                        role={u.user.role}
+                        className="scale-[0.7] origin-left"
+                      />
+                    )}
                   </p>
                 </div>
               </div>
@@ -122,12 +173,14 @@ function Stories() {
         </div>
       </div>
 
-      {/* 🔥 STORY VIEWER MODAL */}
       {activeStories && (
         <StoryViewer
           stories={activeStories}
           currentIndex={startIndex}
-          onClose={() => setActiveStories(null)}
+          onClose={() => {
+            setActiveStories(null);
+            fetchStories();
+          }}
         />
       )}
     </>
