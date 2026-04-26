@@ -262,7 +262,7 @@ function AddStory() {
         textColor === "white" || textColor === "#eab308"
           ? "black"
           : "white";
-      style.padding = "8px 16px";
+      style.padding = "4px 16px";
       style.borderRadius = "12px";
       style.boxDecorationBreak = "clone";
       style.WebkitBoxDecorationBreak = "clone";
@@ -475,15 +475,14 @@ function AddStory() {
                   style={{ WebkitAppearance: 'none', transformOrigin: 'center' }}
                 />
               </div>
-              <div 
-                contentEditable
-                suppressContentEditableWarning
-                onInput={(e) => setText(e.currentTarget.textContent)}
-                className={`bg-transparent outline-none border-none min-w-[20px] empty:before:content-['Type_something...'] empty:before:opacity-50 cursor-text px-6 py-3 whitespace-pre-wrap break-words text-center inline-block max-w-[90%] ${textFont}`}
+              <textarea 
+                autoFocus 
+                value={text} 
+                onChange={(e) => setText(e.target.value)} 
+                placeholder="Type something..."
+                className={`bg-transparent outline-none border-none resize-none overflow-hidden text-center w-full max-w-[90vw] ${textFont}`}
                 style={getDynamicStyles(true)}
-              >
-                {text}
-              </div>
+              />
             </div>
             
             <div className="flex flex-col items-center gap-8 mb-10 pointer-events-auto">
