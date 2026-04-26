@@ -6,16 +6,35 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      sparse: true,   // 🔥 FIX (prevents null duplicate error)
+      sparse: true,
     },
 
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+    },
 
     name: String,
-    bio: String,
-    image: String,
-    gender: String,
+    bio: {
+      type: String,
+      default: "",
+    },
+
+    image: {
+      type: String,
+      default: "",
+    },
+
+    gender: {
+      type: String,
+      default: "Prefer not to say",
+    },
 
     role: {
       type: String,
@@ -23,18 +42,61 @@ const userSchema = new mongoose.Schema(
       default: "student",
     },
 
-    registerOTP: { type: String, default: null }, // 🔥 ADD THIS
-    resetOTP: { type: String, default: null },
-    otpExpires: { type: Date, default: null },
+  
+    registerOTP: {
+      type: String,
+      default: null,
+    },
 
-    isPrivate: { type: Boolean, default: false },
+    resetOTP: {
+      type: String,
+      default: null,
+    },
 
-    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    otpExpires: {
+      type: Date,
+      default: null,
+    },
 
-    savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
+    
+    isPrivate: {
+      type: Boolean,
+      default: false,
+    },
+
+  
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+  
+    followRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    savedPosts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+      },
+    ],
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model("User", userSchema);

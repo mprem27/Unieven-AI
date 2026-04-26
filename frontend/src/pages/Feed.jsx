@@ -80,11 +80,13 @@ function Feed() {
         setStories(storiesRes.value?.users || storiesRes.value?.data || []);
       }
       
-      // 🔥 SHUFFLE FOR SUGGESTIONS:
-      // Randomize the users so different people show up every time you refresh
+      // ✅ EXACT FIX: Filter current user + already connected users
       if (usersRes.status === "fulfilled") {
         const allSuggestions = usersRes.value?.users || usersRes.value?.data || [];
-        setSuggestedUsers(shuffleArray(allSuggestions)); 
+        const filteredSuggestions = allSuggestions.filter(
+          (u) => u._id !== user?._id && !user?.following?.includes(u._id)
+        );
+        setSuggestedUsers(shuffleArray(filteredSuggestions)); 
       }
       
     } catch (err) {
@@ -184,7 +186,14 @@ function Feed() {
 
         <div className="flex flex-col items-center gap-6 w-full max-w-[400px] px-2 sm:px-0">
           
-          {posts.length === 0 && suggestedUsers.length > 0 && <Suggestions users={suggestedUsers} />}
+          {/* ✅ EXACT FIX: Added onRefreshSuggestions callback */}
+          {posts.length === 0 && suggestedUsers.length > 0 && (
+            <Suggestions 
+              users={suggestedUsers} 
+              currentUser={user} 
+              onRefreshSuggestions={loadFeedData} 
+            />
+          )}
 
           {posts.map((post, index) => {
             const isLiked = post.likes?.includes(user?._id);
@@ -355,7 +364,16 @@ function Feed() {
                   </div>
                 </div>
 
-                {index === 0 && suggestedUsers.length > 0 && <div className="w-full py-2"><Suggestions users={suggestedUsers} /></div>}
+                {/* ✅ EXACT FIX: Added onRefreshSuggestions callback */}
+                {index === 0 && suggestedUsers.length > 0 && (
+                  <div className="w-full py-2">
+                    <Suggestions 
+                      users={suggestedUsers} 
+                      currentUser={user} 
+                      onRefreshSuggestions={loadFeedData} 
+                    />
+                  </div>
+                )}
               </React.Fragment>
             );
           })}

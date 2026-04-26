@@ -1,16 +1,18 @@
 import userModel from "../models/User.js";
 import postModel from "../models/Post.js";
+import followModel from "../models/Follow.js";
 import { v2 as cloudinary } from "cloudinary";
 
 
-// --- 1. GET USER PROFILE ---
+//  1. GET USER PROFILE (FULLY FIXED)
 export const getUserProfile = async (req, res) => {
   try {
     const { username } = req.params;
 
+    //  Find target profile
     const user = await userModel
       .findOne({ username: username.toLowerCase() })
-      .select("-password -resetOTP -otpExpires"); // ✅ includes role automatically
+      .select("-password -resetOTP -otpExpires");
 
     if (!user) {
       return res.status(404).json({
@@ -19,13 +21,45 @@ export const getUserProfile = async (req, res) => {
       });
     }
 
-    res.json({ success: true, user });
+    
+    //  FOLLOW STATE CHECK (IMPORTANT FIX)
+    let isFollowing = false;
+    let isRequested = false;
+
+    if (req.user?.id) {
+      const followRelation = await followModel.findOne({
+        from: req.user.id,
+        to: user._id,
+      });
+
+      if (followRelation?.status === "accepted") {
+        isFollowing = true;
+      } else if (followRelation?.status === "requested") {
+        isRequested = true;
+      }
+    }
+
+    //  RESPONSE WITH STATE
+    return res.json({
+      success: true,
+      user: {
+        ...user._doc,
+        isFollowing,
+        isRequested,
+      },
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("GET PROFILE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
+// 2. UPDATE USER PROFILE
 
 export const updateUserProfile = async (req, res) => {
   try {
@@ -41,7 +75,7 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
-    // ✅ USERNAME UNIQUE CHECK
+    //  USERNAME UNIQUE CHECK
     if (username && username.toLowerCase() !== user.username) {
       const exists = await userModel.findOne({
         username: username.toLowerCase(),
@@ -58,39 +92,41 @@ export const updateUserProfile = async (req, res) => {
       user.username = username.toLowerCase();
     }
 
-    // ✅ SAFE FIELD UPDATES
+    //  SAFE FIELD UPDATES
     if (name) user.name = name;
     if (bio !== undefined) user.bio = bio;
     if (gender) user.gender = gender;
 
-    // 🔥 FIX BOOLEAN (IMPORTANT)
+    //  FIX BOOLEAN PRIVATE MODE
     if (isPrivate !== undefined) {
       user.isPrivate =
-        isPrivate === "true" || isPrivate === true;
+        isPrivate === true || isPrivate === "true";
     }
 
-    
- if (imageFile && imageFile.path) {
-  try {
-    
-    const fixedPath = imageFile.path.replace(/\\/g, "/");
+    // IMAGE UPLOAD
+    if (imageFile && imageFile.path) {
+      try {
+        const fixedPath = imageFile.path.replace(/\\/g, "/");
 
-    const uploadRes = await cloudinary.uploader.upload(fixedPath);
+        const uploadRes = await cloudinary.uploader.upload(
+          fixedPath
+        );
 
-    user.image = uploadRes.secure_url;
+        user.image = uploadRes.secure_url;
 
-  } catch (err) {
-    console.error("Cloudinary Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Image upload failed",
-    });
-  }
-}
+      } catch (err) {
+        console.error("Cloudinary Error:", err);
+
+        return res.status(500).json({
+          success: false,
+          message: "Image upload failed",
+        });
+      }
+    }
 
     await user.save();
 
-    res.json({
+    return res.json({
       success: true,
       message: "Profile updated",
       user,
@@ -98,14 +134,15 @@ export const updateUserProfile = async (req, res) => {
 
   } catch (error) {
     console.error("UPDATE ERROR:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
 
-// --- 3. GET USER POSTS ---
+// 3. GET USER POSTS
 export const getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -113,17 +150,23 @@ export const getUserPosts = async (req, res) => {
     const posts = await postModel
       .find({ user: userId })
       .sort({ createdAt: -1 })
-      .populate("user", "username image role"); // 🔥 FIX
+      .populate("user", "username image role");
 
-    res.json({ success: true, posts });
+    return res.json({
+      success: true,
+      posts,
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
+//  4. GET SAVED POSTS
 
-// --- 4. GET SAVED POSTS ---
 export const getSavedPosts = async (req, res) => {
   try {
     const user = await userModel
@@ -132,7 +175,7 @@ export const getSavedPosts = async (req, res) => {
         path: "savedPosts",
         populate: {
           path: "user",
-          select: "username image role", // 🔥 FIX
+          select: "username image role",
         },
       });
 
@@ -143,24 +186,31 @@ export const getSavedPosts = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       savedPosts: user.savedPosts,
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
 
-// --- 5. SEARCH USERS ---
+//  5. SEARCH USERS
+
 export const searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
 
     if (!query || query.trim() === "") {
-      return res.json({ success: true, users: [] });
+      return res.json({
+        success: true,
+        users: [],
+      });
     }
 
     const users = await userModel
@@ -170,18 +220,23 @@ export const searchUsers = async (req, res) => {
           { name: { $regex: query, $options: "i" } },
         ],
       })
-      .select("username name image role") // ✅ already correct
+      .select("username name image role")
       .limit(10);
 
-    res.json({ success: true, users });
+    return res.json({
+      success: true,
+      users,
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-
-// --- 6. CHECK USERNAME AVAILABILITY ---
+//  6. CHECK USERNAME AVAILABILITY
 export const checkUsernameAvailability = async (req, res) => {
   try {
     const { username } = req.query;
@@ -197,36 +252,41 @@ export const checkUsernameAvailability = async (req, res) => {
       username: username.toLowerCase(),
     });
 
-    res.json({
+    return res.json({
       success: true,
       available: !existingUser,
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
 
-// 🔥 SUGGEST USERS
+//  7. SUGGEST USERS
 export const getSuggestedUsers = async (req, res) => {
   try {
     const currentUserId = req.user.id;
 
     const users = await userModel
-      .find({ _id: { $ne: currentUserId } })
+      .find({
+        _id: { $ne: currentUserId },
+      })
       .select("username image role")
       .limit(10)
       .sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       users,
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
