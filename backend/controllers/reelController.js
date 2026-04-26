@@ -2,8 +2,6 @@ import reelModel from "../models/Reel.js";
 import commentModel from "../models/Comment.js";
 import { v2 as cloudinary } from "cloudinary";
 
-
-// --- 1. CREATE REEL ---
 export const createReel = async (req, res) => {
   try {
     const { caption } = req.body;
@@ -39,18 +37,16 @@ export const createReel = async (req, res) => {
   }
 };
 
-
-// --- 2. GET REELS ---
 export const getReels = async (req, res) => {
   try {
     const reels = await reelModel
       .find({})
-      .populate("user", "username image role") // ✅ role added
+      .populate("user", "username image role")
       .populate({
         path: "comments",
         populate: {
           path: "user",
-          select: "username image role", // 🔥 FIX
+          select: "username image role",
         },
       })
       .sort({ createdAt: -1 });
@@ -62,8 +58,6 @@ export const getReels = async (req, res) => {
   }
 };
 
-
-// --- 3. LIKE / UNLIKE REEL ---
 export const likeReel = async (req, res) => {
   try {
     const reel = await reelModel.findById(req.params.id);
@@ -91,8 +85,6 @@ export const likeReel = async (req, res) => {
   }
 };
 
-
-// --- 4. ADD COMMENT TO REEL ---
 export const addCommentToReel = async (req, res) => {
   try {
     const { text } = req.body;
@@ -122,7 +114,6 @@ export const addCommentToReel = async (req, res) => {
       $push: { comments: comment._id },
     });
 
-    // 🔥 RETURN COMMENT WITH USER + ROLE
     const populatedComment = await comment.populate(
       "user",
       "username image role"
@@ -139,8 +130,6 @@ export const addCommentToReel = async (req, res) => {
   }
 };
 
-
-// --- 5. INCREMENT VIEWS ---
 export const incrementViews = async (req, res) => {
   try {
     const reel = await reelModel.findById(req.params.id);
@@ -166,5 +155,48 @@ export const incrementViews = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteReel = async (req, res) => {
+  try {
+    const reel = await reelModel.findById(req.params.id);
+
+    if (!reel) {
+      return res.status(404).json({
+        success: false,
+        message: "Reel not found",
+      });
+    }
+
+    if (reel.user.toString() !== req.user.id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (reel.video) {
+      try {
+        const publicId = reel.video.split("/").pop().split(".")[0];
+        await cloudinary.uploader.destroy(`unieven_reels/${publicId}`, { resource_type: "video" });
+      } catch (err) {
+        console.log("Cloudinary delete error:", err.message);
+      }
+    }
+
+    await commentModel.deleteMany({ reel: reel._id });
+    await reelModel.findByIdAndDelete(reel._id);
+
+    res.json({
+      success: true,
+      message: "Reel deleted successfully",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

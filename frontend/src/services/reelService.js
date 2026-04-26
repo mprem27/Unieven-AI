@@ -1,8 +1,5 @@
 import API from "../api/axios";
 
-/**
- * 🎬 GET ALL REELS
- */
 export const getReels = async () => {
   try {
     const { data } = await API.get("/reels");
@@ -12,9 +9,6 @@ export const getReels = async () => {
   }
 };
 
-/**
- * 📤 CREATE REEL
- */
 export const createReel = async (formData) => {
   try {
     const { data } = await API.post("/reels/create", formData);
@@ -24,9 +18,6 @@ export const createReel = async (formData) => {
   }
 };
 
-/**
- * ❤️ LIKE / UNLIKE
- */
 export const likeReel = async (id) => {
   try {
     const { data } = await API.post(`/reels/like/${id}`);
@@ -36,9 +27,6 @@ export const likeReel = async (id) => {
   }
 };
 
-/**
- * 💬 COMMENT
- */
 export const addCommentToReel = async (id, text) => {
   try {
     const { data } = await API.post(`/reels/comment/${id}`, { text });
@@ -48,14 +36,20 @@ export const addCommentToReel = async (id, text) => {
   }
 };
 
-/**
- * 👁️ VIEW
- */
 export const viewReel = async (id) => {
   try {
     const { data } = await API.post(`/reels/view/${id}`);
     return data;
   } catch (error) {
     throw error.response?.data || { message: "Failed to update views" };
+  }
+};
+
+export const deleteReel = async (id) => {
+  try {
+    const { data } = await API.delete(`/reels/${id}`);
+    return data;
+  } catch (error) {
+    throw error.response?.data || { message: "Failed to delete reel" };
   }
 };

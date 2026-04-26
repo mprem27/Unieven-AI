@@ -4,7 +4,7 @@ import Stories from "../components/Stories";
 import CommentsModal from "../components/CommentsModal";
 import ShareModal from "../components/ShareModal";
 import { getFeed, likePost, deletePost, savePost, unsavePost } from "../services/postService"; 
-import { getReels, likeReel } from "../services/reelService"; 
+import { getReels, likeReel, deleteReel } from "../services/reelService";
 import { getStories } from "../services/storyService";
 import { getSuggestedUsers } from "../services/userService";
 import Suggestions from "../components/Suggestions";
@@ -14,9 +14,18 @@ import { toast } from "react-toastify";
 import { getProfileImage } from "../utils/getProfileImage";
 import RoleBadge from "../components/RoleBadge";
 import { useAuth } from "../context/AuthContext";
-import { FaTicketAlt, FaBookmark, FaRegBookmark, FaCalendarAlt, FaMapMarkerAlt, FaFlag, FaTrash } from "react-icons/fa";
+import { 
+  FaTicketAlt, 
+  FaBookmark, 
+  FaRegBookmark, 
+  FaCalendarAlt, 
+  FaMapMarkerAlt, 
+  FaFlag, 
+  FaTrash,
+  FaVolumeMute, 
+  FaVolumeUp 
+} from "react-icons/fa";
 
-// ✅ Helper function to randomly shuffle an array
 const shuffleArray = (array) => {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -39,8 +48,15 @@ function Feed() {
   const [openShare, setOpenShare] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [expandedEvents, setExpandedEvents] = useState({});
+  
+  // Custom Delete Modal States
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [mutedVideos, setMutedVideos] = useState({});
 
   const clickTimeouts = useRef({});
+  const videoRefs = useRef({});
 
   const loadFeedData = async () => {
     try {
@@ -63,24 +79,29 @@ function Feed() {
         isSaved: r.savedBy?.includes(user?._id) || false
       }));
 
-      // 1. Sort strictly by date first
       const sortedFeed = [...fetchedPosts, ...fetchedReels].sort((a, b) => 
         new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now())
       );
 
-      // 🔥 SMART SHUFFLE FOR FEED:
-      // Keep the 2 most recent posts at the top, shuffle the rest to make the feed feel "alive"
       const recentPosts = sortedFeed.slice(0, 2);
       const olderPosts = sortedFeed.slice(2);
       const shuffledOlderPosts = shuffleArray(olderPosts);
       
-      setPosts([...recentPosts, ...shuffledOlderPosts]);
+      const combinedFeed = [...recentPosts, ...shuffledOlderPosts];
+      setPosts(combinedFeed);
+
+      const initialMuteState = {};
+      combinedFeed.forEach(post => {
+        if (post.type === "video" || post.feedItemType === "reel") {
+          initialMuteState[post._id] = true;
+        }
+      });
+      setMutedVideos(initialMuteState);
       
       if (storiesRes.status === "fulfilled") {
         setStories(storiesRes.value?.users || storiesRes.value?.data || []);
       }
       
-      // ✅ EXACT FIX: Filter current user + already connected users
       if (usersRes.status === "fulfilled") {
         const allSuggestions = usersRes.value?.users || usersRes.value?.data || [];
         const filteredSuggestions = allSuggestions.filter(
@@ -160,21 +181,45 @@ function Feed() {
     }
   };
 
-  const handleDeleteItem = async (itemId) => {
-    if (!window.confirm("Are you sure you want to remove this?")) return;
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
+    
     try {
-      await deletePost(itemId);
-      setPosts((prev) => prev.filter((p) => p._id !== itemId));
-      toast.success("Removed successfully");
+      if (itemToDelete.feedItemType === "reel") {
+        await deleteReel(itemToDelete._id);
+      } else {
+        await deletePost(itemToDelete._id);
+      }
+      setPosts((prev) => prev.filter((p) => p._id !== itemToDelete._id));
+      
+      const typeName = itemToDelete.feedItemType === "reel" ? "Reel" : (itemToDelete.isEvent ? "Event" : "Post");
+      toast.success(`${typeName} deleted successfully!`);
+      
     } catch (error) {
-      toast.error("Failed to remove");
+      toast.error("Failed to delete item.");
     } finally {
-      setOpenMenuId(null); 
+      setIsDeleting(false);
+      setItemToDelete(null); 
     }
   };
 
   const toggleEventExpand = (id) => {
     setExpandedEvents(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleMute = (e, postId) => {
+    e.stopPropagation(); 
+    setMutedVideos((prev) => {
+      const newMutedState = !prev[postId];
+      if (videoRefs.current[postId]) {
+        videoRefs.current[postId].muted = newMutedState;
+      }
+      return {
+        ...prev,
+        [postId]: newMutedState
+      };
+    });
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen bg-[#fafafa]"><Loader size="40px" color="#3b82f6" /></div>;
@@ -186,7 +231,6 @@ function Feed() {
 
         <div className="flex flex-col items-center gap-6 w-full max-w-[400px] px-2 sm:px-0">
           
-          {/* ✅ EXACT FIX: Added onRefreshSuggestions callback */}
           {posts.length === 0 && suggestedUsers.length > 0 && (
             <Suggestions 
               users={suggestedUsers} 
@@ -200,12 +244,13 @@ function Feed() {
             const isSaved = post.isSaved;
             const isEventPost = post.isEvent === true || post.isEvent === "true";
             const isExpanded = expandedEvents[post._id];
+            
+            const isThisVideoMuted = mutedVideos[post._id] !== false; 
 
             return (
               <React.Fragment key={post._id}>
                 <div className="bg-white w-full border border-gray-200 rounded-[16px] overflow-hidden shadow-sm relative">
                   
-                  {/* HEADER */}
                   <div className="flex justify-between items-center px-4 py-3">
                     <div className="flex gap-3 items-center">
                       <Link to={`/user/${encodeURIComponent(post.user?.username || "")}`}>
@@ -244,7 +289,10 @@ function Feed() {
                                <FaFlag className="text-[12px]"/> Report
                              </button>
                              {user?._id === post.user?._id && (
-                               <button onClick={() => handleDeleteItem(post._id)} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-red-500 transition-colors">
+                               <button 
+                                 onClick={() => { setItemToDelete(post); setOpenMenuId(null); }} 
+                                 className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-red-500 transition-colors"
+                               >
                                  <FaTrash className="text-[12px]"/> Delete
                                </button>
                              )}
@@ -257,33 +305,42 @@ function Feed() {
                     </div>
                   </div>
 
-                  {/* MEDIA */}
                   <div 
                     onClick={() => handleMediaClick(post)} 
                     className={`relative bg-black w-full h-[400px] sm:h-[480px] flex items-center justify-center overflow-hidden ${post.feedItemType === "reel" ? "cursor-pointer" : ""}`}
                   >
-                    {post.type === "video" ? (
-                      <video src={post.media} className="w-full h-full object-contain pointer-events-none" autoPlay loop muted playsInline />
+                    {post.type === "video" || post.feedItemType === "reel" ? (
+                      <>
+                        <video 
+                          ref={(el) => (videoRefs.current[post._id] = el)}
+                          src={post.media} 
+                          className="w-full h-full object-contain pointer-events-none" 
+                          autoPlay 
+                          loop 
+                          muted={isThisVideoMuted} 
+                          playsInline 
+                        />
+                        <button
+                          onClick={(e) => toggleMute(e, post._id)}
+                          className="absolute bottom-3 right-3 z-40 bg-black/60 backdrop-blur-sm p-2 rounded-full text-white hover:scale-110 transition-transform"
+                        >
+                          {isThisVideoMuted ? <FaVolumeMute size={14} /> : <FaVolumeUp size={14} />}
+                        </button>
+                      </>
                     ) : (
                       <img src={post.media} className="w-full h-full object-contain pointer-events-none" alt="" />
                     )}
                     
-                    {post.overlayText && (
+                    {(post.overlayText || post.text) && (
                       <div 
-                        className={`absolute z-30 px-4 py-2 ${isEventPost ? "cursor-pointer hover:scale-105 transition-transform" : "pointer-events-none"}`}
-                        onClick={(e) => {
-                          if (isEventPost) {
-                            e.stopPropagation();
-                            navigate("/events");
-                          }
-                        }}
+                        className={`absolute z-30 px-4 py-2 pointer-events-none`}
                         style={{
                           top: "50%", left: "50%",
-                          transform: `translate(calc(-50% + ${post.overlayX || 0}px), calc(-50% + ${post.overlayY || 0}px))`
+                          transform: `translate(calc(-50% + ${post.textX || post.overlayX || 0}px), calc(-50% + ${post.textY || post.overlayY || 0}px))`
                         }}
                       >
-                        <p className={`text-center text-3xl text-white font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] whitespace-nowrap ${post.overlayFont || "font-sans"}`}>
-                          {post.overlayText}
+                        <p className={`text-center text-3xl font-bold whitespace-nowrap drop-shadow-md ${post.textFont || post.overlayFont || "font-sans"}`} style={{ color: post.textColor || "white" }}>
+                          {post.overlayText || post.text}
                         </p>
                       </div>
                     )}
@@ -295,7 +352,6 @@ function Feed() {
                     )}
                   </div>
 
-                  {/* ACTIONS */}
                   <div className="flex justify-between px-4 pt-3 pb-2">
                     <div className="flex gap-4 items-center">
                       <img 
@@ -322,7 +378,6 @@ function Feed() {
                     </button>
                   </div>
 
-                  {/* INFO */}
                   <div className="px-4 pb-4">
                     <p className="font-bold text-[13px] mb-1.5">{post.likes?.length || 0} likes</p>
                     <div className={`text-[13px] leading-snug ${!isExpanded && isEventPost ? 'line-clamp-2' : ''}`}>
@@ -364,7 +419,6 @@ function Feed() {
                   </div>
                 </div>
 
-                {/* ✅ EXACT FIX: Added onRefreshSuggestions callback */}
                 {index === 0 && suggestedUsers.length > 0 && (
                   <div className="w-full py-2">
                     <Suggestions 
@@ -382,6 +436,42 @@ function Feed() {
 
       {activePost && <CommentsModal item={activePost} type={activePost.feedItemType === "reel" ? "reel" : "post"} onClose={() => setActivePost(null)} onSync={(updated) => setPosts(prev => prev.map(p => p._id === updated._id ? { ...p, comments: updated.comments } : p))} />}
       {openShare && <ShareModal post={openShare} onClose={() => setOpenShare(null)} />}
+      
+      {/* ✅ CUSTOM DELETE CONFIRMATION MODAL */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-[320px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center flex flex-col items-center">
+              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                <FaTrash className="text-red-500 text-xl" />
+              </div>
+              <h3 className="text-[18px] font-black text-gray-900 mb-2 tracking-tight capitalize">
+                Delete {itemToDelete.feedItemType === "reel" ? "Reel" : (itemToDelete.isEvent ? "Event" : "Post")}?
+              </h3>
+              <p className="text-[13px] text-gray-500 font-medium mb-6 leading-relaxed px-2">
+                Are you sure you want to permanently remove this <span className="lowercase font-bold">{itemToDelete.feedItemType === "reel" ? "reel" : (itemToDelete.isEvent ? "event" : "post")}</span> from your profile? This action cannot be undone.
+              </p>
+              
+              <div className="flex gap-3 w-full">
+                <button 
+                  onClick={() => setItemToDelete(null)}
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors shadow-md shadow-red-500/20 disabled:opacity-50 flex justify-center items-center"
+                >
+                  {isDeleting ? <Loader size="16px" color="#fff" /> : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
