@@ -24,27 +24,6 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
     }
   };
 
-  // ✅ FIXED: Using { capture: true } ensures the event is caught even if other elements stop propagation
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (isOpen && buttonRef.current && !buttonRef.current.contains(e.target)) {
-        if (typeof onClick === "function") {
-          onClick();
-        }
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside, { capture: true });
-      document.addEventListener("touchstart", handleClickOutside, { capture: true });
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside, { capture: true });
-      document.removeEventListener("touchstart", handleClickOutside, { capture: true });
-    };
-  }, [isOpen, onClick]);
-
   useEffect(() => {
     positionRef.current = position;
   }, [position]);
@@ -82,9 +61,9 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
       let newX = clientX - offset.current.x;
       let newY = clientY - offset.current.y;
 
-      // Constraints to keep it within the screen while dragging
-      newX = Math.max(0, Math.min(window.innerWidth - btnSize, newX));
-      newY = Math.max(80, Math.min(window.innerHeight - btnSize - 10, newY));
+      // ✅ FIXED: Changed 80 to 5 so it can be dragged to the very top
+      newX = Math.max(5, Math.min(window.innerWidth - btnSize - 5, newX));
+      newY = Math.max(5, Math.min(window.innerHeight - btnSize - 5, newY));
 
       setPosition({ x: newX, y: newY });
     });
@@ -103,10 +82,10 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
     const currentX = positionRef.current.x;
     const currentY = positionRef.current.y;
 
-    // Left/Right edge snapping logic
+    // ✅ FIXED: Changed paddingTop to 5 so it snaps cleanly to the top corners
     const paddingX = 5; 
-    const paddingTop = 80; 
-    const paddingBottom = 40; 
+    const paddingTop = 5; 
+    const paddingBottom = 5; 
 
     const snapX = currentX < screenWidth / 2 ? paddingX : screenWidth - btnSize - paddingX;
     const snapY = Math.max(paddingTop, Math.min(screenHeight - btnSize - paddingBottom, currentY));
@@ -174,19 +153,31 @@ const FloatingSidebarButton = ({ onClick, setMenuPosition, isOpen }) => {
         fixed z-[9999]
         w-14 h-14
         rounded-full
-        backdrop-blur-2xl
-        bg-white/60
-        border-2 border-white/50
-        shadow-[0_8px_32px_rgba(0,0,0,0.2)]
+        backdrop-blur-xl
+        border-2 border-white/60
         flex items-center justify-center
-        text-gray-900 text-xl
-        active:scale-90
-        ${isDragging ? "transition-none scale-110 shadow-[0_0_20px_rgba(255,255,255,0.4)]" : "transition-all duration-500 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]"}
-        ${isIdle && !isOpen ? "opacity-30 scale-90 blur-[1px]" : "opacity-100 scale-100 blur-0"}
+        text-gray-900 text-xl cursor-pointer
+        outline-none
+        ${isDragging 
+          ? "transition-none scale-110 bg-white/80 shadow-[0_15px_40px_rgba(0,0,0,0.15)]" 
+          : "transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_8px_25px_rgba(0,0,0,0.1)] bg-white/50 hover:bg-white/70"
+        }
+        ${!isDragging && !isIdle ? "hover:scale-105 active:scale-95" : ""}
+        ${isIdle && !isOpen ? "opacity-40 scale-90 blur-[1px]" : "opacity-100 blur-0"}
       `}
     >
-      <div className={`transition-transform duration-300 ${isOpen ? "rotate-90" : "rotate-0"}`}>
-        {isOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
+      <div 
+        className={`absolute transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+        ${isOpen ? "opacity-100 rotate-90 scale-100" : "opacity-0 -rotate-90 scale-50"}`}
+      >
+        <FaTimes size={20} className="text-gray-800 drop-shadow-sm" />
+      </div>
+
+      <div 
+        className={`absolute transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+        ${!isOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 rotate-90 scale-50"}`}
+      >
+        <FaBars size={20} className="text-gray-800 drop-shadow-sm" />
       </div>
     </button>
   );
