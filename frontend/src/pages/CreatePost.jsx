@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { createPost } from "../services/postService";
@@ -10,10 +10,24 @@ import {
   FaFont, FaUserTag, FaMagic
 } from "react-icons/fa";
 
+// 🔥 STEP 1: ADD FONT MAP
+const fontMap = {
+  classic: "font-sans font-bold",
+  typewriter: "font-serif italic",
+  modern: "font-mono uppercase tracking-widest",
+  impact: "font-black uppercase tracking-tight",
+  cursive: "font-[cursive]",
+  marker: "font-[fantasy] tracking-wide",
+  sleek: "font-sans font-light tracking-[0.3em] uppercase",
+};
+
 function CreatePost() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  
+  // 🔥 STEP 4: ADD previewRef
+  const previewRef = useRef(null);
 
   // States
   const [file, setFile] = useState(null);
@@ -23,14 +37,19 @@ function CreatePost() {
 
   // Form Data States
   const [caption, setCaption] = useState("");
-  const [overlayText, setOverlayText] = useState("");
-  const [overlayFont, setOverlayFont] = useState("font-sans");
-  const [overlayColor, setOverlayColor] = useState("#ffffff");
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState("");
   const [mentions, setMentions] = useState(""); 
   const [isPublic, setIsPublic] = useState(true); 
   const [activeFilter, setActiveFilter] = useState("none");
+  const [bgGradient, setBgGradient] = useState("from-gray-900 to-black"); // 🔥 STEP 9
+
+  // 🔥 STEP 2: CHANGE STATE NAMES
+  const [overlayText, setOverlayText] = useState("");
+  const [textFont, setTextFont] = useState("classic");
+  const [textColor, setTextColor] = useState("#ffffff");
+  const [textStyle, setTextStyle] = useState("classic");
+  const [textSize, setTextSize] = useState(42);
 
   // Draggable Text States
   const [textPos, setTextPos] = useState({ x: 0, y: 0 });
@@ -38,21 +57,62 @@ function CreatePost() {
   const dragRef = useRef({ startX: 0, startY: 0 });
 
   const fontOptions = [
-    { label: "Classic", value: "font-sans" },
-    { label: "Modern", value: "font-mono" },
-    { label: "Cursive", value: "font-[cursive]" },
-    { label: "Impact", value: "font-black uppercase" }
+    { label: "Classic", value: "classic" },
+    { label: "Typewriter", value: "typewriter" },
+    { label: "Modern", value: "modern" },
+    { label: "Impact", value: "impact" },
+    { label: "Cursive", value: "cursive" },
+    { label: "Marker", value: "marker" },
+    { label: "Sleek", value: "sleek" }
   ];
 
+  // 🔥 STEP 5: ADD TEXT STYLE OPTIONS
+  const styleOptions = [
+    "classic",
+    "highlight",
+    "neon",
+    "outline",
+    "glitch",
+    "3d-pop",
+    "elegant"
+  ];
+
+  // 🔥 STEP 8: FILTER SYSTEM UPGRADE
   const filters = [
-    { name: "none", class: "" },
-    { name: "grayscale", class: "grayscale" },
-    { name: "sepia", class: "sepia" },
-    { name: "invert", class: "invert" },
-    { name: "warm", class: "saturate-150 contrast-125 brightness-110" }
+    { name: "none", filter: "none" },
+    { name: "grayscale", filter: "grayscale(100%)" },
+    { name: "sepia", filter: "sepia(100%)" },
+    { name: "invert", filter: "invert(100%)" },
+    { name: "warm", filter: "sepia(30%) saturate(140%)" }
   ];
 
   const colors = ["#ffffff", "#000000", "#3b82f6", "#ef4444", "#22c55e", "#eab308"];
+
+  // Helper for dynamic text styles
+  const getTextStyle = () => {
+    switch (textStyle) {
+      case "highlight":
+        return { background: "rgba(0,0,0,0.45)", padding: "4px 16px", borderRadius: "14px", color: textColor === "#ffffff" ? "#fff" : textColor };
+      case "neon":
+        return { textShadow: `0 0 8px ${textColor}, 0 0 16px ${textColor}`, color: "#fff" };
+      case "outline":
+        return { WebkitTextStroke: "1.5px black", color: textColor };
+      case "glitch":
+        return { textShadow: "2px 0 red, -2px 0 cyan", color: textColor };
+      case "3d-pop":
+        return { textShadow: "3px 3px 0 rgba(0,0,0,0.5), 6px 6px 0 rgba(0,0,0,0.3)", color: textColor };
+      case "elegant":
+        return { letterSpacing: "2px", textShadow: "0px 2px 4px rgba(0,0,0,0.3)", color: textColor };
+      default:
+        return { textShadow: "0 2px 10px rgba(0,0,0,0.8)", color: textColor };
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
 
   const processFile = (selectedFile) => {
     if (selectedFile?.type.startsWith("image/")) {
@@ -86,22 +146,40 @@ function CreatePost() {
       formData.append("media", file);
       formData.append("caption", caption);
       formData.append("isPublic", isPublic);
-      formData.append("filter", activeFilter);
+      
+      const filterString = filters.find(f => f.name === activeFilter)?.filter || "none";
+      formData.append("filter", filterString);
+      formData.append("bgGradient", bgGradient);
       
       if (location.trim()) formData.append("location", location);
       if (tags.trim()) formData.append("tags", JSON.stringify(tags.split(",").map(t => t.trim())));
       if (mentions.trim()) formData.append("mentions", JSON.stringify(mentions.split(",").map(m => m.trim())));
       
+      // 🔥 STEP 1 & 3: RENAME FIELDS & NORMALIZE POSITION
       if (overlayText.trim()) {
-        formData.append("overlayText", overlayText);
-        formData.append("overlayFont", overlayFont);
-        formData.append("overlayColor", overlayColor);
-        formData.append("overlayX", textPos.x);
-        formData.append("overlayY", textPos.y);
+        let normalizedX = 0.5;
+        let normalizedY = 0.5;
+
+        if (previewRef.current) {
+          const container = previewRef.current;
+          // Constrain coordinates strictly between 0 and 1
+          normalizedX = Math.max(0, Math.min(1, (textPos.x + container.clientWidth / 2) / container.clientWidth));
+          normalizedY = Math.max(0, Math.min(1, (textPos.y + container.clientHeight / 2) / container.clientHeight));
+        }
+
+        formData.append("text", overlayText); // Storing as 'text' matching stories/reels standard
+        formData.append("overlayText", overlayText); // Keeping for legacy support
+        formData.append("textFont", textFont);
+        formData.append("textColor", textColor);
+        formData.append("textStyle", textStyle);
+        formData.append("textSize", textSize);
+        formData.append("textX", normalizedX.toFixed(4));
+        formData.append("textY", normalizedY.toFixed(4));
       }
 
       await createPost(formData);
       toast.success("Post Published! 🎉");
+      window.dispatchEvent(new Event("profileUpdated")); // Global Sync
       navigate("/profile");
     } catch (err) {
       toast.error("Upload failed.");
@@ -142,25 +220,39 @@ function CreatePost() {
                 <p className="text-[10px] sm:text-xs text-gray-400 mb-6 sm:mb-8 font-bold uppercase tracking-widest leading-relaxed">Drag and drop high-res images here</p>
                 <button onClick={() => fileInputRef.current.click()} className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs tracking-widest active:scale-95 transition-all shadow-lg shadow-blue-200">BROWSE DEVICE</button>
               </div>
-              <input type="file" ref={fileInputRef} onChange={(e) => processFile(e.target.files[0])} accept="image/*" className="hidden" />
+              <input type="file" ref={fileInputRef} onChange={(e) => processFile(e.target.files[0])} accept="image/*" className="hidden" onClick={(e) => (e.target.value = null)} />
             </div>
           ) : (
             <>
-              {/* CANVAS - Dynamic height for mobile */}
-              <div className="w-full h-[40vh] md:h-full md:w-[55%] bg-[#0a0a0a] relative flex items-center justify-center group shrink-0"
-                onMouseMove={handlePointerMove} onTouchMove={handlePointerMove} onMouseUp={() => setIsDraggingText(false)} onTouchEnd={() => setIsDraggingText(false)}>
+              {/* CANVAS */}
+              <div 
+                ref={previewRef}
+                className="w-full h-[40vh] md:h-full md:w-[55%] bg-[#0a0a0a] relative flex items-center justify-center group shrink-0 overflow-hidden"
+                onMouseMove={handlePointerMove} onTouchMove={handlePointerMove} onMouseUp={() => setIsDraggingText(false)} onTouchEnd={() => setIsDraggingText(false)}
+              >
                 
-                <img src={preview} className={`w-full h-full object-contain pointer-events-none select-none transition-all duration-500 ${activeFilter !== 'none' ? filters.find(f => f.name === activeFilter).class : ''}`} alt="Preview" />
+                <img 
+                  src={preview} 
+                  className="w-full h-full object-contain pointer-events-none select-none transition-all duration-500" 
+                  style={{ filter: filters.find(f => f.name === activeFilter)?.filter || "none" }}
+                  alt="Preview" 
+                />
                 
+                {/* 🔥 STEP 7: PREVIEW EXACTLY MATCHES FINAL */}
                 {overlayText && (
-                  <div onMouseDown={handlePointerDown} onTouchStart={handlePointerDown}
-                    className={`absolute z-20 cursor-move transition-transform duration-75 ${overlayFont}`}
+                  <div 
+                    onMouseDown={handlePointerDown} 
+                    onTouchStart={handlePointerDown}
+                    className={`absolute left-[50%] top-[50%] z-20 cursor-move transition-transform duration-75 whitespace-pre-wrap break-words text-center ${fontMap[textFont] || fontMap.classic}`}
                     style={{ 
-                      transform: `translate(${textPos.x}px, ${textPos.y}px)`, 
-                      color: overlayColor,
-                      textShadow: '0 4px 15px rgba(0,0,0,0.6)'
-                    }}>
-                    <p className="text-2xl sm:text-5xl font-black whitespace-nowrap px-4 py-2 uppercase tracking-tighter">{overlayText}</p>
+                      transform: `translate(calc(-50% + ${textPos.x}px), calc(-50% + ${textPos.y}px))`, 
+                      fontSize: `${textSize}px`,
+                      lineHeight: "1.4",
+                      maxWidth: "90%",
+                      ...getTextStyle()
+                    }}
+                  >
+                    {overlayText}
                   </div>
                 )}
 
@@ -172,9 +264,9 @@ function CreatePost() {
                 </div>
               </div>
 
-              {/* DETAILS SIDEBAR - Scrollable on mobile */}
+              {/* DETAILS SIDEBAR */}
               <div className="flex-1 h-full flex flex-col bg-white overflow-y-auto scrollbar-hide border-l border-gray-100">
-                <div className="p-4 sm:p-6 flex items-center gap-3 border-b border-gray-50">
+                <div className="p-4 sm:p-6 flex items-center gap-3 border-b border-gray-50 shrink-0">
                   <img src={getProfileImage(user)} className="w-10 h-10 rounded-xl border-2 border-gray-100 object-cover" alt="" />
                   <div>
                     <span className="font-black text-gray-900 text-xs sm:text-sm tracking-tight">{user?.username}</span>
@@ -182,7 +274,7 @@ function CreatePost() {
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 pb-12">
+                <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 pb-12 flex-1">
                   {/* CAPTION */}
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Caption</label>
@@ -200,6 +292,44 @@ function CreatePost() {
                     <p className="text-[9px] text-gray-500 font-bold mt-3 leading-relaxed tracking-wide uppercase">{isPublic ? "Visible to the campus." : "Visible to connects only."}</p>
                   </div>
 
+                  {/* TEXT OVERLAY STUDIO */}
+                  <div className="bg-neutral-900 p-5 sm:p-6 rounded-[32px] sm:rounded-[36px] space-y-4 sm:space-y-5">
+                    <label className="text-[9px] font-black text-white/50 uppercase tracking-[0.2em]">Typography Studio</label>
+                    <div className="flex items-center gap-3 bg-white/10 px-4 py-3 sm:py-4 rounded-2xl border border-white/10">
+                       <FaFont className="text-white shrink-0" size={14} />
+                       <input placeholder="TYPE ON IMAGE..." value={overlayText} onChange={(e) => setOverlayText(e.target.value)} maxLength={40} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-black tracking-widest text-white" />
+                    </div>
+                    
+                    {overlayText && (
+                      <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
+                          {fontOptions.map(f => (
+                            <button key={f.value} onClick={() => setTextFont(f.value)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textFont === f.value ? "bg-white text-black" : "bg-white/10 text-white"}`}>{f.label}</button>
+                          ))}
+                        </div>
+                        
+                        {/* 🔥 STEP 5: TEXT STYLES */}
+                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
+                          {styleOptions.map(s => (
+                            <button key={s} onClick={() => setTextStyle(s)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textStyle === s ? "bg-blue-500 text-white" : "bg-white/10 text-white"}`}>{s.replace("-", " ")}</button>
+                          ))}
+                        </div>
+
+                        {/* 🔥 STEP 6: TEXT SIZE */}
+                        <div className="pt-2 flex items-center gap-3">
+                           <span className="text-[9px] text-white/50 font-black uppercase">Size</span>
+                           <input type="range" min="16" max="80" value={textSize} onChange={(e) => setTextSize(Number(e.target.value))} className="w-full accent-blue-500" />
+                        </div>
+
+                        <div className="flex gap-3 justify-center pt-3 border-t border-white/5 mt-2">
+                          {colors.map(c => (
+                            <button key={c} onClick={() => setTextColor(c)} className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-4 transition-transform active:scale-75 ${textColor === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-60 hover:opacity-100"}`} style={{ backgroundColor: c }}></button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* INPUTS */}
                   <div className="grid grid-cols-1 gap-3 sm:gap-4">
                     <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 sm:py-4 rounded-2xl border border-gray-100 focus-within:bg-white transition-all">
@@ -208,37 +338,14 @@ function CreatePost() {
                     </div>
                     <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 sm:py-4 rounded-2xl border border-gray-100 focus-within:bg-white transition-all">
                        <FaHashtag className="text-gray-900" size={14} />
-                       <input placeholder="TAGS" value={tags} onChange={(e) => setTags(e.target.value)} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-bold uppercase tracking-widest" />
+                       <input placeholder="TAGS (comma separated)" value={tags} onChange={(e) => setTags(e.target.value)} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-bold uppercase tracking-widest" />
                     </div>
                     <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 sm:py-4 rounded-2xl border border-gray-100 focus-within:bg-white transition-all">
                        <FaUserTag className="text-gray-900" size={14} />
-                       <input placeholder="MENTIONS" value={mentions} onChange={(e) => setMentions(e.target.value)} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-bold uppercase tracking-widest" />
+                       <input placeholder="MENTIONS (comma separated)" value={mentions} onChange={(e) => setMentions(e.target.value)} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-bold uppercase tracking-widest" />
                     </div>
                   </div>
 
-                  {/* TEXT OVERLAY STUDIO */}
-                  <div className="bg-neutral-900 p-5 sm:p-6 rounded-[32px] sm:rounded-[36px] space-y-4 sm:space-y-5">
-                    <label className="text-[9px] font-black text-white/50 uppercase tracking-[0.2em]">Typography Studio</label>
-                    <div className="flex items-center gap-3 bg-white/10 px-4 py-3 sm:py-4 rounded-2xl border border-white/10">
-                       <FaFont className="text-white" size={14} />
-                       <input placeholder="TYPE ON IMAGE..." value={overlayText} onChange={(e) => setOverlayText(e.target.value)} maxLength={20} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-black tracking-widest text-white" />
-                    </div>
-                    
-                    {overlayText && (
-                      <div className="space-y-4">
-                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
-                          {fontOptions.map(f => (
-                            <button key={f.value} onClick={() => setOverlayFont(f.value)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${overlayFont === f.value ? "bg-white text-black" : "bg-white/10 text-white"}`}>{f.label}</button>
-                          ))}
-                        </div>
-                        <div className="flex gap-3 justify-center pt-2 border-t border-white/5 mt-2">
-                          {colors.map(c => (
-                            <button key={c} onClick={() => setOverlayColor(c)} className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-4 transition-transform active:scale-75 ${overlayColor === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-60 hover:opacity-100"}`} style={{ backgroundColor: c }}></button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             </>

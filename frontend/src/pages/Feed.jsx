@@ -23,7 +23,8 @@ import {
   FaFlag, 
   FaTrash,
   FaVolumeMute, 
-  FaVolumeUp 
+  FaVolumeUp,
+  FaPlay
 } from "react-icons/fa";
 
 const shuffleArray = (array) => {
@@ -33,6 +34,47 @@ const shuffleArray = (array) => {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
+};
+
+// 🔥 FIX 1: FONT MAP
+const fontMap = {
+  classic: "font-sans font-bold",
+  typewriter: "font-serif italic",
+  modern: "font-mono uppercase tracking-widest",
+  impact: "font-black uppercase tracking-tight",
+  cursive: "font-[cursive]",
+  marker: "font-[fantasy] tracking-wide",
+  sleek: "font-sans font-light tracking-[0.3em] uppercase",
+};
+
+// 🔥 FIX 2: TEXT STYLES HELPER
+const getTextStyle = (post) => {
+  switch (post.textStyle) {
+    case "highlight":
+      return {
+        background: "rgba(0,0,0,0.45)",
+        padding: "4px 16px",
+        borderRadius: "14px",
+      };
+    case "neon":
+      return {
+        textShadow: "0 0 8px currentColor, 0 0 16px currentColor",
+      };
+    case "outline":
+      return {
+        WebkitTextStroke: "1px black",
+      };
+    case "glitch":
+      return {
+        textShadow: "2px 0 red, -2px 0 cyan",
+      };
+    case "3d-pop":
+      return {
+        textShadow: "3px 3px 0 rgba(0,0,0,0.4)",
+      };
+    default:
+      return {};
+  }
 };
 
 function Feed() {
@@ -49,17 +91,23 @@ function Feed() {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [expandedEvents, setExpandedEvents] = useState({});
   
-  // Custom Delete Modal States
   const [itemToDelete, setItemToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [mutedVideos, setMutedVideos] = useState({});
   
-  // 🔥 FIX: Random placement index for suggestions (like Instagram)
   const [suggestionIndex, setSuggestionIndex] = useState(1);
 
   const clickTimeouts = useRef({});
   const videoRefs = useRef({});
+
+  // SMART ROUTING LOGIC
+  const getProfileLink = (targetUser) => {
+    if (!targetUser) return "#";
+    return targetUser._id === user?._id 
+      ? "/profile" 
+      : `/user/${encodeURIComponent(targetUser.username)}`;
+  };
 
   const loadFeedData = async () => {
     try {
@@ -68,19 +116,25 @@ function Feed() {
         getFeed(), getReels(), getStories(), getSuggestedUsers()
       ]);
 
-      const fetchedPosts = (postsRes.status === "fulfilled" ? (postsRes.value?.posts || postsRes.value?.data || []) : []).map(p => ({ 
-        ...p, 
-        feedItemType: "post",
-        isSaved: p.savedBy?.includes(user?._id) || false 
-      }));
+      const fetchedPosts = (postsRes.status === "fulfilled" ? (postsRes.value?.posts || postsRes.value?.data || []) : [])
+        .filter((p) => p.user?._id && p.user?.username)
+        .map(p => ({ 
+          ...p, 
+          user: p.user || {},
+          feedItemType: "post",
+          isSaved: p.savedBy?.includes(user?._id) || false 
+        }));
       
-      const fetchedReels = (reelsRes.status === "fulfilled" ? (reelsRes.value?.reels || reelsRes.value?.data || []) : []).map(r => ({
-        ...r, 
-        feedItemType: "reel", 
-        media: r.video || r.media, 
-        type: "video",
-        isSaved: r.savedBy?.includes(user?._id) || false
-      }));
+      const fetchedReels = (reelsRes.status === "fulfilled" ? (reelsRes.value?.reels || reelsRes.value?.data || []) : [])
+        .filter((r) => r.user?._id && r.user?.username)
+        .map(r => ({
+          ...r, 
+          user: r.user || {},
+          feedItemType: "reel", 
+          media: r.video || r.media, 
+          type: "video",
+          isSaved: r.savedBy?.includes(user?._id) || false
+        }));
 
       const sortedFeed = [...fetchedPosts, ...fetchedReels].sort((a, b) => 
         new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now())
@@ -93,7 +147,6 @@ function Feed() {
       const combinedFeed = [...recentPosts, ...shuffledOlderPosts];
       setPosts(combinedFeed);
       
-      // Randomize suggestion placement between index 1 and 3 (if enough posts exist)
       if (combinedFeed.length > 0) {
         setSuggestionIndex(Math.min(combinedFeed.length - 1, Math.floor(Math.random() * 3) + 1));
       }
@@ -142,6 +195,8 @@ function Feed() {
                 v.currentTime = v.currentTime; 
               }
             });
+            // 🔥 FIX 4: REEL AUDIO PERSISTENCE
+            video.muted = mutedVideos[video.dataset.id] ?? false;
             video.play().catch(() => {});
           } else {
             video.pause();
@@ -156,7 +211,7 @@ function Feed() {
     });
 
     return () => observer.disconnect();
-  }, [posts]);
+  }, [posts, mutedVideos]); // Added mutedVideos dependency for latest state
 
   const handleLike = async (item) => {
     if (!user) return toast.error("Please login");
@@ -212,6 +267,8 @@ function Feed() {
         await savePost(id);
         toast.success("Saved to profile");
       }
+      // 🔥 FIX 7: SAVED POSTS BACKEND SYNC
+      window.dispatchEvent(new Event("profileUpdated"));
     } catch (error) {
       loadFeedData();
       toast.error("Could not update save status");
@@ -233,6 +290,8 @@ function Feed() {
       const typeName = itemToDelete.feedItemType === "reel" ? "Reel" : (itemToDelete.isEvent ? "Event" : "Post");
       toast.success(`${typeName} deleted successfully!`);
       
+      // 🔥 FIX 6: DELETE SYNC IMPROVEMENT
+      window.dispatchEvent(new Event("profileUpdated"));
     } catch (error) {
       toast.error("Failed to delete item.");
     } finally {
@@ -280,7 +339,6 @@ function Feed() {
             const isExpanded = expandedEvents[post._id];
             const isThisVideoMuted = mutedVideos[post._id] !== false; 
             
-            // 🔥 FIX: Extract the latest comment for preview
             const latestComment = post.comments?.length > 0 ? post.comments[post.comments.length - 1] : null;
 
             return (
@@ -290,12 +348,20 @@ function Feed() {
                   {/* Post Header */}
                   <div className="flex justify-between items-center px-4 py-3">
                     <div className="flex gap-3 items-center">
-                      <Link to={`/user/${encodeURIComponent(post.user?.username || "")}`}>
+                      <Link 
+                        to={getProfileLink(post.user)}
+                        onClick={() => window.dispatchEvent(new Event("profileUpdated"))}
+                      >
                         <img src={getProfileImage(post.user)} className="w-9 h-9 rounded-full object-cover border border-gray-100" alt="" />
                       </Link>
                       <div className="flex flex-col">
-                        <Link to={`/user/${encodeURIComponent(post.user?.username || "")}`} className="font-bold text-sm flex items-center gap-1 hover:underline">
-                          {post.user?.username} <RoleBadge role={post.user?.role} />
+                        <Link 
+                          to={getProfileLink(post.user)}
+                          onClick={() => window.dispatchEvent(new Event("profileUpdated"))}
+                          className="font-bold text-sm flex items-center gap-1 hover:underline"
+                        >
+                          {/* 🔥 FIX 5: PROFILE FALLBACK SAFETY */}
+                          {post.user?.username || "user"} <RoleBadge role={post.user?.role} />
                         </Link>
                         {post.feedItemType === "reel" && (
                            <span className="text-[10px] text-gray-500 font-bold tracking-wide uppercase mt-0.5">Reel</span>
@@ -370,17 +436,24 @@ function Feed() {
                       <img src={post.media} className="w-full h-full object-contain pointer-events-none" alt="" />
                     )}
                     
+                    {/* 🔥 FIX 1: TEXT OVERLAY RENDERING */}
                     {(post.overlayText || post.text) && (
-                      <div 
-                        className={`absolute z-30 px-4 py-2 pointer-events-none`}
+                      <div
+                        className={`absolute z-30 pointer-events-none whitespace-pre-wrap break-words ${fontMap[post.textFont] || fontMap.classic}`}
                         style={{
-                          top: "50%", left: "50%",
-                          transform: `translate(calc(-50% + ${post.textX || post.overlayX || 0}px), calc(-50% + ${post.textY || post.overlayY || 0}px))`
+                          top: `${(post.textY || 0.5) * 100}%`,
+                          left: `${(post.textX || 0.5) * 100}%`,
+                          transform: "translate(-50%, -50%)",
+                          color: post.textColor || "white",
+                          fontSize: `${post.textSize || 42}px`,
+                          filter: post.filter || "none",
+                          lineHeight: "1.4",
+                          textAlign: "center",
+                          maxWidth: "90%",
+                          ...getTextStyle(post)
                         }}
                       >
-                        <p className={`text-center text-3xl font-bold whitespace-nowrap drop-shadow-md ${post.textFont || post.overlayFont || "font-sans"}`} style={{ color: post.textColor || "white" }}>
-                          {post.overlayText || post.text}
-                        </p>
+                        {post.overlayText || post.text}
                       </div>
                     )}
 
@@ -421,19 +494,35 @@ function Feed() {
                   <div className="px-4 pb-4">
                     <p className="font-bold text-[13px] mb-1.5">{post.likes?.length || 0} likes</p>
                     
+                    {/* 🔥 FIX 3: ADD VIEWS COUNT */}
+                    <p className="font-semibold text-[12px] text-gray-600 mb-1 flex items-center gap-1.5">
+                      <FaPlay className="text-[10px]" />
+                      {post.feedItemType === "reel"
+                        ? `${post.views?.length || post.views || 0} views`
+                        : `${post.views?.length || 0} views`}
+                    </p>
+                    
                     {/* Caption */}
                     <div className={`text-[13px] leading-snug ${!isExpanded && isEventPost ? 'line-clamp-2' : ''}`}>
-                      <Link to={`/user/${encodeURIComponent(post.user?.username || "")}`} className="font-bold mr-2 hover:text-gray-600">
-                        {post.user?.username}
+                      <Link 
+                        to={getProfileLink(post.user)} 
+                        onClick={() => window.dispatchEvent(new Event("profileUpdated"))}
+                        className="font-bold mr-2 hover:text-gray-600"
+                      >
+                        {post.user?.username || "user"}
                       </Link>
                       <span className="text-gray-800 whitespace-pre-wrap">{post.caption}</span>
                     </div>
 
-                    {/* 🔥 FIX: Latest Comment Preview */}
-                    {latestComment && (
+                    {/* Latest Comment Preview */}
+                    {latestComment && latestComment.user && (
                       <div className="mt-1.5 flex text-[13px] leading-snug">
-                        <Link to={`/user/${encodeURIComponent(latestComment.user?.username || "")}`} className="font-bold mr-2 hover:text-gray-600 truncate max-w-[100px]">
-                          {latestComment.user?.username}
+                        <Link 
+                          to={getProfileLink(latestComment.user)} 
+                          onClick={() => window.dispatchEvent(new Event("profileUpdated"))}
+                          className="font-bold mr-2 hover:text-gray-600 truncate max-w-[100px]"
+                        >
+                          {latestComment.user.username || "user"}
                         </Link>
                         <span className="text-gray-800 truncate">{latestComment.text}</span>
                       </div>
@@ -473,7 +562,6 @@ function Feed() {
                   </div>
                 </div>
 
-                {/* 🔥 FIX: Dynamic Random Suggestion Placement */}
                 {index === suggestionIndex && suggestedUsers.length > 0 && (
                   <div className="w-full py-2">
                     <Suggestions 

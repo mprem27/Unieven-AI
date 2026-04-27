@@ -4,7 +4,33 @@ import commentModel from "../models/Comment.js";
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 
-// --- 1. CREATE POST ---
+// =============================
+// FONT SAFETY MAP
+// =============================
+const allowedFonts = [
+  "classic",
+  "typewriter",
+  "modern",
+  "impact",
+  "cursive",
+  "marker",
+  "sleek",
+];
+
+const allowedStyles = [
+  "classic",
+  "highlight",
+  "neon",
+  "playful",
+  "outline",
+  "glitch",
+  "3d-pop",
+  "elegant",
+];
+
+// =============================
+// 1. CREATE POST
+// =============================
 export const createPost = async (req, res) => {
   try {
     const {
@@ -12,8 +38,17 @@ export const createPost = async (req, res) => {
       isEvent,
       location,
       tags,
+
+      // 🔥 TEXT OVERLAY SYSTEM
       overlayText,
-      overlayFont,
+      textColor,
+      textFont,
+      textStyle,
+      textSize,
+      textX,
+      textY,
+      filter,
+      bgGradient,
     } = req.body;
 
     const file = req.file;
@@ -29,21 +64,25 @@ export const createPost = async (req, res) => {
 
     try {
       upload = await cloudinary.uploader.upload(file.path, {
-        resource_type: "image",
+        resource_type: "auto",
       });
     } catch (err) {
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
 
       return res.status(500).json({
         success: false,
-        message: "Image upload failed",
+        message: "Media upload failed",
       });
     }
 
-    // delete local file
-    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    // Delete local temp file
+    if (fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
 
-    // parse tags
+    // Parse tags safely
     let parsedTags = [];
     try {
       parsedTags = tags ? JSON.parse(tags) : [];
@@ -51,26 +90,75 @@ export const createPost = async (req, res) => {
       parsedTags = [];
     }
 
+    // Detect media type
+    const mediaType =
+      file.mimetype.startsWith("video/")
+        ? "video"
+        : "image";
+
+    // Safe normalized values
+    const safeTextX = Math.max(
+      0,
+      Math.min(1, Number(textX) || 0.5)
+    );
+
+    const safeTextY = Math.max(
+      0,
+      Math.min(1, Number(textY) || 0.5)
+    );
+
+    const safeTextSize = Math.max(
+      16,
+      Math.min(100, Number(textSize) || 42)
+    );
+
+    const safeFont = allowedFonts.includes(textFont)
+      ? textFont
+      : "classic";
+
+    const safeStyle = allowedStyles.includes(textStyle)
+      ? textStyle
+      : "classic";
+
     const newPost = await postModel.create({
       user: req.user.id,
+
       media: upload.secure_url,
-      type: "image",
+      type: mediaType,
+
       caption: caption?.trim() || "",
       location: location?.trim() || "",
+
       tags: parsedTags,
+
+      // 🔥 FULL TEXT OVERLAY DATA
       overlayText: overlayText?.trim() || "",
-      overlayFont: overlayFont || "font-sans",
-      isEvent: isEvent === "true" || isEvent === true,
+      textColor: textColor || "white",
+      textFont: safeFont,
+      textStyle: safeStyle,
+      textSize: safeTextSize,
+      textX: safeTextX,
+      textY: safeTextY,
+
+      filter: filter || "",
+      bgGradient: bgGradient || "",
+
+      isEvent:
+        isEvent === "true" ||
+        isEvent === true,
     });
 
     res.status(201).json({
       success: true,
-      message: "Post created",
+      message: "Post created successfully",
       post: newPost,
     });
-
   } catch (error) {
-    console.log("createPost error:", error);
+    console.error(
+      "createPost error:",
+      error
+    );
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -78,39 +166,59 @@ export const createPost = async (req, res) => {
   }
 };
 
-// --- 2. GET FEED POSTS ---
+// =============================
+// 2. GET FEED POSTS
+// =============================
 export const getFeedPosts = async (req, res) => {
   try {
     const posts = await postModel
       .find({})
-      .populate("user", "username image role")
+      .populate(
+        "user",
+        "username image role"
+      )
       .populate({
         path: "comments",
         populate: {
           path: "user",
-          select: "username image role",
+          select:
+            "username image role",
         },
       })
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, posts });
-
+    res.json({
+      success: true,
+      posts,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// --- 3. GET SINGLE POST ---
-export const getSinglePost = async (req, res) => {
+// =============================
+// 3. GET SINGLE POST
+// =============================
+export const getSinglePost = async (
+  req,
+  res
+) => {
   try {
     const post = await postModel
       .findById(req.params.id)
-      .populate("user", "username image role")
+      .populate(
+        "user",
+        "username image role"
+      )
       .populate({
         path: "comments",
         populate: {
           path: "user",
-          select: "username image role",
+          select:
+            "username image role",
         },
       });
 
@@ -121,17 +229,38 @@ export const getSinglePost = async (req, res) => {
       });
     }
 
-    res.json({ success: true, post });
+    // 🔥 VIEW COUNT TRACKING
+    if (
+      req.user &&
+      !post.views.includes(req.user.id)
+    ) {
+      post.views.push(req.user.id);
+      await post.save();
+    }
 
+    res.json({
+      success: true,
+      post,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// --- 4. LIKE ---
-export const likePost = async (req, res) => {
+// =============================
+// 4. LIKE POST
+// =============================
+export const likePost = async (
+  req,
+  res
+) => {
   try {
-    const post = await postModel.findById(req.params.id);
+    const post = await postModel.findById(
+      req.params.id
+    );
 
     if (!post) {
       return res.status(404).json({
@@ -140,37 +269,55 @@ export const likePost = async (req, res) => {
       });
     }
 
-    const isLiked = post.likes.some(
-      (id) => id.toString() === req.user.id.toString()
-    );
+    const isLiked =
+      post.likes.some(
+        (id) =>
+          id.toString() ===
+          req.user.id.toString()
+      );
 
     await post.updateOne({
-      [isLiked ? "$pull" : "$push"]: { likes: req.user.id },
+      [isLiked
+        ? "$pull"
+        : "$push"]: {
+        likes: req.user.id,
+      },
     });
 
     res.json({
       success: true,
-      message: isLiked ? "Unliked" : "Liked",
+      message: isLiked
+        ? "Unliked"
+        : "Liked",
     });
-
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// --- 5. ADD COMMENT ---
-export const addComment = async (req, res) => {
+// =============================
+// 5. ADD COMMENT
+// =============================
+export const addComment = async (
+  req,
+  res
+) => {
   try {
     const { text } = req.body;
 
-    if (!text || text.trim() === "") {
+    if (!text?.trim()) {
       return res.status(400).json({
         success: false,
         message: "Empty comment",
       });
     }
 
-    const post = await postModel.findById(req.params.id);
+    const post = await postModel.findById(
+      req.params.id
+    );
 
     if (!post) {
       return res.status(404).json({
@@ -179,36 +326,44 @@ export const addComment = async (req, res) => {
       });
     }
 
-    const comment = await commentModel.create({
-      user: req.user.id,
-      post: post._id,
-      targetId: post._id,
-      targetType: "post",
-      text: text.trim(),
-    });
+    const comment =
+      await commentModel.create({
+        user: req.user.id,
+        post: post._id,
+        targetId: post._id,
+        targetType: "post",
+        text: text.trim(),
+      });
 
     post.comments.push(comment._id);
     await post.save();
 
-    const updatedPost = await postModel
-      .findById(req.params.id)
-      .populate("user", "username image role")
-      .populate({
-        path: "comments",
-        populate: {
-          path: "user",
-          select: "username image role",
-        },
-      });
+    const updatedPost =
+      await postModel
+        .findById(req.params.id)
+        .populate(
+          "user",
+          "username image role"
+        )
+        .populate({
+          path: "comments",
+          populate: {
+            path: "user",
+            select:
+              "username image role",
+          },
+        });
 
     res.status(200).json({
       success: true,
       message: "Comment added",
       item: updatedPost,
     });
-
   } catch (error) {
-    console.error("addComment error:", error);
+    console.error(
+      "addComment error:",
+      error
+    );
 
     res.status(500).json({
       success: false,
@@ -217,10 +372,18 @@ export const addComment = async (req, res) => {
   }
 };
 
-// --- 6. DELETE COMMENT ---
-export const deleteComment = async (req, res) => {
+// =============================
+// 6. DELETE COMMENT
+// =============================
+export const deleteComment = async (
+  req,
+  res
+) => {
   try {
-    const comment = await commentModel.findById(req.params.commentId);
+    const comment =
+      await commentModel.findById(
+        req.params.commentId
+      );
 
     if (!comment) {
       return res.status(404).json({
@@ -229,36 +392,51 @@ export const deleteComment = async (req, res) => {
       });
     }
 
-    if (comment.user.toString() !== req.user.id.toString()) {
+    if (
+      comment.user.toString() !==
+      req.user.id.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    await postModel.findByIdAndUpdate(comment.post, {
-      $pull: { comments: comment._id },
-    });
-
-    await commentModel.findByIdAndDelete(comment._id);
-
-    const updatedPost = await postModel
-      .findById(comment.post)
-      .populate("user", "username image role")
-      .populate({
-        path: "comments",
-        populate: {
-          path: "user",
-          select: "username image role",
+    await postModel.findByIdAndUpdate(
+      comment.post,
+      {
+        $pull: {
+          comments: comment._id,
         },
-      });
+      }
+    );
+
+    await commentModel.findByIdAndDelete(
+      comment._id
+    );
+
+    const updatedPost =
+      await postModel
+        .findById(comment.post)
+        .populate(
+          "user",
+          "username image role"
+        )
+        .populate({
+          path: "comments",
+          populate: {
+            path: "user",
+            select:
+              "username image role",
+          },
+        });
 
     res.json({
       success: true,
-      message: "Comment deleted",
+      message:
+        "Comment deleted",
       item: updatedPost,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -267,39 +445,52 @@ export const deleteComment = async (req, res) => {
   }
 };
 
-
-// like comment
-
-export const likeComment = async (req, res) => {
+// =============================
+// 7. LIKE COMMENT
+// =============================
+export const likeComment = async (
+  req,
+  res
+) => {
   try {
-    const comment = await commentModel.findById(req.params.commentId);
+    const comment =
+      await commentModel.findById(
+        req.params.commentId
+      );
 
     if (!comment) {
       return res.status(404).json({
         success: false,
-        message: "Comment not found",
+        message:
+          "Comment not found",
       });
     }
 
-    const isLiked = comment.likes.some(
-      (id) => id.toString() === req.user.id.toString()
-    );
+    const isLiked =
+      comment.likes.some(
+        (id) =>
+          id.toString() ===
+          req.user.id.toString()
+      );
 
     await comment.updateOne({
-      [isLiked ? "$pull" : "$push"]: {
+      [isLiked
+        ? "$pull"
+        : "$push"]: {
         likes: req.user.id,
       },
     });
 
-    const updatedComment = await commentModel.findById(
-      req.params.commentId
-    );
+    const updatedComment =
+      await commentModel.findById(
+        req.params.commentId
+      );
 
     res.json({
       success: true,
-      likes: updatedComment.likes,
+      likes:
+        updatedComment.likes,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -307,39 +498,58 @@ export const likeComment = async (req, res) => {
     });
   }
 };
-// saved post 
 
-export const savePost = async (req, res) => {
+// =============================
+// 8. SAVE POST
+// =============================
+export const savePost = async (
+  req,
+  res
+) => {
   try {
-    const user = await userModel.findById(req.user.id);
+    const user =
+      await userModel.findById(
+        req.user.id
+      );
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message:
+          "User not found",
       });
     }
 
-    const isSaved = user.savedPosts.some(
-      (id) => id.toString() === req.params.id.toString()
-    );
+    const isSaved =
+      user.savedPosts.some(
+        (id) =>
+          id.toString() ===
+          req.params.id.toString()
+      );
 
     if (isSaved) {
       return res.status(400).json({
         success: false,
-        message: "Already saved",
+        message:
+          "Already saved",
       });
     }
 
-    await userModel.findByIdAndUpdate(req.user.id, {
-      $push: { savedPosts: req.params.id },
-    });
+    await userModel.findByIdAndUpdate(
+      req.user.id,
+      {
+        $push: {
+          savedPosts:
+            req.params.id,
+        },
+      }
+    );
 
     res.json({
       success: true,
-      message: "Post saved",
+      message:
+        "Post saved",
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -347,60 +557,123 @@ export const savePost = async (req, res) => {
     });
   }
 };
-// --- 8. UNSAVE ---
-export const unsavePost = async (req, res) => {
+
+// =============================
+// 9. UNSAVE POST
+// =============================
+export const unsavePost = async (
+  req,
+  res
+) => {
   try {
-    await userModel.findByIdAndUpdate(req.user.id, {
-      $pull: { savedPosts: req.params.id },
+    await userModel.findByIdAndUpdate(
+      req.user.id,
+      {
+        $pull: {
+          savedPosts:
+            req.params.id,
+        },
+      }
+    );
+
+    res.json({
+      success: true,
+      message:
+        "Removed from saved",
     });
-
-    res.json({ success: true, message: "Removed from saved" });
-
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// --- 9. DELETE POST (🔥 UPDATED)
-export const deletePost = async (req, res) => {
+// =============================
+// 10. DELETE POST
+// =============================
+export const deletePost = async (
+  req,
+  res
+) => {
   try {
-    const post = await postModel.findById(req.params.id);
+    const post =
+      await postModel.findById(
+        req.params.id
+      );
 
     if (!post) {
       return res.status(404).json({
         success: false,
-        message: "Post not found",
+        message:
+          "Post not found",
       });
     }
 
-    if (post.user.toString() !== req.user.id.toString()) {
+    if (
+      post.user.toString() !==
+      req.user.id.toString()
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized",
+        message:
+          "Unauthorized",
       });
     }
 
-    // 🔥 DELETE IMAGE FROM CLOUDINARY
+    // Delete media from Cloudinary
     if (post.media) {
       try {
-        const publicId = post.media.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
+        const publicId =
+          post.media
+            .split("/")
+            .pop()
+            .split(".")[0];
+
+        await cloudinary.uploader.destroy(
+          publicId,
+          {
+            resource_type:
+              post.type ===
+              "video"
+                ? "video"
+                : "image",
+          }
+        );
       } catch (err) {
-        console.log("Cloudinary delete error:", err.message);
+        console.log(
+          "Cloudinary delete error:",
+          err.message
+        );
       }
     }
 
-    // DELETE COMMENTS
-    await commentModel.deleteMany({ post: post._id });
+    // Delete related comments
+    await commentModel.deleteMany({
+      post: post._id,
+    });
 
-    // DELETE POST
-    await postModel.findByIdAndDelete(post._id);
+    // Remove from saved posts
+    await userModel.updateMany(
+      {},
+      {
+        $pull: {
+          savedPosts:
+            post._id,
+        },
+      }
+    );
+
+    // Delete post
+    await postModel.findByIdAndDelete(
+      post._id
+    );
 
     res.json({
       success: true,
-      message: "Post deleted successfully",
+      message:
+        "Post deleted successfully",
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Loader from "../components/Loader";
@@ -7,7 +7,7 @@ import { createPost } from "../services/postService";
 import { 
   FaCalendarAlt, FaClock, FaMapMarkerAlt, FaAlignLeft, 
   FaImage, FaArrowLeft, FaCheckCircle, 
-  FaEdit, FaTags, FaMagic
+  FaEdit, FaTags
 } from "react-icons/fa";
 
 function CreateEvent() {
@@ -33,6 +33,15 @@ function CreateEvent() {
 
   const categories = ["Workshop", "Seminar", "Cultural", "Sports", "Technical", "Webinar", "Meetup"];
 
+  // 🔥 FIX 1: Prevent Memory Leaks from object URLs
+  useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -49,7 +58,12 @@ function CreateEvent() {
 
   const handleGeneratePreview = () => {
     if (!file) return toast.error("Please upload an event poster!");
-    if (!formData.title || !formData.date || !formData.location) return toast.error("Please fill all required fields!");
+    
+    // 🔥 FIX 2: Added 'time' to strict validation
+    if (!formData.title || !formData.date || !formData.time || !formData.location) {
+      return toast.error("Please fill all required fields!");
+    }
+    
     setStep(2);
     window.scrollTo(0, 0);
   };
@@ -68,11 +82,14 @@ function CreateEvent() {
       postData.append("media", file);
       postData.append("isEvent", "true");
       postData.append("eventId", newEventId);
-      postData.append("caption", `🔥 NEW EVENT: ${formData.title}\n\n📍 ${formData.location}\n📅 ${formData.date}\n\n${formData.description}`);
+      postData.append("caption", `🔥 NEW EVENT: ${formData.title}\n\n📍 ${formData.location}\n📅 ${formData.date} at ${formData.time}\n\n${formData.description}`);
       
       await createPost(postData);
 
       toast.success("UniEven Pass Published! 🎉");
+      
+      // Tell the rest of the app to refresh data
+      window.dispatchEvent(new Event("profileUpdated"));
       navigate("/events");
     } catch (err) {
       toast.error("Failed to publish event.");
@@ -129,7 +146,15 @@ function CreateEvent() {
                     <p className="text-[11px] text-gray-400 mt-2 font-bold tracking-wider uppercase opacity-60">High-Res PNG or JPG preferred</p>
                   </div>
                 )}
-                <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => processFile(e.target.files[0])} />
+                {/* 🔥 FIX 3: Safe File Input (resets value so onChange always triggers) */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*"
+                  onClick={(e) => (e.target.value = null)}
+                  onChange={(e) => processFile(e.target.files[0])} 
+                />
               </div>
             </div>
 
