@@ -13,16 +13,42 @@ import Loader from "../components/Loader";
 import { getProfileImage } from "../utils/getProfileImage";
 import { 
   FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTimes, FaUsers, 
-  FaCheckCircle, FaRegCompass, FaPlus, FaIdCard, FaBuilding, FaPhone, FaClipboardList
+  FaCheckCircle, FaRegCompass, FaPlus, FaIdCard, FaBuilding, FaPhone, FaClipboardList,
+  FaDownload, FaQrcode, FaCertificate, FaChartBar
 } from "react-icons/fa";
+
+// 🔥 STEP 1: EVENT EXPIRY CHECKER
+export const isEventExpired = (event) => {
+  if (!event?.date) return false;
+  try {
+    // Handle ISO strings cleanly
+    const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
+    const datePart = dateStr.split("T")[0];
+    const timePart = event.time || "23:59";
+    
+    const eventDateTime = new Date(`${datePart}T${timePart}`);
+    return eventDateTime < new Date();
+  } catch (e) {
+    return new Date(event.date) < new Date();
+  }
+};
+
+// 🔥 STEP 5: AUTO STATUS BADGE HELPER
+export const getEventStatus = (event) => {
+  if (isEventExpired(event) || event.status === "completed") return "Completed";
+  return "Upcoming";
+};
 
 function Events() {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState("discover"); 
+  const [activeTab, setActiveTab] = useState("discover"); // discover, registrations, history
   const [events, setEvents] = useState([]);
   const [myRegistrations, setMyRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  
+  // 🔥 STEP 7: PERFORMANCE FIX - CACHE PARTICIPANTS
+  const [participantsCache, setParticipantsCache] = useState({});
 
   const loadData = async () => {
     setLoading(true);
@@ -44,26 +70,71 @@ function Events() {
     loadData();
   }, []);
 
-  const now = new Date();
-  const upcomingEvents = events.filter(e => new Date(e.date) >= now || e.status === "upcoming");
-  const pastEvents = events.filter(e => new Date(e.date) < now || e.status === "completed")
-                           .sort((a, b) => new Date(b.date) - new Date(a.date))
-                           .slice(0, 6); 
+  // 🔥 STEP 2: UPDATE FILTERS FOR STRICT EXPIRATION
+  const upcomingEvents = events.filter(
+    (e) => !isEventExpired(e) && e.status !== "completed"
+  );
+
+  const pastEvents = events
+    .filter((e) => isEventExpired(e) || e.status === "completed")
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 6);
+
+  // 🔥 STEP 4: SEPARATE REGISTRATION HISTORY
+  const activeRegistrations = myRegistrations.filter(
+    (reg) => !isEventExpired(reg.event)
+  );
+  const pastRegistrations = myRegistrations.filter(
+    (reg) => isEventExpired(reg.event)
+  ).sort((a, b) => new Date(b.event.date) - new Date(a.event.date));
 
   if (loading) {
     return <div className="min-h-screen flex justify-center items-center bg-[#F8FAFC]"><Loader size="40px" color="#4f46e5" /></div>;
   }
 
+  // REUSABLE REGISTRATION RENDERER
+  const renderRegistrations = (regs, emptyMessage) => (
+    <div className="grid grid-cols-1 gap-4 max-w-3xl mx-auto">
+      {regs.length > 0 ? regs.map(reg => (
+        <div key={reg._id} onClick={() => setSelectedEvent(reg.event)} className="bg-white border border-slate-100 p-4 md:p-6 rounded-[32px] flex items-center gap-4 md:gap-6 cursor-pointer hover:shadow-xl transition-all group relative overflow-hidden">
+          <div className="w-20 h-20 md:w-32 md:h-32 shrink-0 rounded-[24px] overflow-hidden shadow-sm relative">
+            {/* 🔥 STEP 8: EMPTY IMAGE FALLBACK */}
+            <img src={reg.event.image || "/default-event.jpg"} className="w-full h-full object-cover group-hover:scale-110 transition-transform" alt="" />
+            {isEventExpired(reg.event) && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <span className="text-white text-[9px] font-black uppercase tracking-widest bg-black/50 px-2 py-1 rounded-md">Past</span>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{reg.event.category}</span>
+            <h3 className="font-black text-slate-900 md:text-xl truncate mt-1">{reg.event.title}</h3>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-slate-400 font-bold text-[10px] uppercase">
+              <span className="flex items-center gap-1.5"><FaCalendarAlt /> {new Date(reg.event.date).toLocaleDateString()}</span>
+              <span className="flex items-center gap-1.5"><FaClock /> {reg.event.time}</span>
+            </div>
+          </div>
+          <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter hidden md:block ${reg.status === 'attended' ? 'bg-emerald-50 text-emerald-600' : isEventExpired(reg.event) ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600'}`}>
+            {reg.status === 'attended' ? 'Verified' : isEventExpired(reg.event) ? 'Expired' : 'Registered'}
+          </div>
+        </div>
+      )) : (
+        <div className="text-center py-20 bg-white rounded-[40px] border border-slate-100 border-dashed">
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">{emptyMessage}</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="w-full min-h-screen bg-[#F8FAFC] font-['Poppins',sans-serif] pb-24 relative">
-      
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 md:py-12">
         
         {/* HEADER SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6 text-center md:text-left">
           <div className="space-y-2">
             <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">University Events</h1>
-            <p className="text-slate-500 font-medium max-w-lg italic">Smart Management System for Campus Activities & Seminars.</p>
+            <p className="text-slate-500 font-medium max-w-lg italic">University Event Managements </p>
           </div>
           {(currentUser?.role === "faculty" || currentUser?.role === "admin") && (
             <Link to="/create/event" className="w-full md:w-auto bg-black text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-indigo-600 transition-all active:scale-95 flex items-center justify-center gap-2">
@@ -84,17 +155,26 @@ function Events() {
             onClick={() => setActiveTab("registrations")}
             className={`px-8 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "registrations" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100"}`}
           >
-            My Registrations {myRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{myRegistrations.length}</span>}
+            My Registrations {activeRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{activeRegistrations.length}</span>}
+          </button>
+          <button 
+            onClick={() => setActiveTab("history")}
+            className={`px-8 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "history" ? "bg-slate-800 text-white shadow-lg shadow-slate-200" : "bg-white text-slate-400 border border-slate-100"}`}
+          >
+            History {pastRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{pastRegistrations.length}</span>}
           </button>
         </div>
 
         {/* MAIN CONTENT AREA */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {activeTab === "discover" ? (
+          {activeTab === "discover" && (
             <div className="space-y-16">
               <section>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                   {upcomingEvents.map(event => <EventCard key={event._id} event={event} onClick={() => setSelectedEvent(event)} />)}
+                  {upcomingEvents.length === 0 && (
+                    <div className="col-span-full py-10 text-center text-slate-400 font-bold uppercase tracking-widest text-[11px]">No upcoming events right now.</div>
+                  )}
                 </div>
               </section>
               {pastEvents.length > 0 && (
@@ -106,32 +186,9 @@ function Events() {
                 </section>
               )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 max-w-3xl mx-auto">
-              {myRegistrations.length > 0 ? myRegistrations.map(reg => (
-                <div key={reg._id} onClick={() => setSelectedEvent(reg.event)} className="bg-white border border-slate-100 p-4 md:p-6 rounded-[32px] flex items-center gap-4 md:gap-6 cursor-pointer hover:shadow-xl transition-all group relative overflow-hidden">
-                  <div className="w-20 h-20 md:w-32 md:h-32 shrink-0 rounded-[24px] overflow-hidden shadow-sm">
-                    <img src={reg.event.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform" alt="" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{reg.event.category}</span>
-                    <h3 className="font-black text-slate-900 md:text-xl truncate mt-1">{reg.event.title}</h3>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-slate-400 font-bold text-[10px] uppercase">
-                      <span className="flex items-center gap-1.5"><FaCalendarAlt /> {new Date(reg.event.date).toLocaleDateString()}</span>
-                      <span className="flex items-center gap-1.5"><FaClock /> {reg.event.time}</span>
-                    </div>
-                  </div>
-                  <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter hidden md:block ${reg.status === 'attended' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                    {reg.status === 'attended' ? 'Verified' : 'Registered'}
-                  </div>
-                </div>
-              )) : (
-                <div className="text-center py-20 bg-white rounded-[40px] border border-slate-100 border-dashed">
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">No active registrations found</p>
-                </div>
-              )}
-            </div>
           )}
+          {activeTab === "registrations" && renderRegistrations(activeRegistrations, "No active registrations found")}
+          {activeTab === "history" && renderRegistrations(pastRegistrations, "No past registrations found")}
         </div>
       </div>
 
@@ -143,6 +200,8 @@ function Events() {
           myRegistrations={myRegistrations}
           onClose={() => setSelectedEvent(null)} 
           onRefresh={loadData}
+          participantsCache={participantsCache}
+          setParticipantsCache={setParticipantsCache}
         />
       )}
     </div>
@@ -151,10 +210,13 @@ function Events() {
 
 const EventCard = ({ event, onClick, isPast }) => {
   const d = new Date(event.date);
+  const status = getEventStatus(event);
+
   return (
     <div onClick={onClick} className="group bg-white rounded-[32px] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer border border-white hover:-translate-y-2 flex flex-col h-full">
       <div className="h-56 w-full relative overflow-hidden bg-slate-100">
-        <img src={event.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
+        {/* 🔥 STEP 8: EMPTY IMAGE FALLBACK */}
+        <img src={event.image || "/default-event.jpg"} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md rounded-2xl p-3 text-center min-w-[62px] shadow-xl">
           <p className="text-[9px] font-black text-indigo-600 uppercase">{d.toLocaleDateString('en-US', { month: 'short' })}</p>
@@ -167,7 +229,10 @@ const EventCard = ({ event, onClick, isPast }) => {
         )}
       </div>
       <div className="p-6 flex flex-col flex-1">
-        <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-2 px-2 py-0.5 bg-indigo-50 rounded-lg w-fit">{event.category}</span>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest px-2 py-0.5 bg-indigo-50 rounded-lg w-fit">{event.category}</span>
+          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg w-fit ${status === 'Completed' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600'}`}>{status}</span>
+        </div>
         <h3 className="font-black text-lg text-slate-900 leading-tight mb-4 group-hover:text-indigo-600 transition-colors line-clamp-2">{event.title}</h3>
         <div className="mt-auto space-y-2">
            <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase">
@@ -182,7 +247,7 @@ const EventCard = ({ event, onClick, isPast }) => {
   );
 };
 
-const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh }) => {
+const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, participantsCache, setParticipantsCache }) => {
   const [loading, setLoading] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [showRegForm, setShowRegForm] = useState(false);
@@ -190,16 +255,32 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh })
 
   const isCreator = event.createdBy?._id === currentUser?._id || event.createdBy === currentUser?._id;
   const myReg = myRegistrations.find(t => t.event._id === event._id);
-  const isPast = new Date(event.date) < new Date();
+  
+  // 🔥 STEP 3: REGISTRATION LOCK AFTER EXPIRY
+  const isPast = isEventExpired(event); 
 
+  // 🔥 STEP 7: PERFORMANCE FIX CACHE
   useEffect(() => {
     if (isCreator) {
-      getEventParticipants(event._id).then(res => res.success && setParticipants(res.participants));
+      if (participantsCache[event._id]) {
+        setParticipants(participantsCache[event._id]);
+      } else {
+        getEventParticipants(event._id).then(res => {
+          if (res.success) {
+            setParticipants(res.participants);
+            setParticipantsCache(prev => ({ ...prev, [event._id]: res.participants }));
+          }
+        });
+      }
     }
-  }, [event._id, isCreator]);
+  }, [event._id, isCreator, participantsCache, setParticipantsCache]);
 
   const handleRSVP = async (e) => {
     if (e) e.preventDefault();
+    if (isPast && !myReg) {
+      toast.error("Registration is closed for past events.");
+      return;
+    }
     setLoading(true);
     try {
       if (myReg) {
@@ -218,17 +299,26 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh })
     }
   };
 
+  // 🔥 STEP 6: ADMIN IMPROVEMENTS (Attendance Calc)
+  const attendancePercentage = participants.length > 0 
+    ? Math.round((participants.filter(p => p.status === "attended").length / participants.length) * 100) 
+    : 0;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className={`bg-white rounded-[40px] w-full flex flex-col md:flex-row overflow-hidden relative z-10 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[95vh] ${isCreator ? 'max-w-5xl' : 'max-w-2xl'}`}>
+      <div className={`bg-white rounded-[40px] w-full flex flex-col md:flex-row overflow-hidden relative z-10 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[95vh] ${isCreator ? 'max-w-6xl' : 'max-w-2xl'}`}>
         
         {/* LEFT PANEL: SMART EVENT DETAILS */}
-        <div className={`w-full ${isCreator ? 'md:w-[45%] border-r border-slate-50' : 'w-full'} flex flex-col overflow-y-auto bg-white scrollbar-hide`}>
+        <div className={`w-full ${isCreator ? 'md:w-[40%] border-r border-slate-50' : 'w-full'} flex flex-col overflow-y-auto bg-white scrollbar-hide`}>
           <div className="h-64 md:h-80 relative shrink-0">
-            <img src={event.image} className="w-full h-full object-cover" alt="" />
+            {/* 🔥 STEP 8: EMPTY IMAGE FALLBACK */}
+            <img src={event.image || "/default-event.jpg"} className="w-full h-full object-cover" alt="" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent p-8 flex flex-col justify-end">
-              <span className="bg-indigo-600 text-white text-[9px] font-black uppercase px-3 py-1 rounded-lg w-fit mb-3 tracking-widest">{event.category}</span>
+              <div className="flex gap-2 mb-3">
+                <span className="bg-indigo-600 text-white text-[9px] font-black uppercase px-3 py-1 rounded-lg tracking-widest">{event.category}</span>
+                {isPast && <span className="bg-red-500 text-white text-[9px] font-black uppercase px-3 py-1 rounded-lg tracking-widest">Closed</span>}
+              </div>
               <h2 className="text-2xl md:text-3xl font-black text-white leading-tight">{event.title}</h2>
             </div>
             <button onClick={onClose} className="absolute top-6 right-6 bg-white/10 backdrop-blur-md text-white p-3 rounded-2xl hover:bg-red-500 transition-all active:scale-90">
@@ -259,14 +349,16 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh })
               <p className="text-sm text-slate-600 leading-relaxed font-medium">{event.description}</p>
             </div>
 
-            {!isCreator && !isPast && (
+            {!isCreator && (
               <div className="pt-4">
                 {myReg ? (
                   <div className="space-y-4">
                     <div className="bg-emerald-50 text-emerald-700 p-5 rounded-[24px] flex items-center justify-center gap-3 font-black text-xs uppercase tracking-widest border border-emerald-100">
-                      <FaCheckCircle size={18} /> RSVP Verified
+                      <FaCheckCircle size={18} /> {myReg.status === 'attended' ? 'Attendance Verified' : 'RSVP Confirmed'}
                     </div>
-                    <button onClick={handleRSVP} disabled={loading} className="w-full text-red-400 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors">Withdraw My Registration</button>
+                    {!isPast && (
+                      <button onClick={handleRSVP} disabled={loading} className="w-full text-red-400 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors">Withdraw My Registration</button>
+                    )}
                   </div>
                 ) : showRegForm ? (
                   <form onSubmit={handleRSVP} className="bg-slate-50 p-6 rounded-[32px] space-y-4 border border-slate-100">
@@ -291,8 +383,12 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh })
                     </div>
                   </form>
                 ) : (
-                  <button onClick={() => setShowRegForm(true)} className="w-full py-5 bg-black text-white rounded-[24px] font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-3">
-                    <FaClipboardList /> RSVP for Event
+                  <button 
+                    onClick={() => setShowRegForm(true)} 
+                    disabled={isPast}
+                    className={`w-full py-5 rounded-[24px] font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isPast ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-black text-white shadow-slate-200'}`}
+                  >
+                    <FaClipboardList /> {isPast ? 'Registration Closed' : 'RSVP for Event'}
                   </button>
                 )}
               </div>
@@ -302,27 +398,55 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh })
 
         {/* RIGHT PANEL: SMART MANAGEMENT DASHBOARD (CREATOR ONLY) */}
         {isCreator && (
-          <div className="flex-1 p-8 bg-slate-50 overflow-y-auto scrollbar-hide">
-            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-10 flex items-center gap-3">
-               <FaClipboardList className="text-indigo-500" /> Admin Controller
-            </h3>
+          <div className="flex-1 p-6 md:p-8 bg-slate-50 overflow-y-auto scrollbar-hide">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                 <FaClipboardList className="text-indigo-500" /> Admin Controller
+              </h3>
+              {isPast && <span className="bg-slate-200 text-slate-500 text-[9px] px-2 py-1 rounded uppercase font-black tracking-widest">Event Concluded</span>}
+            </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-10">
-                <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm">
-                   <FaUsers className="text-indigo-600 mb-3 text-xl" />
-                   <p className="text-3xl font-black text-slate-900 leading-none">{participants.length}</p>
-                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2">Registered</p>
+            {/* 🔥 STEP 6: ADMIN ACTION BUTTONS (Future Features UI) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+                <button onClick={() => toast.info("CSV Export functionality coming soon")} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
+                    <FaDownload className="text-indigo-500 text-lg" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Export CSV</span>
+                </button>
+                <button onClick={() => toast.info("QR Code scanner coming soon")} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
+                    <FaQrcode className="text-indigo-500 text-lg" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Scan QR</span>
+                </button>
+                <button onClick={() => toast.info("Certificate engine coming soon")} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
+                    <FaCertificate className="text-emerald-500 text-lg" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Certificates</span>
+                </button>
+                <button onClick={() => toast.info("Advanced Analytics coming soon")} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
+                    <FaChartBar className="text-blue-500 text-lg" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Analytics</span>
+                </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mb-10">
+                <div className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                   <FaUsers className="text-indigo-600 mb-2 text-xl" />
+                   <p className="text-2xl font-black text-slate-900 leading-none">{participants.length}</p>
+                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Registered</p>
                 </div>
-                <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm">
-                   <FaCheckCircle className="text-emerald-500 mb-3 text-xl" />
-                   <p className="text-3xl font-black text-slate-900 leading-none">{participants.filter(p => p.status === "attended").length}</p>
-                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2">Verified</p>
+                <div className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                   <FaCheckCircle className="text-emerald-500 mb-2 text-xl" />
+                   <p className="text-2xl font-black text-slate-900 leading-none">{participants.filter(p => p.status === "attended").length}</p>
+                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Verified</p>
+                </div>
+                <div className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                   <div className="text-blue-500 mb-2 text-xl font-black">%</div>
+                   <p className="text-2xl font-black text-slate-900 leading-none">{attendancePercentage}%</p>
+                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Attendance</p>
                 </div>
             </div>
 
             <div className="space-y-4">
                <div className="flex justify-between items-center ml-1">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrolled Students</p>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrolled Roster</p>
                  <span className="text-[10px] font-bold text-indigo-500">{participants.length} Total</span>
                </div>
                
@@ -330,17 +454,23 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh })
                   {participants.map(reg => (
                     <div key={reg._id} className="bg-white p-4 rounded-[24px] border border-slate-100 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-3">
-                            <img src={getProfileImage(reg.user)} className="w-10 h-10 rounded-full object-cover border border-slate-100" alt="" />
-                            <div>
-                               <p className="text-xs font-black text-slate-800 leading-none mb-1">{reg.user.name}</p>
-                               <p className="text-[9px] text-slate-400 font-bold tracking-widest">@{reg.user.username}</p>
+                         <div className="flex items-center gap-3 min-w-0">
+                            <img src={getProfileImage(reg.user)} className="w-10 h-10 rounded-full object-cover border border-slate-100 shrink-0" alt="" />
+                            <div className="min-w-0">
+                               <p className="text-xs font-black text-slate-800 leading-none mb-1 truncate">{reg.user.name}</p>
+                               <p className="text-[9px] text-slate-400 font-bold tracking-widest truncate">@{reg.user.username}</p>
                             </div>
                          </div>
                          {reg.status === 'attended' ? (
-                           <div className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5"><FaCheckCircle /> Verified</div>
+                           <div className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5 shrink-0"><FaCheckCircle /> Verified</div>
                          ) : (
-                           <button onClick={() => markAttendance(reg._id).then(onRefresh)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-all">Verify RSVP</button>
+                           <button onClick={() => markAttendance(reg._id).then(res => {
+                               if(res.success) {
+                                 const updated = participants.map(p => p._id === reg._id ? {...p, status: 'attended'} : p);
+                                 setParticipants(updated);
+                                 setParticipantsCache(prev => ({...prev, [event._id]: updated}));
+                               }
+                           })} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-all shrink-0 shadow-md">Verify RSVP</button>
                          )}
                       </div>
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50 text-center">
@@ -350,6 +480,11 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh })
                       </div>
                     </div>
                   ))}
+                  {participants.length === 0 && (
+                    <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl">
+                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No registrations yet</p>
+                    </div>
+                  )}
                </div>
             </div>
           </div>

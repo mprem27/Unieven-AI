@@ -12,8 +12,21 @@ import RoleBadge from "../components/RoleBadge";
 import {
   FaHeart, FaComment, FaPlay, FaRegBookmark, FaTh,
   FaCalendarAlt, FaCog, FaTimes, FaTrash, FaShare,
-  FaMapMarkerAlt, FaClock, FaEdit
+  FaMapMarkerAlt, FaClock, FaEdit, FaHistory
 } from "react-icons/fa";
+
+// Event expiry helper
+const isEventExpired = (event) => {
+  if (!event?.date) return false;
+  try {
+    const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
+    const datePart = dateStr.split("T")[0];
+    const timePart = event.time || "23:59";
+    return new Date(`${datePart}T${timePart}`) < new Date();
+  } catch {
+    return new Date(event.date) < new Date();
+  }
+};
 
 function Profile() {
   const { user: currentUser, loading: authLoading } = useAuth();
@@ -24,6 +37,9 @@ function Profile() {
   const [activeTab, setActiveTab] = useState("posts");
   const [selectedPost, setSelectedPost] = useState(null);
   const [openShare, setOpenShare] = useState(null);
+  
+  // Custom Delete Modal States
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -61,6 +77,25 @@ function Profile() {
     return () => { isMounted = false; };
   }, [currentUser]);
 
+  // 🔥 FIX 1 & 6: INSTANT UI SYNC FOR DELETE & UNSAVE
+  const handleDeleteOrUnsave = async () => {
+    try {
+      if (activeTab === "saved") {
+        await unsavePost(itemToDelete._id);
+        setSavedPosts((prev) => prev.filter((p) => p._id !== itemToDelete._id));
+        toast.success("Removed from saved");
+      } else {
+        await deletePost(itemToDelete._id);
+        setPosts((prev) => prev.filter((p) => p._id !== itemToDelete._id));
+        toast.success("Deleted successfully");
+      }
+      setItemToDelete(null);
+      setSelectedPost(null);
+    } catch {
+      toast.error("Action failed");
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="h-screen flex justify-center items-center bg-white">
@@ -71,9 +106,22 @@ function Profile() {
 
   if (!profileData) return null;
 
-  const eventPosts = posts.filter((p) => p.isEvent === true || p.isEvent === "true");
-  const currentDisplayList = activeTab === "posts" ? posts : activeTab === "saved" ? savedPosts : eventPosts;
+  // 🔥 FIX 4: EVENT HISTORY SEPARATION
+  const allEvents = posts.filter((p) => p.isEvent === true || p.isEvent === "true");
+  const activeEvents = allEvents.filter((e) => !isEventExpired(e));
+  const historyEvents = allEvents.filter((e) => isEventExpired(e));
+
+  const currentDisplayList = 
+    activeTab === "posts" ? posts : 
+    activeTab === "saved" ? savedPosts : 
+    activeTab === "events" ? activeEvents : historyEvents;
+
   const hasStory = profileData?.hasStory || profileData?.stories?.length > 0;
+
+  // 🔥 FIX 3 & 7: FULL PROFILE ANALYTICS
+  const totalLikes = posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0);
+  const totalViews = posts.reduce((sum, p) => sum + (p.views?.length || 0), 0);
+  // const totalReels = posts.filter((p) => p.feedItemType === "reel").length;
 
   return (
     <>
@@ -85,10 +133,10 @@ function Profile() {
           <header className="px-4 py-6 md:py-10 flex flex-col gap-5">
             
             {/* Top Row: Avatar + Stats */}
-            <div className="flex items-center gap-8 md:gap-20">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-20">
               {/* Profile Avatar */}
               <div className="relative shrink-0">
-                <div className={`w-[80px] h-[80px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
+                <div className={`w-[90px] h-[90px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
                   hasStory ? "bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600" : "bg-gray-200"
                 }`}>
                   <div className="bg-white p-1 rounded-full w-full h-full">
@@ -97,26 +145,25 @@ function Profile() {
                 </div>
               </div>
 
-              {/* Stats Block (Follows Instagram Mobile pattern) */}
-              <div className="flex flex-1 justify-around md:justify-start md:gap-14">
+              {/* Stats Block (Now includes Views & Likes) */}
+              <div className="flex flex-1 justify-center md:justify-start gap-6 md:gap-10 flex-wrap w-full md:pt-4">
                 <div className="flex flex-col items-center">
                   <span className="font-bold text-base md:text-xl">{posts.length}</span>
-                  <span className="text-[12px] md:text-base text-gray-500">posts</span>
+                  <span className="text-[12px] md:text-[14px] text-gray-500">posts</span>
                 </div>
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-bold text-base md:text-xl">{profileData.followers?.length || 0}</span>
-                  <span className="text-[12px] md:text-base text-gray-500">connects</span>
+                  <span className="text-[12px] md:text-[14px] text-gray-500">connects</span>
                 </div>
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-bold text-base md:text-xl">{profileData.following?.length || 0}</span>
-                  <span className="text-[12px] md:text-base text-gray-500">connections</span>
+                  <span className="text-[12px] md:text-[14px] text-gray-500">connections</span>
                 </div>
               </div>
             </div>
 
             {/* Info Block: Full Name, Username & Bio */}
-            <div className="flex flex-col px-1">
-              {/* ✅ Full Name (Above Username/Stats line for Instagram feel) */}
+            <div className="flex flex-col px-1 mt-2">
               <h1 className="font-bold text-[15px] md:text-lg mb-0.5">{profileData.name}</h1>
               
               <div className="flex items-center gap-2 mb-1">
@@ -130,11 +177,11 @@ function Profile() {
               
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="text-blue-600 text-[11px] font-bold">#VelTech</span>
-                <span className="text-blue-600 text-[11px] font-bold">#CST2026</span>
+                <span className="text-blue-600 text-[11px] font-bold">#CSE2026</span>
               </div>
             </div>
 
-            {/* Edit & Settings Buttons (Full width on mobile) */}
+            {/* Edit & Settings Buttons */}
             <div className="flex gap-2 w-full mt-2">
               <Link to="/edit-profile" className="flex-1">
                 <button className="w-full bg-[#efefef] hover:bg-gray-200 text-black px-4 py-1.5 rounded-lg text-sm font-semibold transition-all active:scale-95">
@@ -154,7 +201,8 @@ function Profile() {
               {[
                 { id: "posts", icon: <FaTh /> },
                 { id: "saved", icon: <FaRegBookmark /> },
-                { id: "events", icon: <FaCalendarAlt /> }
+                { id: "events", icon: <FaCalendarAlt /> },
+                { id: "history", icon: <FaHistory /> } // 🔥 NEW HISTORY TAB
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -178,27 +226,35 @@ function Profile() {
               currentDisplayList.map((post) => {
                 const isVideo = post.mediaType === "video" || post.type === "video" || post.video || post.feedItemType === "reel";
                 const mediaSrc = post.mediaUrl || post.media || post.image || post.video;
+                
                 return (
                   <div key={post._id} onClick={() => setSelectedPost(post)} className="relative aspect-square overflow-hidden cursor-pointer bg-gray-100 group">
-                    {isVideo ? <video src={mediaSrc} className="w-full h-full object-cover" /> : <img src={mediaSrc} className="w-full h-full object-cover" alt="" />}
                     
-                    {/* Hover Stats (Desktop) */}
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white">
+                    {/* 🔥 FIX 5: SAFE MEDIA FALLBACK */}
+                    {isVideo ? (
+                      <video src={mediaSrc || "/fallback-post.jpg"} className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={mediaSrc || "/fallback-post.jpg"} className="w-full h-full object-cover" alt="" />
+                    )}
+                    
+                    {/* 🔥 FIX 2: Hover Stats with Views Count */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white">
+                      <span className="flex items-center gap-1.5 font-bold"><FaPlay /> {post.views?.length || 0}</span>
                       <span className="flex items-center gap-1.5 font-bold"><FaHeart /> {post.likesCount || post.likes?.length || 0}</span>
                       <span className="flex items-center gap-1.5 font-bold"><FaComment /> {post.comments?.length || 0}</span>
                     </div>
                     
                     {isVideo && (
                       <div className="absolute top-2 right-2 text-white drop-shadow-md">
-                        <FaPlay size={10} />
+                        <FaPlay size={12} />
                       </div>
                     )}
                   </div>
                 );
               })
             ) : (
-              <div className="col-span-3 py-24 text-center text-gray-400 text-sm font-medium">
-                No {activeTab} yet.
+              <div className="col-span-3 py-24 text-center text-gray-400 text-sm font-medium uppercase tracking-widest">
+                No {activeTab} to show.
               </div>
             )}
           </div>
@@ -225,7 +281,7 @@ function Profile() {
               {selectedPost.type === "video" || selectedPost.mediaType === "video" || selectedPost.feedItemType === "reel" ? (
                  <video src={selectedPost.mediaUrl || selectedPost.media || selectedPost.video} className="w-full h-full object-contain" autoPlay loop muted controls />
               ) : (
-                 <img src={selectedPost.mediaUrl || selectedPost.media || selectedPost.image} className="w-full h-full object-contain" alt="" />
+                 <img src={selectedPost.mediaUrl || selectedPost.media || selectedPost.image || "/fallback-post.jpg"} className="w-full h-full object-contain" alt="" />
               )}
             </div>
 
@@ -237,7 +293,10 @@ function Profile() {
               
               <div className="flex flex-col gap-2">
                 <button onClick={() => { setOpenShare(selectedPost); setSelectedPost(null); }} className="w-full py-2 bg-gray-100 text-sm font-bold rounded-lg flex items-center justify-center gap-2"><FaShare /> Share</button>
-                <button onClick={() => activeTab === "saved" ? unsavePost(selectedPost._id) : deletePost(selectedPost._id)} className="w-full py-2 bg-red-50 text-red-600 text-sm font-bold rounded-lg flex items-center justify-center gap-2">
+                <button 
+                  onClick={() => setItemToDelete(selectedPost)} 
+                  className="w-full py-2 bg-red-50 text-red-600 text-sm font-bold rounded-lg flex items-center justify-center gap-2"
+                >
                    <FaTrash /> {activeTab === "saved" ? "Unsave" : "Delete"}
                 </button>
               </div>
@@ -247,6 +306,40 @@ function Profile() {
       )}
 
       {openShare && <ShareModal post={openShare} onClose={() => setOpenShare(null)} />}
+
+      {/* 🔥 FIX 6: CUSTOM DELETE / UNSAVE CONFIRMATION MODAL */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-[320px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center flex flex-col items-center">
+              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                <FaTrash className="text-red-500 text-xl" />
+              </div>
+              <h3 className="text-[18px] font-black text-gray-900 mb-2 tracking-tight capitalize">
+                {activeTab === "saved" ? "Unsave Item?" : "Delete Post?"}
+              </h3>
+              <p className="text-[13px] text-gray-500 font-medium mb-6 leading-relaxed px-2">
+                Are you sure you want to permanently {activeTab === "saved" ? "remove this from your saved collection" : "delete this from your profile"}?
+              </p>
+              
+              <div className="flex gap-3 w-full">
+                <button 
+                  onClick={() => setItemToDelete(null)}
+                  className="flex-1 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteOrUnsave}
+                  className="flex-1 py-2.5 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors shadow-md shadow-red-500/20"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

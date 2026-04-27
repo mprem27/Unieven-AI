@@ -31,7 +31,11 @@ function Reels() {
   const [reels, setReels] = useState([]);
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
-  const [muted, setMuted] = useState(true);
+  
+  // 🔥 FIX 3: Default sound ON
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(muted); // Used to sync mute state in the observer without re-rendering it
+
   const [activeReel, setActiveReel] = useState(null);
   const [openShare, setOpenShare] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -42,23 +46,42 @@ function Reels() {
   const [loading, setLoading] = useState(true);
   const [expandedCaption, setExpandedCaption] = useState({});
 
+  // Keep ref synced with state for the intersection observer
+  useEffect(() => {
+    mutedRef.current = muted;
+  }, [muted]);
+
   // ─── FETCH ───────────────────────────────────────────────
   useEffect(() => {
     const fetchReels = async () => {
       try {
         setLoading(true);
         const res = await getReels();
-        const data = res.reels || [];
+        
+        // 🔥 FIX 1: Always ensure fallback profile structure after fetch
+        const data = (res.reels || [])
+          .filter((reel) => reel.user && reel.user._id)
+          .map((reel) => ({
+            ...reel,
+            user: reel.user,
+          }));
+
         setReels(data);
 
         const likeState = {};
         const playState = {};
+        const saveState = {}; // 🔥 FIX 5: Save State
+        
         data.forEach((r, i) => {
           likeState[i] = r.likes?.includes(user?._id);
           playState[i] = false;
+          saveState[i] = r.savedBy?.includes(user?._id) || false;
         });
+        
         setLiked(likeState);
         setIsPlaying(playState);
+        setSaved(saveState);
+
       } catch (err) {
         toast.error("Failed to load reels");
       } finally {
@@ -77,10 +100,21 @@ function Reels() {
           const video = videoRefs.current[i];
           if (!video) return;
 
+          // 🔥 FIX 4: Only active reel plays, previous stops
           if (entry.isIntersecting) {
+            videoRefs.current.forEach((v, idx) => {
+              if (v && idx !== i) {
+                v.pause();
+                v.currentTime = v.currentTime; // Lock frame, pause gracefully
+              }
+            });
+
+            video.muted = mutedRef.current; // Sync correct audio state
             video.play().catch(() => {});
+            
             setIsPlaying((p) => ({ ...p, [i]: true }));
             setCurrentIndex(i);
+            
             if (reels[i]?._id) viewReel(reels[i]._id).catch(() => {});
           } else {
             video.pause();
@@ -93,7 +127,7 @@ function Reels() {
 
     videoRefs.current.forEach((v) => v && observer.observe(v));
     return () => observer.disconnect();
-  }, [reels]);
+  }, [reels]); // Not depending on `muted` so it doesn't break scrolling
 
   // ─── PROGRESS ────────────────────────────────────────────
   const handleTimeUpdate = (i) => {
@@ -211,7 +245,6 @@ function Reels() {
     <div className="h-[100dvh] bg-[#000] flex items-center justify-center overflow-hidden font-['SF_Pro_Display',system-ui,sans-serif] selection:bg-none">
 
       {/* 🔝 FIXED BACK HEADER */}
-      {/* Reduced max-width to 400px to match narrower reels container */}
       <div className="fixed top-0 left-0 right-0 max-w-[400px] mx-auto flex justify-between items-center px-4 py-4 z-[60] pointer-events-none">
         <button onClick={() => navigate(-1)} className="drop-shadow-lg active:scale-90 transition-transform pointer-events-auto">
           <FaArrowLeft className="text-white text-xl" />
@@ -219,7 +252,6 @@ function Reels() {
       </div>
 
       {/* 📱 REELS CONTAINER */}
-      {/* Changed max-w-[480px] to max-w-[400px] for taller aspect ratio */}
       <div
         ref={containerRef}
         className="w-full max-w-[400px] h-[100dvh] overflow-y-scroll snap-y snap-mandatory relative bg-black scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
@@ -235,6 +267,7 @@ function Reels() {
               data-index={i}
               src={reel.video || reel.mediaUrl || reel.media}
               loop
+              preload="auto"
               muted={muted}
               playsInline
               className="w-full h-full object-cover cursor-pointer"
@@ -298,6 +331,12 @@ function Reels() {
                 count="Share"
                 onClick={() => setOpenShare(reel)}
               />
+              
+              {/* 🔥 FIX 2: VIEWS COUNT */}
+              <ActionBtn
+                icon={<FaPlay className="text-white text-[22px] drop-shadow-md" />}
+                count={fmt(reel.views?.length || 0)}
+              />
 
               {/* SAVE / BOOKMARK */}
               <ActionBtn
@@ -341,8 +380,13 @@ function Reels() {
                       {reel.user?.username}
                       <RoleBadge role={reel.user?.role} />
                     </Link>
-                    <button className="border border-white/80 text-white text-[11px] font-bold px-3 py-[3px] rounded-md hover:bg-white hover:text-black transition-colors shrink-0 shadow-sm ml-1">
-                      Follow
+                    
+                    {/* 🔥 FIX 6: FUNCTIONAL VIEW PROFILE BUTTON */}
+                    <button 
+                      onClick={() => navigate(`/user/${encodeURIComponent(reel.user?.username)}`)}
+                      className="border border-white/80 text-white text-[11px] font-bold px-3 py-[3px] rounded-md hover:bg-white hover:text-black transition-colors shrink-0 shadow-sm ml-1"
+                    >
+                      View
                     </button>
                   </div>
                   
@@ -392,12 +436,12 @@ function Reels() {
         ))}
       </div>
 
-      {/* ═══════════════════ UNIFIED POPUP MENU (PROJECT STYLE) ═══════════════════ */}
+      {/* ═══════════════════ UNIFIED POPUP MENU ═══════════════════ */}
       {openMenuId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpenMenuId(null)}></div>
           <div className="bg-white w-full max-w-[300px] rounded-[28px] overflow-hidden z-10 animate-in zoom-in-95 duration-200">
-             
+              
              {/* Save Button */}
              <button 
                onClick={() => {

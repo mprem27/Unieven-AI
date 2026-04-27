@@ -12,8 +12,22 @@ import {
   FaPlay,
   FaTh,
   FaCalendarAlt,
-  FaLock
+  FaLock,
+  FaHistory
 } from "react-icons/fa";
+
+// 🔥 FIX: Event expiry helper
+const isEventExpired = (event) => {
+  if (!event?.date) return false;
+  try {
+    const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
+    const datePart = dateStr.split("T")[0];
+    const timePart = event.time || "23:59";
+    return new Date(`${datePart}T${timePart}`) < new Date();
+  } catch {
+    return new Date(event.date) < new Date();
+  }
+};
 
 function UserProfile() {
   const { username } = useParams(); 
@@ -30,7 +44,7 @@ function UserProfile() {
   const [followState, setFollowState] = useState("follow"); 
   const [actionLoading, setActionLoading] = useState(false);
 
-  // 🔥 LOCAL CACHING: Remembers states even if the backend hides them on refresh
+  // LOCAL CACHING: Remembers states even if the backend hides them on refresh
   const getLocalPending = () => JSON.parse(localStorage.getItem("pending_reqs") || "[]");
   
   const addLocalPending = (id) => {
@@ -88,7 +102,7 @@ function UserProfile() {
     loadUserProfile();
   }, [decodedUsername, currentUser?._id]);
 
-  // ✅ PERFECT BACKEND RE-SYNC LOGIC
+  // PERFECT BACKEND RE-SYNC LOGIC
   const handleFollowClick = async () => {
     if (!profileData?._id || actionLoading) return;
 
@@ -127,7 +141,7 @@ function UserProfile() {
         }
       }
 
-      // 🔥 REFRESH PROFILE AFTER ACTION TO GUARANTEE SYNC
+      // REFRESH PROFILE AFTER ACTION TO GUARANTEE SYNC
       const updatedProfile = await getProfile(decodedUsername);
 
       if (updatedProfile?.user) {
@@ -183,14 +197,24 @@ function UserProfile() {
     );
   }
 
-  const eventPosts = posts.filter((p) => p.isEvent === true || p.isEvent === "true");
-  const currentDisplayList = activeTab === "posts" ? posts.filter(p => !p.isEvent && p.isEvent !== "true") : eventPosts;
+  // 🔥 FIX: EVENT HISTORY SEPARATION
+  const allEvents = posts.filter((p) => p.isEvent === true || p.isEvent === "true");
+  const activeEvents = allEvents.filter((e) => !isEventExpired(e));
+  const historyEvents = allEvents.filter((e) => isEventExpired(e));
+
+  const currentDisplayList = 
+    activeTab === "posts" ? posts.filter(p => !p.isEvent && p.isEvent !== "true") : 
+    activeTab === "events" ? activeEvents : historyEvents;
   
   // SMART VISIBILITY (Includes check if it's your own profile)
   const isPrivate = profileData.isPrivate === true || profileData.isPrivate === "true";
   const isOwnProfile = profileData._id === currentUser?._id;
   const canViewContent = !isPrivate || followState === "following" || isOwnProfile; 
   const hasStory = profileData?.hasStory || profileData?.stories?.length > 0;
+
+  // 🔥 FIX: FULL PROFILE ANALYTICS
+  const totalLikes = posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0);
+  const totalViews = posts.reduce((sum, p) => sum + (p.views?.length || 0), 0);
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center pb-12 font-['-apple-system','BlinkMacSystemFont','Segoe_UI','Roboto','Helvetica','Arial',sans-serif]">
@@ -201,10 +225,10 @@ function UserProfile() {
         <header className="px-4 py-6 md:py-10 flex flex-col gap-5">
           
           {/* Top Row: Avatar + Stats */}
-          <div className="flex items-center gap-8 md:gap-20">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-20">
             {/* Profile Avatar */}
             <div className="relative shrink-0">
-              <div className={`w-[80px] h-[80px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
+              <div className={`w-[90px] h-[90px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
                 hasStory ? "bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600" : "bg-gray-200"
               }`}>
                 <div className="bg-white p-1 rounded-full w-full h-full">
@@ -213,25 +237,26 @@ function UserProfile() {
               </div>
             </div>
 
-            {/* Stats Block */}
-            <div className="flex flex-1 justify-around md:justify-start md:gap-14">
+            {/* Stats Block (Includes Views & Likes) */}
+            <div className="flex flex-1 justify-center md:justify-start gap-6 md:gap-10 flex-wrap w-full md:pt-4">
               <div className="flex flex-col items-center">
                 <span className="font-bold text-base md:text-xl">{posts.length}</span>
-                <span className="text-[12px] md:text-base text-gray-500">posts</span>
+                <span className="text-[12px] md:text-[14px] text-gray-500">posts</span>
               </div>
               <div className="flex flex-col items-center cursor-pointer">
                 <span className="font-bold text-base md:text-xl">{profileData.followers?.length || 0}</span>
-                <span className="text-[12px] md:text-base text-gray-500">connects</span>
+                <span className="text-[12px] md:text-[14px] text-gray-500">connects</span>
               </div>
               <div className="flex flex-col items-center cursor-pointer">
                 <span className="font-bold text-base md:text-xl">{profileData.following?.length || 0}</span>
-                <span className="text-[12px] md:text-base text-gray-500">connections</span>
+                <span className="text-[12px] md:text-[14px] text-gray-500">connections</span>
               </div>
+
             </div>
           </div>
 
           {/* Info Block: Full Name, Username & Bio */}
-          <div className="flex flex-col px-1">
+          <div className="flex flex-col px-1 mt-2">
             <h1 className="font-bold text-[15px] md:text-lg mb-0.5">{profileData.name}</h1>
             
             <div className="flex items-center gap-2 mb-1">
@@ -266,7 +291,7 @@ function UserProfile() {
                 {actionLoading ? (
                   <div className={`w-4 h-4 border-2 border-t-transparent rounded-full animate-spin ${followState === "follow" ? "border-white/50" : "border-gray-500"}`}></div>
                 ) : followState === "following" ? (
-                  "Unconnect" // 🔥 UPDATED HERE
+                  "Unconnect" 
                 ) : followState === "requested" ? (
                   "Connecting" 
                 ) : (
@@ -285,7 +310,7 @@ function UserProfile() {
             {/* Example message button (Instagram style) */}
             {!isOwnProfile && followState === "following" && (
               <button onClick={() => toast.info("Messaging is not available yet")} className="flex-1 bg-[#efefef] hover:bg-gray-200 text-black px-4 py-1.5 rounded-lg text-sm font-semibold transition-all active:scale-95">
-                Message(This Futhere is not Available)
+                Message (Coming Soon)
               </button>
             )}
           </div>
@@ -313,7 +338,8 @@ function UserProfile() {
               <div className="flex justify-around items-center max-w-[400px] mx-auto md:max-w-none">
                 {[
                   { id: "posts", icon: <FaTh />, label: "POSTS" },
-                  { id: "events", icon: <FaCalendarAlt />, label: "EVENTS" }
+                  { id: "events", icon: <FaCalendarAlt />, label: "EVENTS" },
+                  { id: "history", icon: <FaHistory />, label: "HISTORY" } // 🔥 NEW HISTORY TAB
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -345,21 +371,23 @@ function UserProfile() {
                       onClick={() => navigate(`/post/${post._id}`)} 
                       className="relative aspect-square overflow-hidden cursor-pointer bg-gray-100 group"
                     >
+                      {/* 🔥 FIX: SAFE MEDIA FALLBACK */}
                       {isVideo ? (
-                        <video src={mediaSrc} className="w-full h-full object-cover" />
+                        <video src={mediaSrc || "/fallback-post.jpg"} className="w-full h-full object-cover" />
                       ) : (
-                        <img src={mediaSrc} className="w-full h-full object-cover" alt="" />
+                        <img src={mediaSrc || "/fallback-post.jpg"} className="w-full h-full object-cover" alt="" />
                       )}
                       
-                      {/* Hover Stats (Desktop) */}
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white">
+                      {/* 🔥 FIX: Hover Stats with Views Count */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white">
+                        <span className="flex items-center gap-1.5 font-bold"><FaPlay /> {post.views?.length || 0}</span>
                         <span className="flex items-center gap-1.5 font-bold"><FaHeart /> {post.likesCount || post.likes?.length || 0}</span>
                         <span className="flex items-center gap-1.5 font-bold"><FaComment /> {post.comments?.length || 0}</span>
                       </div>
                       
                       {isVideo && (
                         <div className="absolute top-2 right-2 text-white drop-shadow-md">
-                          <FaPlay size={10} />
+                          <FaPlay size={12} />
                         </div>
                       )}
                     </div>
@@ -368,9 +396,9 @@ function UserProfile() {
               ) : (
                 <div className="col-span-3 py-24 text-center flex flex-col items-center">
                   <div className="w-14 h-14 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-2xl mb-4">
-                    {activeTab === "posts" ? <FaTh /> : <FaCalendarAlt />}
+                    {activeTab === "posts" ? <FaTh /> : activeTab === "events" ? <FaCalendarAlt /> : <FaHistory />}
                   </div>
-                  <h3 className="text-xl font-bold text-gray-800">No {activeTab} yet</h3>
+                  <h3 className="text-xl font-bold text-gray-800 uppercase tracking-widest text-sm">No {activeTab} yet</h3>
                 </div>
               )}
             </div>

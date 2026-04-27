@@ -54,6 +54,9 @@ function Feed() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [mutedVideos, setMutedVideos] = useState({});
+  
+  // 🔥 FIX: Random placement index for suggestions (like Instagram)
+  const [suggestionIndex, setSuggestionIndex] = useState(1);
 
   const clickTimeouts = useRef({});
   const videoRefs = useRef({});
@@ -89,11 +92,16 @@ function Feed() {
       
       const combinedFeed = [...recentPosts, ...shuffledOlderPosts];
       setPosts(combinedFeed);
+      
+      // Randomize suggestion placement between index 1 and 3 (if enough posts exist)
+      if (combinedFeed.length > 0) {
+        setSuggestionIndex(Math.min(combinedFeed.length - 1, Math.floor(Math.random() * 3) + 1));
+      }
 
       const initialMuteState = {};
       combinedFeed.forEach(post => {
         if (post.type === "video" || post.feedItemType === "reel") {
-          initialMuteState[post._id] = true;
+          initialMuteState[post._id] = false; 
         }
       });
       setMutedVideos(initialMuteState);
@@ -120,6 +128,35 @@ function Feed() {
   useEffect(() => { 
     loadFeedData(); 
   }, [user?._id]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target;
+
+          if (entry.isIntersecting) {
+            Object.values(videoRefs.current).forEach((v) => {
+              if (v && v !== video) {
+                v.pause();
+                v.currentTime = v.currentTime; 
+              }
+            });
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        });
+      },
+      { threshold: 0.75 }
+    );
+
+    Object.values(videoRefs.current).forEach((video) => {
+      if (video) observer.observe(video);
+    });
+
+    return () => observer.disconnect();
+  }, [posts]);
 
   const handleLike = async (item) => {
     if (!user) return toast.error("Please login");
@@ -215,10 +252,7 @@ function Feed() {
       if (videoRefs.current[postId]) {
         videoRefs.current[postId].muted = newMutedState;
       }
-      return {
-        ...prev,
-        [postId]: newMutedState
-      };
+      return { ...prev, [postId]: newMutedState };
     });
   };
 
@@ -244,13 +278,16 @@ function Feed() {
             const isSaved = post.isSaved;
             const isEventPost = post.isEvent === true || post.isEvent === "true";
             const isExpanded = expandedEvents[post._id];
-            
             const isThisVideoMuted = mutedVideos[post._id] !== false; 
+            
+            // 🔥 FIX: Extract the latest comment for preview
+            const latestComment = post.comments?.length > 0 ? post.comments[post.comments.length - 1] : null;
 
             return (
               <React.Fragment key={post._id}>
                 <div className="bg-white w-full border border-gray-200 rounded-[16px] overflow-hidden shadow-sm relative">
                   
+                  {/* Post Header */}
                   <div className="flex justify-between items-center px-4 py-3">
                     <div className="flex gap-3 items-center">
                       <Link to={`/user/${encodeURIComponent(post.user?.username || "")}`}>
@@ -305,6 +342,7 @@ function Feed() {
                     </div>
                   </div>
 
+                  {/* Media Content */}
                   <div 
                     onClick={() => handleMediaClick(post)} 
                     className={`relative bg-black w-full h-[400px] sm:h-[480px] flex items-center justify-center overflow-hidden ${post.feedItemType === "reel" ? "cursor-pointer" : ""}`}
@@ -312,6 +350,7 @@ function Feed() {
                     {post.type === "video" || post.feedItemType === "reel" ? (
                       <>
                         <video 
+                          data-id={post._id}
                           ref={(el) => (videoRefs.current[post._id] = el)}
                           src={post.media} 
                           className="w-full h-full object-contain pointer-events-none" 
@@ -352,6 +391,7 @@ function Feed() {
                     )}
                   </div>
 
+                  {/* Actions & Description */}
                   <div className="flex justify-between px-4 pt-3 pb-2">
                     <div className="flex gap-4 items-center">
                       <img 
@@ -380,6 +420,8 @@ function Feed() {
 
                   <div className="px-4 pb-4">
                     <p className="font-bold text-[13px] mb-1.5">{post.likes?.length || 0} likes</p>
+                    
+                    {/* Caption */}
                     <div className={`text-[13px] leading-snug ${!isExpanded && isEventPost ? 'line-clamp-2' : ''}`}>
                       <Link to={`/user/${encodeURIComponent(post.user?.username || "")}`} className="font-bold mr-2 hover:text-gray-600">
                         {post.user?.username}
@@ -387,6 +429,17 @@ function Feed() {
                       <span className="text-gray-800 whitespace-pre-wrap">{post.caption}</span>
                     </div>
 
+                    {/* 🔥 FIX: Latest Comment Preview */}
+                    {latestComment && (
+                      <div className="mt-1.5 flex text-[13px] leading-snug">
+                        <Link to={`/user/${encodeURIComponent(latestComment.user?.username || "")}`} className="font-bold mr-2 hover:text-gray-600 truncate max-w-[100px]">
+                          {latestComment.user?.username}
+                        </Link>
+                        <span className="text-gray-800 truncate">{latestComment.text}</span>
+                      </div>
+                    )}
+
+                    {/* Event Expansion */}
                     {isEventPost && (
                       <>
                         {!isExpanded ? (
@@ -409,8 +462,9 @@ function Feed() {
                       </>
                     )}
 
-                    <p onClick={() => setActivePost(post)} className="text-gray-500 text-[13px] font-medium mt-2 cursor-pointer hover:text-gray-400">
-                      {post.comments?.length > 0 ? `View all ${post.comments.length} comments` : "Add a comment..."}
+                    {/* View all comments button */}
+                    <p onClick={() => setActivePost(post)} className="text-gray-500 text-[13px] font-medium mt-1 cursor-pointer hover:text-gray-400">
+                      {post.comments?.length > 1 ? `View all ${post.comments.length} comments` : (post.comments?.length === 1 ? "View comment" : "Add a comment...")}
                     </p>
 
                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mt-2">
@@ -419,7 +473,8 @@ function Feed() {
                   </div>
                 </div>
 
-                {index === 0 && suggestedUsers.length > 0 && (
+                {/* 🔥 FIX: Dynamic Random Suggestion Placement */}
+                {index === suggestionIndex && suggestedUsers.length > 0 && (
                   <div className="w-full py-2">
                     <Suggestions 
                       users={suggestedUsers} 
@@ -437,7 +492,7 @@ function Feed() {
       {activePost && <CommentsModal item={activePost} type={activePost.feedItemType === "reel" ? "reel" : "post"} onClose={() => setActivePost(null)} onSync={(updated) => setPosts(prev => prev.map(p => p._id === updated._id ? { ...p, comments: updated.comments } : p))} />}
       {openShare && <ShareModal post={openShare} onClose={() => setOpenShare(null)} />}
       
-      {/* ✅ CUSTOM DELETE CONFIRMATION MODAL */}
+      {/* DELETE CONFIRMATION MODAL */}
       {itemToDelete && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl w-full max-w-[320px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
