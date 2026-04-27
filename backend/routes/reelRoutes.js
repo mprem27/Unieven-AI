@@ -11,6 +11,7 @@ import {
 } from "../controllers/reelController.js";
 
 import authMiddleware from "../middlewares/authMiddleware.js";
+import optionalAuth from "../middlewares/optionalAuth.js";
 import { uploadVideo } from "../middlewares/uploadMiddleware.js";
 import {
   commentLimiter,
@@ -18,11 +19,12 @@ import {
 } from "../middlewares/rateLimiter.js";
 import { validateRequest } from "../middlewares/validateMiddleware.js";
 import asyncHandler from "../middlewares/asyncHandler.js";
-import optionalAuth from "../middlewares/optionalAuth.js";
 
 const router = express.Router();
 
-
+// ============================================
+// CREATE REEL
+// ============================================
 router.post(
   "/create",
   authMiddleware,
@@ -32,19 +34,27 @@ router.post(
   asyncHandler(createReel)
 );
 
-
+// ============================================
+// GET ALL REELS
+// ============================================
 router.get(
   "/",
   optionalAuth,
   asyncHandler(getReels)
 );
 
+// ============================================
+// LIKE / UNLIKE REEL
+// ============================================
 router.post(
   "/like/:id",
   authMiddleware,
   asyncHandler(likeReel)
 );
 
+// ============================================
+// ADD COMMENT TO REEL
+// ============================================
 router.post(
   "/comment/:id",
   authMiddleware,
@@ -53,29 +63,38 @@ router.post(
   asyncHandler(addCommentToReel)
 );
 
-
+// ============================================
+// DELETE REEL COMMENT
+// ============================================
 router.delete(
   "/comment/:commentId",
   authMiddleware,
   asyncHandler(deleteReelComment)
 );
 
-
+// ============================================
+// LIKE / UNLIKE REEL COMMENT
+// ============================================
 router.post(
   "/comment/like/:commentId",
   authMiddleware,
   asyncHandler(likeReelComment)
 );
 
-
+// ============================================
+// INCREMENT REEL VIEW COUNT
+// ============================================
 router.post(
   "/view/:id",
   optionalAuth,
   asyncHandler(incrementViews)
 );
 
+// ============================================
+// DELETE REEL (🔥 FIXED ROUTE)
+// ============================================
 router.delete(
-  "/delete/:id",
+  "/:id",
   authMiddleware,
   asyncHandler(deleteReel)
 );
