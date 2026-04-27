@@ -28,9 +28,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
 
   const currentStory = stories?.[index];
 
-  //////////////////////////////////////////////////////
-  // 🔥 SAFE STORY VIEW REGISTER
-  //////////////////////////////////////////////////////
   useEffect(() => {
     if (!currentStory || showComments || showMenu) return;
 
@@ -41,6 +38,14 @@ function StoryViewer({ stories, currentIndex, onClose }) {
 
     if (storyId && !viewedStoriesRef.current.has(storyId)) {
       viewedStoriesRef.current.add(storyId);
+
+      // 🔥 OPTIMISTIC UPDATE: Instantly mark as viewed locally so the feed ring updates instantly
+      if (currentUser?._id) {
+        if (!currentStory.views) currentStory.views = [];
+        if (!currentStory.views.includes(currentUser._id)) {
+          currentStory.views.push(currentUser._id);
+        }
+      }
 
       viewStory(storyId).catch((err) => {
         if (
@@ -69,11 +74,8 @@ function StoryViewer({ stories, currentIndex, onClose }) {
     }, 100);
 
     return () => clearInterval(timerRef.current);
-  }, [index, currentStory?._id, showComments, showMenu, stories?.length, onClose]);
+  }, [index, currentStory?._id, showComments, showMenu, stories?.length, onClose, currentUser]);
 
-  //////////////////////////////////////////////////////
-  // 🔥 CLICK NAVIGATION
-  //////////////////////////////////////////////////////
   const handleNavigation = (e) => {
     if (e.target.closest(".ignore-click")) {
       if (!e.target.closest(".menu-container") && showMenu) {
@@ -107,9 +109,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
     }
   };
 
-  //////////////////////////////////////////////////////
-  // 🔥 DELETE STORY (FIXED INSTANT UI REMOVE)
-  //////////////////////////////////////////////////////
   const executeDelete = async () => {
     try {
       if (!currentStory?._id) return;
@@ -147,7 +146,8 @@ function StoryViewer({ stories, currentIndex, onClose }) {
   };
 
   const getDynamicTextClasses = (story) => {
-    let base = `absolute whitespace-pre-wrap break-words select-none transition-all duration-200 z-30 pointer-events-none ${story.textFont || "font-sans"}`;
+    // 🔥 FIX: Added px-6 py-3 to match the exact padding used in AddStory.jsx
+    let base = `absolute px-6 py-3 whitespace-pre-wrap break-words select-none transition-all duration-200 z-30 pointer-events-none ${story.textFont || "font-sans"}`;
 
     if (story.textStyle === "playful") {
       base += ` -rotate-6 scale-110 skew-x-[-5deg]`;
@@ -161,7 +161,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
     const textStyle = story.textStyle || "classic";
     const textSize = Number(story.textSize) || 36;
 
-    // RESPONSIVE CONTAINER DIMENSIONS
     const containerWidth =
       window.innerWidth > 420
         ? 420
@@ -175,49 +174,37 @@ function StoryViewer({ stories, currentIndex, onClose }) {
           )
         : window.innerHeight;
 
-    // 🔥 TRUE FIX: SAVED NORMALIZED POSITION TO CENTER ANCHORED OFFSETS
-    const normalizedX = Number(story.textX) || 0.5; // Default to 0.5 (center) if missing
+    const normalizedX = Number(story.textX) || 0.5;
     const normalizedY = Number(story.textY) || 0.5;
 
     const textX = normalizedX * containerWidth - containerWidth / 2;
     const textY = normalizedY * containerHeight - containerHeight / 2;
 
-    // PERFECT CENTER-ANCHOR FIX
     let style = {
       position: "absolute",
-
       left: "50%",
       top: "50%",
-
       color: textColor,
       fontSize: `${textSize}px`,
-
       display: "inline-block",
       textAlign: "center",
       whiteSpace: "pre-wrap",
-      lineHeight: "1.2",
-
+      lineHeight: "1.4", // 🔥 FIX: Matched lineHeight 1.4 from AddStory.jsx
       maxWidth: "90%",
       wordBreak: "break-word",
-
       transform: `translate(-50%, -50%) translate3d(${textX}px, ${textY}px, 0)`,
-
       zIndex: 30,
     };
 
-    // 🔥 STYLE VARIANTS
     if (textStyle === "highlight") {
       style.backgroundColor = textColor;
-
       style.color =
         textColor === "white" ||
         textColor === "#eab308"
           ? "black"
           : "white";
-
-      style.padding = "8px 16px";
+      style.padding = "4px 16px"; // 🔥 FIX: Matched highlight padding from AddStory.jsx
       style.borderRadius = "12px";
-
       style.boxDecorationBreak = "clone";
       style.WebkitBoxDecorationBreak = "clone";
 
@@ -227,7 +214,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
         0 0 20px ${textColor},
         0 0 30px ${textColor}
       `;
-
       style.color = "white";
 
     } else if (textStyle === "outline") {
@@ -256,16 +242,13 @@ function StoryViewer({ stories, currentIndex, onClose }) {
         translate3d(${textX}px, ${textY}px, 0)
         rotate(-5deg)
       `;
-
       style.textShadow = "3px 3px 0px rgba(0,0,0,0.5)";
 
     } else if (textStyle === "elegant") {
       style.textShadow = "0px 2px 4px rgba(0,0,0,0.3)";
-
       style.letterSpacing = "2px";
 
     } else {
-      // CLASSIC
       style.textShadow = "0 2px 10px rgba(0,0,0,0.8)";
     }
 
@@ -281,7 +264,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
           onClick={handleNavigation}
           className="relative w-full max-w-[420px] h-[100dvh] sm:h-[90vh] sm:max-h-[850px] bg-black sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl border sm:border-white/10"
         >
-          {/* TOP OVERLAY */}
           <div className="absolute top-0 left-0 right-0 z-[220] p-4 bg-gradient-to-b from-black/80 to-transparent">
             <div className="flex gap-1.5 mb-4">
               {stories.map((_, i) => (
@@ -299,7 +281,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
               ))}
             </div>
 
-            {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
@@ -337,7 +318,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
                 </div>
               </div>
 
-              {/* Right actions */}
               <div className="flex items-center gap-1 relative menu-container">
                 {currentUser?._id === currentStory.user?._id && (
                   <>
@@ -407,7 +387,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
             </div>
           </div>
 
-          {/* MEDIA - object-cover ensures videos/images aren't cropped */}
           <div
             className={`flex-1 flex items-center justify-center relative overflow-hidden ${
               currentStory.type === "text"
@@ -443,7 +422,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
             )}
           </div>
 
-          {/* FOOTER */}
           <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/90 to-transparent flex items-center gap-4 z-[220]">
             <div
               onClick={(e) => {

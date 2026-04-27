@@ -41,14 +41,17 @@ export const uploadStory = async (req, res) => {
         media: "",
         type: "text",
         text,
-        textColor,
-        textFont,
-        textStyle,
-        textSize,
-        textX,
-        textY,
-        bgGradient,
-        filter,
+        
+        // 🔥 SAFELY PARSED STYLES & COORDINATES
+        textColor: textColor || "white",
+        textFont: textFont || "font-sans",
+        textStyle: textStyle || "classic",
+        textSize: Number(textSize) || 36,
+        textX: Number(textX) || 0.5, // Defaults to exact center if missing
+        textY: Number(textY) || 0.5,
+        bgGradient: bgGradient || "",
+        filter: filter || "",
+
         link,
         tags: tags ? JSON.parse(tags || "[]") : [],
       });
@@ -75,14 +78,16 @@ export const uploadStory = async (req, res) => {
             : type || "image",
 
         text: text || "",
-        textColor,
-        textFont,
-        textStyle,
-        textSize,
-        textX,
-        textY,
-        bgGradient,
-        filter,
+        
+        // 🔥 SAFELY PARSED STYLES & COORDINATES
+        textColor: textColor || "white",
+        textFont: textFont || "font-sans",
+        textStyle: textStyle || "classic",
+        textSize: Number(textSize) || 36,
+        textX: Number(textX) || 0.5, // Defaults to exact center if missing
+        textY: Number(textY) || 0.5,
+        bgGradient: bgGradient || "",
+        filter: filter || "",
 
         link,
         tags: tags

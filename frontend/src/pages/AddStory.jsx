@@ -12,8 +12,9 @@ function AddStory() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
-  const trashRef = useRef(null); 
+  const trashRef = useRef(null);
   const previewRef = useRef(null);
+  const editableRef = useRef(null); // 🔥 Added Ref for smooth text editing
 
   const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
@@ -70,6 +71,17 @@ function AddStory() {
 
   const textStyles = ["classic", "highlight", "neon", "playful", "outline", "glitch", "3d-pop", "elegant"];
 
+  // 🔥 Sync effect for contentEditable
+  useEffect(() => {
+    if (
+      activeTool === "text" &&
+      editableRef.current &&
+      editableRef.current.textContent !== text
+    ) {
+      editableRef.current.textContent = text;
+    }
+  }, [activeTool, text]);
+
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     if (!selectedFiles.length) return;
@@ -113,9 +125,10 @@ function AddStory() {
     setIsDragging(true);
     hasDraggedRef.current = false; 
     
+    // 🔥 Perfect offset math based on center anchors
     dragOffset.current = { 
-      x: clientX - rect.left - position.x, 
-      y: clientY - rect.top - position.y,
+      x: clientX - rect.left - (position.x + rect.width / 2), 
+      y: clientY - rect.top - (position.y + rect.height / 2),
       startX: clientX,
       startY: clientY
     };
@@ -131,9 +144,10 @@ function AddStory() {
     const dist = Math.hypot(clientX - dragOffset.current.startX, clientY - dragOffset.current.startY);
     if (dist > 5) hasDraggedRef.current = true; 
 
+    // 🔥 Perfect position tracking with center offsets
     setPosition({ 
-      x: clientX - rect.left - dragOffset.current.x, 
-      y: clientY - rect.top - dragOffset.current.y 
+      x: clientX - rect.left - dragOffset.current.x - rect.width / 2, 
+      y: clientY - rect.top - dragOffset.current.y - rect.height / 2
     });
 
     if (trashRef.current) {
@@ -163,7 +177,14 @@ function AddStory() {
 
   const clearText = () => {
     setText("");
+    if (editableRef.current) editableRef.current.textContent = "";
     setPosition({ x: 0, y: 0 }); 
+  };
+
+  const handleEditableInput = (e) => {
+    const newText = e.currentTarget.textContent || "";
+    if (newText.length > 250) return;
+    setText(newText);
   };
 
   const handleSubmit = async () => {
@@ -186,6 +207,7 @@ function AddStory() {
         formData.append("textStyle", textStyle);
         formData.append("textSize", textSize);
         
+        // 🔥 Perfect true relative coordinate saving
         formData.append(
           "textX",
           ((position.x + previewRef.current.clientWidth / 2) / previewRef.current.clientWidth).toFixed(4)
@@ -475,14 +497,35 @@ function AddStory() {
                   style={{ WebkitAppearance: 'none', transformOrigin: 'center' }}
                 />
               </div>
-              <textarea 
-                autoFocus 
-                value={text} 
-                onChange={(e) => setText(e.target.value)} 
-                placeholder="Type something..."
-                className={`bg-transparent outline-none border-none resize-none overflow-hidden text-center w-full max-w-[90vw] ${textFont}`}
-                style={getDynamicStyles(true)}
-              />
+
+              {/* 🔥 Ref-Controlled ContentEditable Div */}
+              <div 
+                ref={editableRef}
+                contentEditable
+                suppressContentEditableWarning
+                spellCheck={false}
+                onInput={handleEditableInput}
+                onFocus={() => {
+                  requestAnimationFrame(() => {
+                    if (editableRef.current) {
+                      const range = document.createRange();
+                      const sel = window.getSelection();
+                      range.selectNodeContents(editableRef.current);
+                      range.collapse(false);
+                      sel.removeAllRanges();
+                      sel.addRange(range);
+                    }
+                  });
+                }}
+                className={`bg-transparent outline-none border-none min-w-[40px] min-h-[40px] cursor-text px-6 py-3 whitespace-pre-wrap break-words text-center inline-block max-w-[90%] empty:before:content-['Type_something...'] empty:before:opacity-50 empty:before:text-white/50 ${textFont}`}
+                style={{
+                  ...getDynamicStyles(true),
+                  userSelect: "text",
+                  WebkitUserSelect: "text",
+                  caretColor: textColor,
+                  touchAction: "manipulation",
+                }}
+              ></div>
             </div>
             
             <div className="flex flex-col items-center gap-8 mb-10 pointer-events-auto">
@@ -526,7 +569,6 @@ function AddStory() {
           </div>
         </>
       )}
-
     </div>
   );
 }
