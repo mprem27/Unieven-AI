@@ -13,18 +13,44 @@ import RoleBadge from "../components/RoleBadge";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 
+// 🔥 1. ADD FONT MAP (TOP OF FILE)
+const fontMap = {
+  classic: "font-sans font-bold",
+  typewriter: "font-serif italic",
+  modern: "font-mono uppercase tracking-widest",
+  impact: "font-black uppercase tracking-tight",
+  cursive: "font-[cursive]",
+  marker: "font-[fantasy] tracking-wide",
+  sleek: "font-sans font-light tracking-[0.3em] uppercase",
+};
+
 function StoryViewer({ stories, currentIndex, onClose }) {
   const { user: currentUser } = useAuth();
 
   const [index, setIndex] = useState(currentIndex || 0);
   const [progress, setProgress] = useState(0);
   const [showComments, setShowComments] = useState(false);
-
   const [showMenu, setShowMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const timerRef = useRef(null);
   const viewedStoriesRef = useRef(new Set());
+  
+  // 🔥 2. ADD VIEWER REF
+  const viewerRef = useRef(null);
+
+  const isClosingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const handleClose = () => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    onCloseRef.current?.();
+  };
 
   const currentStory = stories?.[index];
 
@@ -38,14 +64,6 @@ function StoryViewer({ stories, currentIndex, onClose }) {
 
     if (storyId && !viewedStoriesRef.current.has(storyId)) {
       viewedStoriesRef.current.add(storyId);
-
-      // 🔥 OPTIMISTIC UPDATE: Instantly mark as viewed locally so the feed ring updates instantly
-      if (currentUser?._id) {
-        if (!currentStory.views) currentStory.views = [];
-        if (!currentStory.views.includes(currentUser._id)) {
-          currentStory.views.push(currentUser._id);
-        }
-      }
 
       viewStory(storyId).catch((err) => {
         if (
@@ -65,7 +83,7 @@ function StoryViewer({ stories, currentIndex, onClose }) {
           if (index < stories.length - 1) {
             setIndex((prevIndex) => prevIndex + 1);
           } else {
-            onClose?.();
+            handleClose();
           }
           return 100;
         }
@@ -74,7 +92,7 @@ function StoryViewer({ stories, currentIndex, onClose }) {
     }, 100);
 
     return () => clearInterval(timerRef.current);
-  }, [index, currentStory?._id, showComments, showMenu, stories?.length, onClose, currentUser]);
+  }, [index, currentStory?._id, showComments, showMenu, stories?.length]);
 
   const handleNavigation = (e) => {
     if (e.target.closest(".ignore-click")) {
@@ -98,13 +116,13 @@ function StoryViewer({ stories, currentIndex, onClose }) {
       if (index > 0) {
         setIndex((prev) => prev - 1);
       } else {
-        onClose?.();
+        handleClose(); 
       }
     } else {
       if (index < stories.length - 1) {
         setIndex((prev) => prev + 1);
       } else {
-        onClose?.();
+        handleClose(); 
       }
     }
   };
@@ -124,7 +142,7 @@ function StoryViewer({ stories, currentIndex, onClose }) {
       setConfirmDelete(false);
 
       if (updatedStories.length === 0) {
-        onClose?.();
+        handleClose();
         return;
       }
 
@@ -145,9 +163,11 @@ function StoryViewer({ stories, currentIndex, onClose }) {
     }
   };
 
+  // 🔥 3. FIX FONT CLASS SYSTEM
   const getDynamicTextClasses = (story) => {
-    // 🔥 FIX: Added px-6 py-3 to match the exact padding used in AddStory.jsx
-    let base = `absolute px-6 py-3 whitespace-pre-wrap break-words select-none transition-all duration-200 z-30 pointer-events-none ${story.textFont || "font-sans"}`;
+    const fontClass = fontMap[story.textFont] || fontMap.classic;
+
+    let base = `absolute whitespace-pre-wrap break-words select-none transition-all duration-200 z-30 pointer-events-none ${fontClass}`;
 
     if (story.textStyle === "playful") {
       base += ` -rotate-6 scale-110 skew-x-[-5deg]`;
@@ -161,25 +181,18 @@ function StoryViewer({ stories, currentIndex, onClose }) {
     const textStyle = story.textStyle || "classic";
     const textSize = Number(story.textSize) || 36;
 
-    const containerWidth =
-      window.innerWidth > 420
-        ? 420
-        : window.innerWidth;
+    // 🔥 4. FIX POSITION CALCULATION
+    const containerWidth = viewerRef.current?.clientWidth || 420;
+    const containerHeight = viewerRef.current?.clientHeight || window.innerHeight;
 
-    const containerHeight =
-      window.innerWidth > 640
-        ? Math.min(
-            window.innerHeight * 0.9,
-            850
-          )
-        : window.innerHeight;
-
-    const normalizedX = Number(story.textX) || 0.5;
-    const normalizedY = Number(story.textY) || 0.5;
+    // 🔥 7. CLAMP POSITION SAFELY
+    const normalizedX = Math.max(0, Math.min(1, Number(story.textX) || 0.5));
+    const normalizedY = Math.max(0, Math.min(1, Number(story.textY) || 0.5));
 
     const textX = normalizedX * containerWidth - containerWidth / 2;
     const textY = normalizedY * containerHeight - containerHeight / 2;
 
+    // 🔥 5. FIX LINE HEIGHT & TRANSFORM
     let style = {
       position: "absolute",
       left: "50%",
@@ -189,7 +202,7 @@ function StoryViewer({ stories, currentIndex, onClose }) {
       display: "inline-block",
       textAlign: "center",
       whiteSpace: "pre-wrap",
-      lineHeight: "1.4", // 🔥 FIX: Matched lineHeight 1.4 from AddStory.jsx
+      lineHeight: "1.4",
       maxWidth: "90%",
       wordBreak: "break-word",
       transform: `translate(-50%, -50%) translate3d(${textX}px, ${textY}px, 0)`,
@@ -199,15 +212,12 @@ function StoryViewer({ stories, currentIndex, onClose }) {
     if (textStyle === "highlight") {
       style.backgroundColor = textColor;
       style.color =
-        textColor === "white" ||
-        textColor === "#eab308"
-          ? "black"
-          : "white";
-      style.padding = "4px 16px"; // 🔥 FIX: Matched highlight padding from AddStory.jsx
+        textColor === "white" || textColor === "#eab308" ? "black" : "white";
+      // 🔥 6. FIX HIGHLIGHT PADDING
+      style.padding = "4px 16px";
       style.borderRadius = "12px";
       style.boxDecorationBreak = "clone";
       style.WebkitBoxDecorationBreak = "clone";
-
     } else if (textStyle === "neon") {
       style.textShadow = `
         0 0 10px ${textColor},
@@ -215,39 +225,27 @@ function StoryViewer({ stories, currentIndex, onClose }) {
         0 0 30px ${textColor}
       `;
       style.color = "white";
-
     } else if (textStyle === "outline") {
       style.WebkitTextStroke = `1.5px ${
-        textColor === "black"
-          ? "white"
-          : "black"
+        textColor === "black" ? "white" : "black"
       }`;
-
     } else if (textStyle === "3d-pop") {
       style.textShadow = `
         2px 2px 0px #000,
         4px 4px 0px #222,
         6px 6px 0px #444
       `;
-
     } else if (textStyle === "glitch") {
       style.textShadow = `
         3px 0 0 red,
         -3px 0 0 cyan
       `;
-
     } else if (textStyle === "playful") {
-      style.transform = `
-        translate(-50%, -50%)
-        translate3d(${textX}px, ${textY}px, 0)
-        rotate(-5deg)
-      `;
       style.textShadow = "3px 3px 0px rgba(0,0,0,0.5)";
-
+      // Transform handled dynamically inside base class
     } else if (textStyle === "elegant") {
       style.textShadow = "0px 2px 4px rgba(0,0,0,0.3)";
       style.letterSpacing = "2px";
-
     } else {
       style.textShadow = "0 2px 10px rgba(0,0,0,0.8)";
     }
@@ -260,7 +258,9 @@ function StoryViewer({ stories, currentIndex, onClose }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/95 sm:backdrop-blur-2xl z-[200] flex justify-center items-center overflow-hidden touch-none font-['Poppins',sans-serif]">
+        {/* 🔥 8. ADD REF TO MAIN VIEWER CONTAINER */}
         <div
+          ref={viewerRef}
           onClick={handleNavigation}
           className="relative w-full max-w-[420px] h-[100dvh] sm:h-[90vh] sm:max-h-[850px] bg-black sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl border sm:border-white/10"
         >
@@ -286,7 +286,7 @@ function StoryViewer({ stories, currentIndex, onClose }) {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onClose?.();
+                    handleClose(); 
                   }}
                   className="ignore-click text-white p-1 hover:bg-white/10 rounded-full transition-colors"
                 >
@@ -377,7 +377,7 @@ function StoryViewer({ stories, currentIndex, onClose }) {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onClose?.();
+                    handleClose(); 
                   }}
                   className="ignore-click text-white/90 hover:text-white p-2 hover:bg-white/10 rounded-full transition-colors ml-1"
                 >

@@ -8,13 +8,34 @@ import { createStory } from "../services/storyService";
 import { Assets } from "../assets/Assets";
 import { getProfileImage } from "../utils/getProfileImage";
 
+// 🔥 FIX: Store permanent font keys instead of volatile Tailwind classes
+const fonts = [
+  { name: "Classic", key: "classic", class: "font-sans font-bold" },
+  { name: "Typewriter", key: "typewriter", class: "font-serif italic" },
+  { name: "Modern", key: "modern", class: "font-mono uppercase tracking-widest" },
+  { name: "Impact", key: "impact", class: "font-black uppercase tracking-tight" },
+  { name: "Cursive", key: "cursive", class: "font-[cursive]" },
+  { name: "Marker", key: "marker", class: "font-[fantasy] tracking-wide" },
+  { name: "Sleek", key: "sleek", class: "font-sans font-light tracking-[0.3em] uppercase" }
+];
+
+const fontMap = {
+  classic: "font-sans font-bold",
+  typewriter: "font-serif italic",
+  modern: "font-mono uppercase tracking-widest",
+  impact: "font-black uppercase tracking-tight",
+  cursive: "font-[cursive]",
+  marker: "font-[fantasy] tracking-wide",
+  sleek: "font-sans font-light tracking-[0.3em] uppercase",
+};
+
 function AddStory() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
   const trashRef = useRef(null);
   const previewRef = useRef(null);
-  const editableRef = useRef(null); // 🔥 Added Ref for smooth text editing
+  const editableRef = useRef(null);
 
   const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
@@ -26,7 +47,7 @@ function AddStory() {
 
   const [text, setText] = useState("");
   const [textColor, setTextColor] = useState("white");
-  const [textFont, setTextFont] = useState("font-sans");
+  const [textFont, setTextFont] = useState("classic");
   const [textStyle, setTextStyle] = useState("classic");
   const [textSize, setTextSize] = useState(36);
   
@@ -42,15 +63,6 @@ function AddStory() {
   const hasDraggedRef = useRef(false);
 
   const colors = ["white", "black", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"];
-  const fonts = [
-    { name: "Classic", class: "font-sans font-bold" },
-    { name: "Typewriter", class: "font-serif italic" },
-    { name: "Modern", class: "font-mono uppercase tracking-widest" },
-    { name: "Impact", class: "font-black uppercase tracking-tight" },
-    { name: "Cursive", class: "font-[cursive]" },
-    { name: "Marker", class: "font-[fantasy] tracking-wide" },
-    { name: "Sleek", class: "font-sans font-light tracking-[0.3em] uppercase" }
-  ];
 
   const filters = [
     { name: "Normal", class: "filter-none" },
@@ -71,7 +83,7 @@ function AddStory() {
 
   const textStyles = ["classic", "highlight", "neon", "playful", "outline", "glitch", "3d-pop", "elegant"];
 
-  // 🔥 Sync effect for contentEditable
+  // Sync effect for contentEditable
   useEffect(() => {
     if (
       activeTool === "text" &&
@@ -81,6 +93,15 @@ function AddStory() {
       editableRef.current.textContent = text;
     }
   }, [activeTool, text]);
+
+  // 🔥 FIX 3: Memory leak cleanup for blob URLs
+  useEffect(() => {
+    return () => {
+      if (preview && preview.startsWith("blob:")) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
 
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -125,7 +146,6 @@ function AddStory() {
     setIsDragging(true);
     hasDraggedRef.current = false; 
     
-    // 🔥 Perfect offset math based on center anchors
     dragOffset.current = { 
       x: clientX - rect.left - (position.x + rect.width / 2), 
       y: clientY - rect.top - (position.y + rect.height / 2),
@@ -144,7 +164,6 @@ function AddStory() {
     const dist = Math.hypot(clientX - dragOffset.current.startX, clientY - dragOffset.current.startY);
     if (dist > 5) hasDraggedRef.current = true; 
 
-    // 🔥 Perfect position tracking with center offsets
     setPosition({ 
       x: clientX - rect.left - dragOffset.current.x - rect.width / 2, 
       y: clientY - rect.top - dragOffset.current.y - rect.height / 2
@@ -175,20 +194,32 @@ function AddStory() {
     setActiveTool("text");
   };
 
+  // 🔥 FIX 1: Complete state reset
   const clearText = () => {
     setText("");
     if (editableRef.current) editableRef.current.textContent = "";
     setPosition({ x: 0, y: 0 }); 
+    setTextFont("classic");
+    setTextStyle("classic");
+    setTextSize(36);
+    setTextColor("white");
   };
 
+  // 🔥 FIX 5: Safer text slicing to protect contentEditable cursor
   const handleEditableInput = (e) => {
     const newText = e.currentTarget.textContent || "";
-    if (newText.length > 250) return;
-    setText(newText);
+    setText(newText.slice(0, 250));
   };
 
   const handleSubmit = async () => {
     if (!preview && mediaType !== "text") return;
+
+    // 🔥 FIX 4: Prevent empty text story submission
+    if (mediaType === "text" && !text.trim()) {
+      toast.error("Text story cannot be empty");
+      return;
+    }
+
     setLoading(true);
     try {
       const formData = new FormData();
@@ -203,20 +234,31 @@ function AddStory() {
       if (text && previewRef.current) {
         formData.append("text", text);
         formData.append("textColor", textColor);
-        formData.append("textFont", textFont);
+        formData.append("textFont", textFont); 
         formData.append("textStyle", textStyle);
         formData.append("textSize", textSize);
         
-        // 🔥 Perfect true relative coordinate saving
-        formData.append(
-          "textX",
-          ((position.x + previewRef.current.clientWidth / 2) / previewRef.current.clientWidth).toFixed(4)
+        // 🔥 FIX 2: Strict coordinate clamping (0.0 to 1.0)
+        const normalizedX = Math.max(
+          0,
+          Math.min(
+            1,
+            (position.x + previewRef.current.clientWidth / 2) /
+              previewRef.current.clientWidth
+          )
         );
 
-        formData.append(
-          "textY",
-          ((position.y + previewRef.current.clientHeight / 2) / previewRef.current.clientHeight).toFixed(4)
+        const normalizedY = Math.max(
+          0,
+          Math.min(
+            1,
+            (position.y + previewRef.current.clientHeight / 2) /
+              previewRef.current.clientHeight
+          )
         );
+
+        formData.append("textX", normalizedX.toFixed(4));
+        formData.append("textY", normalizedY.toFixed(4));
       }
       
       if (mediaType === "text") formData.append("bgGradient", gradients[textBgIndex]);
@@ -232,25 +274,8 @@ function AddStory() {
     }
   };
 
-  const getDynamicTextClasses = () => {
-    let base = `absolute cursor-move px-6 py-3 whitespace-pre-wrap break-words select-none transition-all duration-200 ${textFont} z-30 touch-none`;
-
-    if (isOverTrash) {
-      base += " scale-50 opacity-50";
-    } else {
-      if (textStyle === "playful") {
-        base += ` -rotate-6 scale-110 skew-x-[-5deg]`;
-      }
-    }
-
-    return base;
-  };
-
   const getDynamicStyles = (isEditing = false) => {
-    let baseTransform = `
-      translate(-50%, -50%)
-      translate3d(${position.x}px, ${position.y}px, 0)
-    `;
+    let baseTransform = `translate(-50%, -50%) translate3d(${position.x}px, ${position.y}px, 0)`;
 
     let style = {
       position: "absolute",
@@ -261,7 +286,7 @@ function AddStory() {
       display: "inline-block",
       textAlign: "center",
       whiteSpace: "pre-wrap",
-      lineHeight: "1.4",
+      lineHeight: "1.4", 
       maxWidth: "90%",
       wordBreak: "break-word",
       transform: baseTransform,
@@ -269,68 +294,52 @@ function AddStory() {
     };
 
     if (!isEditing) {
-      style.transition = isDragging
-        ? "none"
-        : "transform 0.2s ease, opacity 0.2s ease";
-
-      if (isOverTrash) {
-        style.opacity = 0.5;
-      }
+      style.transition = isDragging ? "none" : "transform 0.2s ease, opacity 0.2s ease";
+      if (isOverTrash) style.opacity = 0.5;
     }
 
     if (textStyle === "highlight") {
       style.backgroundColor = textColor;
-      style.color =
-        textColor === "white" || textColor === "#eab308"
-          ? "black"
-          : "white";
-      style.padding = "4px 16px";
+      style.color = textColor === "white" || textColor === "#eab308" ? "black" : "white";
+      style.padding = "4px 16px"; 
       style.borderRadius = "12px";
       style.boxDecorationBreak = "clone";
       style.WebkitBoxDecorationBreak = "clone";
-
     } else if (textStyle === "neon") {
-      style.textShadow = `
-        0 0 10px ${textColor},
-        0 0 20px ${textColor},
-        0 0 30px ${textColor}
-      `;
+      style.textShadow = `0 0 10px ${textColor}, 0 0 20px ${textColor}, 0 0 30px ${textColor}`;
       style.color = "white";
-
     } else if (textStyle === "outline") {
-      style.WebkitTextStroke = `1.5px ${
-        textColor === "black" ? "white" : "black"
-      }`;
-
+      style.WebkitTextStroke = `1.5px ${textColor === "black" ? "white" : "black"}`;
     } else if (textStyle === "3d-pop") {
-      style.textShadow = `
-        2px 2px 0px #000,
-        4px 4px 0px #222,
-        6px 6px 0px #444
-      `;
-
+      style.textShadow = `2px 2px 0px #000, 4px 4px 0px #222, 6px 6px 0px #444`;
     } else if (textStyle === "glitch") {
-      style.textShadow = `
-        3px 0 0 red,
-        -3px 0 0 cyan
-      `;
-
+      style.textShadow = `3px 0 0 red, -3px 0 0 cyan`;
     } else if (textStyle === "playful") {
-      style.transform = `
-        ${baseTransform}
-        rotate(-5deg)
-      `;
+      style.transform = `${baseTransform} rotate(-5deg)`;
       style.textShadow = "3px 3px 0px rgba(0,0,0,0.5)";
-
     } else if (textStyle === "elegant") {
       style.textShadow = "0px 2px 4px rgba(0,0,0,0.3)";
       style.letterSpacing = "2px";
-
     } else {
       style.textShadow = "0 2px 10px rgba(0,0,0,0.8)";
     }
 
     return style;
+  };
+
+  const getDynamicTextClasses = () => {
+    const fontClass = fontMap[textFont] || fontMap.classic;
+    let base = `absolute cursor-move px-6 py-3 whitespace-pre-wrap break-words select-none transition-all duration-200 ${fontClass} z-30 touch-none`;
+
+    if (isOverTrash) {
+      base += " scale-50 opacity-50";
+    } else {
+      if (textStyle === "playful") {
+        base += ` -rotate-6 scale-110 skew-x-[-5deg]`;
+      }
+    }
+
+    return base;
   };
 
   return (
@@ -472,7 +481,7 @@ function AddStory() {
       {/* ACTIVE TEXT EDITING MODE */}
       {activeTool === "text" && preview && (
         <>
-          <div className="absolute inset-0 z-40 bg-black/80 backdrop-blur-[30px] animate-in fade-in duration-300" onClick={() => setActiveTool("none")}></div>
+          <div className="absolute inset-0 z-40 bg-black/80 backdrop-blur-[30px]" onClick={() => setActiveTool("none")}></div>
           
           <div className="absolute inset-0 flex flex-col justify-between z-50 p-6 pointer-events-none">
             <div className="flex justify-between items-center mt-6 pointer-events-auto">
@@ -498,7 +507,7 @@ function AddStory() {
                 />
               </div>
 
-              {/* 🔥 Ref-Controlled ContentEditable Div */}
+              {/* Ref-Controlled ContentEditable Div with fontMap */}
               <div 
                 ref={editableRef}
                 contentEditable
@@ -517,7 +526,7 @@ function AddStory() {
                     }
                   });
                 }}
-                className={`bg-transparent outline-none border-none min-w-[40px] min-h-[40px] cursor-text px-6 py-3 whitespace-pre-wrap break-words text-center inline-block max-w-[90%] empty:before:content-['Type_something...'] empty:before:opacity-50 empty:before:text-white/50 ${textFont}`}
+                className={`bg-transparent outline-none border-none min-w-[40px] min-h-[40px] cursor-text px-6 py-3 whitespace-pre-wrap break-words text-center inline-block max-w-[90%] empty:before:content-['Type_something...'] empty:before:opacity-50 empty:before:text-white/50 ${fontMap[textFont] || fontMap.classic}`}
                 style={{
                   ...getDynamicStyles(true),
                   userSelect: "text",
@@ -531,7 +540,13 @@ function AddStory() {
             <div className="flex flex-col items-center gap-8 mb-10 pointer-events-auto">
               <div className="flex gap-3 overflow-x-auto scrollbar-hide w-full px-4">
                 {fonts.map(f => (
-                  <button key={f.name} onClick={() => setTextFont(f.class)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${textFont === f.class ? "bg-white text-black scale-105" : "bg-white/10 text-white/60"}`}>{f.name}</button>
+                  <button 
+                    key={f.key} 
+                    onClick={() => setTextFont(f.key)} 
+                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all ${textFont === f.key ? "bg-white text-black scale-105" : "bg-white/10 text-white/60"}`}
+                  >
+                    {f.name}
+                  </button>
                 ))}
               </div>
               <div className="flex gap-4 overflow-x-auto scrollbar-hide w-full justify-center px-4">

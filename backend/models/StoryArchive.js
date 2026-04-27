@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 const storyArchiveSchema = new mongoose.Schema(
@@ -8,53 +9,91 @@ const storyArchiveSchema = new mongoose.Schema(
       required: true,
     },
 
+    // MEDIA OPTIONAL
     media: {
-      type: String,
-      default: "", // Removed required:true to support text-only stories
-    },
-
-    type: {
-      type: String,
-      enum: ["image", "video", "text"], // Added "text" to support text stories
-      default: "image",
-    },
-
-    // STORY EDITOR FIELDS (Keeps text in the exact position with correct styles)
-    text: {
       type: String,
       default: "",
     },
+
+    // SUPPORT FULL STORY TYPES
+    type: {
+      type: String,
+      enum: ["image", "video", "text"],
+      default: "image",
+    },
+
+    // STORY TEXT
+    text: {
+      type: String,
+      default: "",
+      maxlength: 250,
+    },
+
     textColor: {
       type: String,
       default: "white",
     },
+
+    // SAFE FONT KEY STORAGE
     textFont: {
       type: String,
-      default: "font-sans",
-    },
-    textStyle: {
-      type: String,
+      enum: [
+        "classic",
+        "typewriter",
+        "modern",
+        "impact",
+        "cursive",
+        "marker",
+        "sleek",
+      ],
       default: "classic",
     },
+
+    textStyle: {
+      type: String,
+      enum: [
+        "classic",
+        "highlight",
+        "neon",
+        "playful",
+        "outline",
+        "glitch",
+        "3d-pop",
+        "elegant",
+      ],
+      default: "classic",
+    },
+
     textSize: {
       type: Number,
       default: 36,
+      min: 16,
+      max: 100,
     },
+
+    // NORMALIZED POSITION
     textX: {
       type: Number,
-      default: 0,
+      default: 0.5,
+      min: 0,
+      max: 1,
     },
+
     textY: {
       type: Number,
-      default: 0,
+      default: 0.5,
+      min: 0,
+      max: 1,
     },
+
     bgGradient: {
       type: String,
-      default: "", 
+      default: "",
     },
+
     filter: {
       type: String,
-      default: "", 
+      default: "",
     },
 
     link: {
@@ -76,12 +115,23 @@ const storyArchiveSchema = new mongoose.Schema(
       },
     ],
 
+    comments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Comment",
+      },
+    ],
+
+    // ORIGINAL STORY CREATED TIME
     originalCreatedAt: {
       type: Date,
+      required: true,
     },
 
+    // WHEN ARCHIVED
     expiredAt: {
       type: Date,
+      required: true,
     },
   },
   {
@@ -89,11 +139,22 @@ const storyArchiveSchema = new mongoose.Schema(
   }
 );
 
-// 🔥 INDEX FOR FAST QUERY
-storyArchiveSchema.index({ originalCreatedAt: -1 });
+// FAST ARCHIVE QUERY
+storyArchiveSchema.index({
+  user: 1,
+  originalCreatedAt: -1,
+});
+
+// BACKUP GLOBAL INDEX
+storyArchiveSchema.index({
+  originalCreatedAt: -1,
+});
 
 const StoryArchive =
   mongoose.models.StoryArchive ||
-  mongoose.model("StoryArchive", storyArchiveSchema);
+  mongoose.model(
+    "StoryArchive",
+    storyArchiveSchema
+  );
 
 export default StoryArchive;

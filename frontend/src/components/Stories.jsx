@@ -13,7 +13,7 @@ function Stories() {
   const [users, setUsers] = useState([]);
   const [activeStories, setActiveStories] = useState(null);
   const [startIndex, setStartIndex] = useState(0);
-  const [seenUsers, setSeenUsers] = useState([]);
+  const [seenUsers, setSeenUsers] = useState([]); // Keeps instant UI feedback
 
   const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
@@ -55,6 +55,7 @@ function Stories() {
     setActiveStories(userStories.stories);
     setStartIndex(0);
 
+    // Instantly turn ring gray locally
     if (!seenUsers.includes(userStories.user._id)) {
       setSeenUsers((prev) => [...prev, userStories.user._id]);
     }
@@ -68,8 +69,10 @@ function Stories() {
     (u) => String(u.user?._id) !== String(user?._id)
   );
 
+  // 🔥 TRUE FIX: Check both instant local state AND persistent database views
   const myStoriesSeen = myStoriesData
-    ? seenUsers.includes(myStoriesData.user._id)
+    ? seenUsers.includes(myStoriesData.user._id) || 
+      myStoriesData.stories.every(s => s.views?.some(v => String(v._id || v) === String(user?._id)))
     : false;
 
   return (
@@ -122,7 +125,9 @@ function Stories() {
 
           {/* Other Users */}
           {otherUsersStories.map((u) => {
-            const isSeen = seenUsers.includes(u.user._id);
+            // 🔥 TRUE FIX: Check both instant local state AND persistent database views
+            const isSeen = seenUsers.includes(u.user._id) || 
+              u.stories.every(story => story.views?.some(v => String(v._id || v) === String(user?._id)));
 
             return (
               <div
@@ -179,7 +184,6 @@ function Stories() {
           currentIndex={startIndex}
           onClose={() => {
             setActiveStories(null);
-            fetchStories();
           }}
         />
       )}
