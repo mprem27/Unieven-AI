@@ -1,68 +1,107 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getProfileImage } from "../utils/getProfileImage";
-import { addComment, likeComment } from "../services/commentService";
+import {
+  addComment,
+  likeComment,
+  deleteComment,
+} from "../services/commentService";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
-import { IoSend } from "react-icons/io5";
 import { useAuth } from "../context/AuthContext";
+import RoleBadge from "../components/RoleBadge";
+
+// Instagram-style Quick Emojis
+const QUICK_EMOJIS = ["❤️", "🙌", "🔥", "👏", "😢", "😍", "😮", "😂"];
 
 function CommentsModal({ item, type, onClose, onSync }) {
-  
   const { user } = useAuth();
 
-  const [comments, setComments] = useState(item.comments || []);
+  const [comments, setComments] = useState(item?.comments || []);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 🔥 Ref to auto-scroll to newest comment
+  const commentsEndRef = useRef(null);
 
+  const scrollToBottom = () => {
+    commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
+  // Keep state synced if parent item changes
   useEffect(() => {
-    setComments(item.comments || []);
+    setComments(item?.comments || []);
   }, [item]);
 
-  const handleAdd = async () => {
-    if (!text.trim() || loading) return;
+  // Auto-scroll when new comment is added
+  useEffect(() => {
+    scrollToBottom();
+  }, [comments.length]); // Only run when array length changes
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
+  // 🔥 ADD COMMENT FUNCTION
+  const handleAdd = useCallback(async () => {
+    if (!text.trim() || loading || !user) return;
 
     const commentText = text.trim();
-
     setLoading(true);
 
-
-    const temp = {
-      _id: `temp-${Date.now()}`,
+    // 1. Optimistic UI Update (Shows instantly to the user)
+    const tempId = `temp-${Date.now()}`;
+    const tempComment = {
+      _id: tempId,
       text: commentText,
-      user,
+      user: {
+        _id: user._id,
+        username: user.username,
+        image: user.image,
+        role: user.role
+      },
       likes: [],
+      createdAt: new Date().toISOString(), // Prevent undefined date crashes
     };
 
-    setComments((prev) => [...prev, temp]);
-    setText("");
+    setComments((prev) => [...prev, tempComment]);
+    setText(""); // Clear input instantly
 
     try {
+      // 2. Send to Backend
       const res = await addComment(type, item._id, commentText);
 
-      if (res.item?.comments) {
+      // 3. Sync with real Database IDs
+      if (
+        res?.item?.comments &&
+        Array.isArray(res.item.comments)
+      ) {
         setComments(res.item.comments);
         onSync?.(res.item);
       }
-
-    } catch (e) {
-
-      setComments((prev) =>
-        prev.filter((c) => c._id !== temp._id)
-      );
-
+    } catch (error) {
+      console.error("Add comment failed:", error);
+      // Rollback if the API fails
+      setComments((prev) => prev.filter((c) => c._id !== tempId));
     } finally {
       setLoading(false);
     }
-  };
+  }, [text, loading, user, type, item, onSync]);
 
+  // 🔥 LIKE COMMENT FUNCTION
   const toggleLike = async (commentId) => {
+    if (!user?._id) return;
 
+    const previousComments = [...comments];
+
+    // Optimistic Like Update
     setComments((prev) =>
       prev.map((c) => {
         if (c._id !== commentId) return c;
-
         const alreadyLiked = c.likes?.includes(user._id);
-
         return {
           ...c,
           likes: alreadyLiked
@@ -73,197 +112,250 @@ function CommentsModal({ item, type, onClose, onSync }) {
     );
 
     try {
+      // Send to Backend
       const res = await likeComment(type, commentId);
 
-      setComments((prev) =>
-        prev.map((c) =>
-          c._id === commentId
-            ? { ...c, likes: res.likes || [] }
-            : c
-        )
-      );
-
-    } catch (e) {
-      console.error("Like comment failed:", e);
+      if (res?.likes) {
+        setComments((prev) =>
+          prev.map((c) =>
+            c._id === commentId
+              ? {
+                  ...c,
+                  likes: res.likes,
+                }
+              : c
+          )
+        );
+      }
+    } catch (error) {
+      setComments(previousComments); // Rollback on failure
+      console.error("Like comment failed:", error);
     }
+  };
+
+  // 🔥 DELETE COMMENT FUNCTION
+  const handleDeleteComment = async (commentId) => {
+    try {
+      const res = await deleteComment(type, commentId);
+
+      const updatedComments =
+        res?.item?.comments ||
+        res?.comments ||
+        [];
+
+      setComments(updatedComments);
+
+      onSync?.(res.item || res);
+
+    } catch (error) {
+      console.error(
+        "Delete comment failed:",
+        error
+      );
+    }
+  };
+
+  // Helper for quick emoji clicks
+  const appendEmoji = (emoji) => {
+    setText((prev) => prev + emoji);
   };
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-end md:items-center justify-center z-[100] p-0 md:p-4 transition-all duration-500 animate-fadeIn"
+      className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn"
       onClick={onClose}
     >
       <div
-        className={`
-          relative flex flex-col transition-all duration-500
-          bg-[#121212] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)]
-          h-[85%] md:h-[650px] w-full md:max-w-lg md:rounded-[32px] rounded-t-[32px]
-          animate-slideUp
-          ${
-            loading
-              ? "opacity-80 pointer-events-none"
-              : "opacity-100"
-          }
-        `}
+        className={`relative flex flex-col bg-[#121212] border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.85)] w-full h-[85dvh] sm:max-w-md sm:h-[85vh] sm:max-h-[750px] rounded-t-[24px] sm:rounded-[24px] overflow-hidden animate-slideUp transition-opacity duration-300 ${
+          loading ? "opacity-90 pointer-events-none" : "opacity-100"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* MOBILE HANDLE */}
-        <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mt-4 mb-1 md:hidden" />
+        {/* MOBILE DRAG HANDLE */}
+        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-3 mb-1 sm:hidden" />
 
         {/* HEADER */}
-        <div className="flex justify-between items-center px-6 py-5 border-b border-white/5">
-          <h2 className="font-bold text-lg md:text-xl text-white tracking-tight capitalize">
-            {type} comments
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/5 bg-[#121212] sticky top-0 z-20">
+          <div className="w-8" /> {/* Spacer for perfect centering */}
+          <h2 className="text-base font-bold text-white tracking-wide">
+            Comments
           </h2>
-
           <button
             onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-all active:scale-90"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-all active:scale-90"
           >
-            <span className="text-white text-lg">✕</span>
+            <span className="text-white text-sm">✕</span>
           </button>
         </div>
 
         {/* COMMENTS LIST */}
-        <div className="flex-1 overflow-y-auto space-y-6 p-6 scrollbar-hide">
-          {comments.length ? (
-            comments.map((c, index) => {
-              const likedByMe =
-                c.likes?.includes(user?._id);
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6 custom-scrollbar">
+          {comments.length > 0 ? (
+            comments.map((comment, index) => {
+              const likedByMe = comment.likes?.includes(user?._id);
 
               return (
                 <div
-                  key={c._id}
-                  className="flex gap-4 group animate-fadeIn"
-                  style={{
-                    animationDelay: `${index * 30}ms`,
-                  }}
+                  key={comment._id}
+                  className="flex items-start gap-3 w-full animate-fadeIn"
+                  style={{ animationDelay: `${index * 15}ms` }}
                 >
+                  {/* AVATAR */}
                   <img
-                    src={getProfileImage(c.user)}
-                    className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-md"
-                    alt="user"
+                    src={getProfileImage(comment.user)}
+                    alt="avatar"
+                    className="w-9 h-9 rounded-full object-cover border border-white/10 flex-shrink-0 mt-1"
                   />
 
-                  <div className="flex-1">
-                    <div className="bg-white/[0.03] border border-white/5 rounded-2xl rounded-tl-none p-4">
-                      <p className="text-[13px] font-bold text-blue-400 mb-1">
-                        {c.user?.username || "user"}
-                      </p>
-
-                      <p className="text-[14px] leading-relaxed text-gray-200 whitespace-pre-wrap break-words">
-                        {c.text}
-                      </p>
+                  {/* COMMENT BODY */}
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="flex items-baseline flex-wrap gap-x-2">
+                      <span className="text-[13px] font-bold text-white flex items-center gap-1">
+                        {comment.user?.username || "user"}
+                        {comment.user?.role && (
+                          <RoleBadge role={comment.user.role} className="scale-[0.65] origin-left -ml-0.5" />
+                        )}
+                      </span>
+                      <span className="text-[14px] text-gray-100 break-words leading-tight">
+                        {comment.text}
+                      </span>
                     </div>
 
-                    <div className="flex gap-5 text-[11px] font-bold text-gray-500 mt-2 ml-1 uppercase tracking-widest">
-                      <button
-                        onClick={() =>
-                          toggleLike(c._id)
-                        }
-                        className={`flex items-center gap-1.5 transition ${
-                          likedByMe
-                            ? "text-red-500"
-                            : "hover:text-white"
-                        }`}
-                      >
-                        {likedByMe ? (
-                          <FaHeart className="scale-110" />
-                        ) : (
-                          <FaRegHeart className="scale-110" />
-                        )}
+                    {/* ACTIONS ROW (Time, Reply, Delete) */}
+                    <div className="flex items-center gap-4 mt-1.5 text-[11px] font-semibold text-gray-500">
+                      <span>
+                        {comment.createdAt
+                          ? new Date(comment.createdAt).toLocaleDateString([], {
+                              month: "short",
+                              day: "numeric",
+                            })
+                          : "Just now"}
+                      </span>
 
+                      {comment.likes?.length > 0 && (
                         <span>
-                          {c.likes?.length || 0}
+                          {comment.likes.length} likes
                         </span>
-                      </button>
+                      )}
 
-                      <button className="hover:text-white transition">
+                      <button className="hover:text-gray-300 transition">
                         Reply
                       </button>
+
+                      {comment.user?._id === user?._id && (
+                        <button
+                          onClick={() =>
+                            handleDeleteComment(comment._id)
+                          }
+                          className="hover:text-red-400 text-red-500 transition"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
+                  </div>
+
+                  {/* INSTAGRAM-STYLE RIGHT-ALIGNED LIKE BUTTON */}
+                  <div className="flex flex-col items-center justify-start pt-1 pl-1 flex-shrink-0">
+                    <button
+                      onClick={() => toggleLike(comment._id)}
+                      className={`transition active:scale-75 ${
+                        likedByMe ? "text-red-500" : "text-gray-500 hover:text-white"
+                      }`}
+                    >
+                      {likedByMe ? <FaHeart size={14} /> : <FaRegHeart size={14} />}
+                    </button>
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-white/20 space-y-4">
-              <div className="p-6 bg-white/5 rounded-full text-5xl">
-                💬
-              </div>
-
-              <p className="text-sm font-semibold tracking-wide">
-                No comments yet
-              </p>
+            <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-3">
+              <div className="text-5xl opacity-80">💬</div>
+              <p className="text-[15px] font-semibold tracking-wide text-white/50">No comments yet.</p>
+              <p className="text-xs">Start the conversation.</p>
             </div>
           )}
+          {/* Invisible anchor div for auto-scrolling */}
+          <div ref={commentsEndRef} className="h-1" />
         </div>
 
-        {/* INPUT */}
-        <div className="p-6 border-t border-white/5 bg-[#0a0a0a]/50 md:rounded-b-[32px] pb-[env(safe-area-inset-bottom)]">
-          <div className="flex items-center gap-3 bg-white/5 rounded-2xl px-5 py-3 border border-white/10 focus-within:border-white/20 focus-within:bg-white/[0.07] transition-all duration-300">
+        {/* BOTTOM INPUT AREA */}
+        <div className="border-t border-white/5 bg-[#121212] flex flex-col pb-[max(env(safe-area-inset-bottom),12px)]">
+          
+          {/* QUICK EMOJI TRAY */}
+          <div className="flex items-center gap-4 px-4 py-2 overflow-x-auto scrollbar-hide border-b border-white/5">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => appendEmoji(emoji)}
+                className="text-2xl hover:scale-125 transition-transform flex-shrink-0 active:scale-95"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          {/* TEXT INPUT ROW */}
+          <div className="flex items-center gap-3 px-4 py-3">
+            <img
+              src={getProfileImage(user)}
+              className="w-8 h-8 rounded-full object-cover border border-white/10"
+              alt="me"
+            />
             <input
               value={text}
-              onChange={(e) =>
-                setText(e.target.value)
-              }
-              onKeyDown={(e) =>
-                e.key === "Enter" &&
-                handleAdd()
-              }
-              className="flex-1 bg-transparent outline-none text-[15px] text-white placeholder-white/30"
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
               placeholder="Add a comment..."
+              maxLength={300}
+              className="flex-1 min-w-0 bg-transparent outline-none text-[14px] text-white placeholder-gray-500 py-1"
             />
-
             <button
               onClick={handleAdd}
-              disabled={
+              disabled={!text.trim() || loading}
+              className={`font-semibold text-[14px] transition-all flex-shrink-0 ${
                 !text.trim() || loading
-              }
-              className={`transition-all ${
-                !text.trim() || loading
-                  ? "text-white/10"
-                  : "text-blue-500 hover:text-blue-400 active:scale-90 hover:scale-110"
+                  ? "text-blue-500/40"
+                  : "text-blue-500 hover:text-blue-400 active:scale-95"
               }`}
             >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <IoSend size={22} />
-              )}
+              Post
             </button>
           </div>
         </div>
       </div>
 
-      {/* CUSTOM STYLES */}
+      {/* ANIMATIONS & SCROLLBAR CSS */}
       <style>
         {`
           @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
           }
-
           @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
           }
-
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-in-out forwards;
+          .animate-fadeIn { animation: fadeIn 0.3s ease forwards; }
+          .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+          
+          /* Hide scrollbar for emoji tray */
+          .scrollbar-hide::-webkit-scrollbar { display: none; }
+          .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+          
+          /* Subtle scrollbar for comments list */
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
           }
-
-          .animate-slideUp {
-            animation: slideUp 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-          }
-
-          .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-          }
-
-          .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
           }
         `}
       </style>

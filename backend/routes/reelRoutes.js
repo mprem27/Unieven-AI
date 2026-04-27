@@ -4,13 +4,18 @@ import {
   getReels,
   likeReel,
   addCommentToReel,
+  deleteReelComment,
+  likeReelComment,
   incrementViews,
+  deleteReel,
 } from "../controllers/reelController.js";
 
-// Middlewares
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { uploadVideo } from "../middlewares/uploadMiddleware.js";
-import { commentLimiter, postLimiter } from "../middlewares/rateLimiter.js";
+import {
+  commentLimiter,
+  postLimiter,
+} from "../middlewares/rateLimiter.js";
 import { validateRequest } from "../middlewares/validateMiddleware.js";
 import asyncHandler from "../middlewares/asyncHandler.js";
 import optionalAuth from "../middlewares/optionalAuth.js";
@@ -30,7 +35,7 @@ router.post(
 
 router.get(
   "/",
-  optionalAuth, 
+  optionalAuth,
   asyncHandler(getReels)
 );
 
@@ -40,7 +45,6 @@ router.post(
   asyncHandler(likeReel)
 );
 
-
 router.post(
   "/comment/:id",
   authMiddleware,
@@ -49,10 +53,31 @@ router.post(
   asyncHandler(addCommentToReel)
 );
 
+
+router.delete(
+  "/comment/:commentId",
+  authMiddleware,
+  asyncHandler(deleteReelComment)
+);
+
+
+router.post(
+  "/comment/like/:commentId",
+  authMiddleware,
+  asyncHandler(likeReelComment)
+);
+
+
 router.post(
   "/view/:id",
-  optionalAuth, 
+  optionalAuth,
   asyncHandler(incrementViews)
+);
+
+router.delete(
+  "/delete/:id",
+  authMiddleware,
+  asyncHandler(deleteReel)
 );
 
 export default router;

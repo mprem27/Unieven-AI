@@ -170,29 +170,50 @@ export const addComment = async (req, res) => {
       });
     }
 
+    const post = await postModel.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
     const comment = await commentModel.create({
       user: req.user.id,
-      post: req.params.id,
+      post: post._id,
+      targetId: post._id,
+      targetType: "post",
       text: text.trim(),
     });
 
-    await postModel.findByIdAndUpdate(req.params.id, {
-      $push: { comments: comment._id },
-    });
+    post.comments.push(comment._id);
+    await post.save();
 
-    const populatedComment = await comment.populate(
-      "user",
-      "username image role"
-    );
+    const updatedPost = await postModel
+      .findById(req.params.id)
+      .populate("user", "username image role")
+      .populate({
+        path: "comments",
+        populate: {
+          path: "user",
+          select: "username image role",
+        },
+      });
 
-    res.json({
+    res.status(200).json({
       success: true,
       message: "Comment added",
-      comment: populatedComment,
+      item: updatedPost,
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("addComment error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -221,17 +242,83 @@ export const deleteComment = async (req, res) => {
 
     await commentModel.findByIdAndDelete(comment._id);
 
-    res.json({ success: true, message: "Comment deleted" });
+    const updatedPost = await postModel
+      .findById(comment.post)
+      .populate("user", "username image role")
+      .populate({
+        path: "comments",
+        populate: {
+          path: "user",
+          select: "username image role",
+        },
+      });
+
+    res.json({
+      success: true,
+      message: "Comment deleted",
+      item: updatedPost,
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// --- 7. SAVE ---
+
+// like comment
+
+export const likeComment = async (req, res) => {
+  try {
+    const comment = await commentModel.findById(req.params.commentId);
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
+    }
+
+    const isLiked = comment.likes.some(
+      (id) => id.toString() === req.user.id.toString()
+    );
+
+    await comment.updateOne({
+      [isLiked ? "$pull" : "$push"]: {
+        likes: req.user.id,
+      },
+    });
+
+    const updatedComment = await commentModel.findById(
+      req.params.commentId
+    );
+
+    res.json({
+      success: true,
+      likes: updatedComment.likes,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+// saved post 
+
 export const savePost = async (req, res) => {
   try {
     const user = await userModel.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
     const isSaved = user.savedPosts.some(
       (id) => id.toString() === req.params.id.toString()
@@ -248,13 +335,18 @@ export const savePost = async (req, res) => {
       $push: { savedPosts: req.params.id },
     });
 
-    res.json({ success: true, message: "Post saved" });
+    res.json({
+      success: true,
+      message: "Post saved",
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
 // --- 8. UNSAVE ---
 export const unsavePost = async (req, res) => {
   try {

@@ -2,6 +2,9 @@ import reelModel from "../models/Reel.js";
 import commentModel from "../models/Comment.js";
 import { v2 as cloudinary } from "cloudinary";
 
+//////////////////////////////////////////////////////
+// CREATE REEL
+//////////////////////////////////////////////////////
 export const createReel = async (req, res) => {
   try {
     const { caption } = req.body;
@@ -14,16 +17,21 @@ export const createReel = async (req, res) => {
       });
     }
 
-    const upload = await cloudinary.uploader.upload(videoFile.path, {
-      resource_type: "video",
-      folder: "unieven_reels",
-    });
+    const upload = await cloudinary.uploader.upload(
+      videoFile.path,
+      {
+        resource_type: "video",
+        folder: "unieven_reels",
+      }
+    );
 
     const reel = await reelModel.create({
       user: req.user.id,
       video: upload.secure_url,
       caption: caption || "",
       views: 0,
+      comments: [],
+      likes: [],
     });
 
     res.status(201).json({
@@ -33,10 +41,18 @@ export const createReel = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("createReel error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
+//////////////////////////////////////////////////////
+// GET ALL REELS
+//////////////////////////////////////////////////////
 export const getReels = async (req, res) => {
   try {
     const reels = await reelModel
@@ -51,16 +67,29 @@ export const getReels = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, reels });
+    res.json({
+      success: true,
+      reels,
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("getReels error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
+//////////////////////////////////////////////////////
+// LIKE / UNLIKE REEL
+//////////////////////////////////////////////////////
 export const likeReel = async (req, res) => {
   try {
-    const reel = await reelModel.findById(req.params.id);
+    const reel = await reelModel.findById(
+      req.params.id
+    );
 
     if (!reel) {
       return res.status(404).json({
@@ -69,70 +98,266 @@ export const likeReel = async (req, res) => {
       });
     }
 
-    const isLiked = reel.likes.includes(req.user.id);
+    const isLiked =
+      reel.likes.some(
+        (id) =>
+          id.toString() ===
+          req.user.id.toString()
+      );
 
     await reel.updateOne({
-      [isLiked ? "$pull" : "$push"]: { likes: req.user.id },
+      [isLiked ? "$pull" : "$push"]: {
+        likes: req.user.id,
+      },
     });
 
     res.json({
       success: true,
-      message: isLiked ? "Unliked" : "Liked",
+      message: isLiked
+        ? "Unliked"
+        : "Liked",
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("likeReel error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-export const addCommentToReel = async (req, res) => {
+//////////////////////////////////////////////////////
+// ADD COMMENT TO REEL
+//////////////////////////////////////////////////////
+export const addCommentToReel = async (
+  req,
+  res
+) => {
   try {
     const { text } = req.body;
 
     if (!text || text.trim() === "") {
       return res.status(400).json({
         success: false,
-        message: "Comment cannot be empty",
+        message:
+          "Comment cannot be empty",
       });
     }
 
-    const reel = await reelModel.findById(req.params.id);
-    if (!reel) {
-      return res.status(404).json({
-        success: false,
-        message: "Reel not found",
-      });
-    }
-
-    const comment = await commentModel.create({
-      user: req.user.id,
-      reel: reel._id,
-      text,
-    });
-
-    await reel.updateOne({
-      $push: { comments: comment._id },
-    });
-
-    const populatedComment = await comment.populate(
-      "user",
-      "username image role"
+    const reel = await reelModel.findById(
+      req.params.id
     );
 
-    res.json({
+    if (!reel) {
+      return res.status(404).json({
+        success: false,
+        message: "Reel not found",
+      });
+    }
+
+    const comment =
+      await commentModel.create({
+        user: req.user.id,
+        reel: reel._id,
+        targetId: reel._id,
+        targetType: "reel",
+        text: text.trim(),
+        likes: [],
+      });
+
+    reel.comments.push(comment._id);
+
+    await reel.save();
+
+    const updatedReel =
+      await reelModel
+        .findById(req.params.id)
+        .populate(
+          "user",
+          "username image role"
+        )
+        .populate({
+          path: "comments",
+          populate: {
+            path: "user",
+            select:
+              "username image role",
+          },
+        });
+
+    res.status(200).json({
       success: true,
       message: "Comment added",
-      comment: populatedComment,
+      item: updatedReel,
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(
+      "addCommentToReel error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-export const incrementViews = async (req, res) => {
+//////////////////////////////////////////////////////
+// DELETE REEL COMMENT
+//////////////////////////////////////////////////////
+export const deleteReelComment = async (
+  req,
+  res
+) => {
   try {
-    const reel = await reelModel.findById(req.params.id);
+    const comment =
+      await commentModel.findById(
+        req.params.commentId
+      );
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Comment not found",
+      });
+    }
+
+    if (
+      comment.user.toString() !==
+      req.user.id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Unauthorized",
+      });
+    }
+
+    await reelModel.findByIdAndUpdate(
+      comment.reel,
+      {
+        $pull: {
+          comments:
+            comment._id,
+        },
+      }
+    );
+
+    await commentModel.findByIdAndDelete(
+      comment._id
+    );
+
+    const updatedReel =
+      await reelModel
+        .findById(comment.reel)
+        .populate(
+          "user",
+          "username image role"
+        )
+        .populate({
+          path: "comments",
+          populate: {
+            path: "user",
+            select:
+              "username image role",
+          },
+        });
+
+    res.json({
+      success: true,
+      message:
+        "Comment deleted",
+      item: updatedReel,
+    });
+
+  } catch (error) {
+    console.error(
+      "deleteReelComment error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+//////////////////////////////////////////////////////
+// LIKE / UNLIKE REEL COMMENT
+//////////////////////////////////////////////////////
+export const likeReelComment = async (
+  req,
+  res
+) => {
+  try {
+    const comment =
+      await commentModel.findById(
+        req.params.commentId
+      );
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Comment not found",
+      });
+    }
+
+    const isLiked =
+      comment.likes.some(
+        (id) =>
+          id.toString() ===
+          req.user.id.toString()
+      );
+
+    await comment.updateOne({
+      [isLiked ? "$pull" : "$push"]: {
+        likes: req.user.id,
+      },
+    });
+
+    const updatedComment =
+      await commentModel.findById(
+        req.params.commentId
+      );
+
+    res.json({
+      success: true,
+      likes:
+        updatedComment.likes,
+    });
+
+  } catch (error) {
+    console.error(
+      "likeReelComment error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+//////////////////////////////////////////////////////
+// INCREMENT REEL VIEWS
+//////////////////////////////////////////////////////
+export const incrementViews = async (
+  req,
+  res
+) => {
+  try {
+    const reel =
+      await reelModel.findById(
+        req.params.id
+      );
 
     if (!reel) {
       return res.status(404).json({
@@ -141,26 +366,54 @@ export const incrementViews = async (req, res) => {
       });
     }
 
-    if (!reel.viewedBy?.includes(req.user.id)) {
+    if (
+      req.user &&
+      !reel.viewedBy?.includes(
+        req.user.id
+      )
+    ) {
       await reel.updateOne({
-        $inc: { views: 1 },
-        $push: { viewedBy: req.user.id },
+        $inc: {
+          views: 1,
+        },
+        $push: {
+          viewedBy:
+            req.user.id,
+        },
       });
     }
 
     res.json({
       success: true,
-      views: reel.views + 1,
+      views:
+        reel.views + 1,
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(
+      "incrementViews error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-export const deleteReel = async (req, res) => {
+//////////////////////////////////////////////////////
+// DELETE REEL
+//////////////////////////////////////////////////////
+export const deleteReel = async (
+  req,
+  res
+) => {
   try {
-    const reel = await reelModel.findById(req.params.id);
+    const reel =
+      await reelModel.findById(
+        req.params.id
+      );
 
     if (!reel) {
       return res.status(404).json({
@@ -169,31 +422,61 @@ export const deleteReel = async (req, res) => {
       });
     }
 
-    if (reel.user.toString() !== req.user.id.toString()) {
+    if (
+      reel.user.toString() !==
+      req.user.id.toString()
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized",
+        message:
+          "Unauthorized",
       });
     }
 
     if (reel.video) {
       try {
-        const publicId = reel.video.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(`unieven_reels/${publicId}`, { resource_type: "video" });
+        const publicId =
+          reel.video
+            .split("/")
+            .pop()
+            .split(".")[0];
+
+        await cloudinary.uploader.destroy(
+          `unieven_reels/${publicId}`,
+          {
+            resource_type:
+              "video",
+          }
+        );
+
       } catch (err) {
-        console.log("Cloudinary delete error:", err.message);
+        console.log(
+          "Cloudinary delete error:",
+          err.message
+        );
       }
     }
 
-    await commentModel.deleteMany({ reel: reel._id });
-    await reelModel.findByIdAndDelete(reel._id);
+    await commentModel.deleteMany({
+      reel: reel._id,
+    });
+
+    await reelModel.findByIdAndDelete(
+      reel._id
+    );
 
     res.json({
       success: true,
-      message: "Reel deleted successfully",
+      message:
+        "Reel deleted successfully",
     });
 
   } catch (error) {
+    console.error(
+      "deleteReel error:",
+      error
+    );
+
     res.status(500).json({
       success: false,
       message: error.message,

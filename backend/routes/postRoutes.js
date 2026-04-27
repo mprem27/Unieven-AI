@@ -7,6 +7,7 @@ import {
   likePost,
   addComment,
   deleteComment,
+  likeComment,
   savePost,
   unsavePost,
 } from "../controllers/postController.js";
@@ -90,6 +91,12 @@ router.delete(
   "/comment/:commentId",
   authMiddleware,
   asyncHandler(deleteComment)
+);
+
+router.post(
+  "/comment/like/:commentId",
+  authMiddleware,
+  likeComment
 );
 
 
