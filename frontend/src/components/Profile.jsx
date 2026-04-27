@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getProfile } from "../services/userService";
 import { getFeed, deletePost, unsavePost } from "../services/postService"; 
-import { getReels } from "../services/reelService"; 
+import { getReels, deleteReel, unsaveReel } from "../services/reelService"; 
 import Loader from "../components/Loader";
 import ShareModal from "../components/ShareModal"; 
 import { toast } from "react-toastify";
@@ -82,6 +82,9 @@ function Profile() {
   // Custom Delete Modal States
   const [itemToDelete, setItemToDelete] = useState(null);
 
+  // ADDED REF FOR SCROLLING
+  const gridScrollRef = useRef(null);
+
   useEffect(() => {
     let isMounted = true;
     const loadProfileData = async () => {
@@ -118,9 +121,19 @@ function Profile() {
         const combinedFeed = [...fetchedPosts, ...fetchedReels].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         const myItems = combinedFeed.filter((p) => String(p.user?._id || p.user) === String(currentUser._id));
-        const savedSource = userData?.user?.savedPosts || currentUser?.savedPosts || [];
-        const userSavedIds = savedSource.map(s => String(s._id || s));
-        const mySaved = combinedFeed.filter((p) => userSavedIds.includes(String(p._id)));
+        
+        // 🔥 STEP 2: FIX SAVED ITEMS MERGE
+        const savedPostsSource = userData?.user?.savedPosts || currentUser?.savedPosts || [];
+        const savedReelsSource = userData?.user?.savedReels || currentUser?.savedReels || [];
+
+        const allSavedIds = [
+          ...savedPostsSource.map((s) => String(s._id || s)),
+          ...savedReelsSource.map((s) => String(s._id || s)),
+        ];
+
+        const mySaved = combinedFeed.filter((p) =>
+          p && p._id && allSavedIds.includes(String(p._id))
+        );
         
         setPosts(myItems);
         setSavedPosts(mySaved);
@@ -134,20 +147,30 @@ function Profile() {
     return () => { isMounted = false; };
   }, [currentUser]);
 
+  // 🔥 STEP 4: FIX DELETE / UNSAVE LOGIC
   const handleDeleteOrUnsave = async () => {
     try {
       if (activeTab === "saved") {
-        await unsavePost(itemToDelete._id);
+        if (itemToDelete.feedItemType === "reel") {
+          await unsaveReel(itemToDelete._id);
+        } else {
+          await unsavePost(itemToDelete._id);
+        }
         setSavedPosts((prev) => prev.filter((p) => p._id !== itemToDelete._id));
         toast.success("Removed from saved");
       } else {
-        await deletePost(itemToDelete._id);
+        if (itemToDelete.feedItemType === "reel") {
+          await deleteReel(itemToDelete._id);
+        } else {
+          await deletePost(itemToDelete._id);
+        }
         setPosts((prev) => prev.filter((p) => p._id !== itemToDelete._id));
         toast.success("Deleted successfully");
       }
+
       setItemToDelete(null);
       setSelectedPost(null);
-      
+
       window.dispatchEvent(new Event("profileUpdated"));
     } catch {
       toast.error("Action failed");
@@ -168,14 +191,16 @@ function Profile() {
   const activeEvents = allEvents.filter((e) => !isEventExpired(e));
   const historyEvents = allEvents.filter((e) => isEventExpired(e));
 
+  // 🔥 STEP 3: FIX POSTS FILTER
   const currentDisplayList =
     activeTab === "posts"
-      ? posts.filter(
-          (p) =>
-            p &&
-            p._id &&
-            (p.feedItemType === "reel" || p.isEvent === false || p.isEvent === "false" || p.isEvent === undefined)
-        )
+      ? posts.filter((p) => {
+          if (!p || !p._id) return false;
+          if (p.isEvent === true || p.isEvent === "true") {
+            return false;
+          }
+          return (p.feedItemType === "reel" || p.feedItemType === "post");
+        })
       : activeTab === "saved"
       ? savedPosts.filter((p) => p && p._id)
       : activeTab === "events"
@@ -210,18 +235,27 @@ function Profile() {
                 </div>
               </div>
 
+              {/* STATS BLOCK */}
               <div className="flex flex-1 justify-center md:justify-start gap-4 sm:gap-10 flex-wrap w-full md:pt-4">
                 <div className="flex flex-col items-center">
                   <span className="font-black text-base md:text-xl text-gray-900">{postsCount}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide">Posts</span>
+                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Posts</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="font-black text-base md:text-xl text-gray-900">{reelsCount}</span>
+                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Reels</span>
                 </div>
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-black text-base md:text-xl text-gray-900">{profileData.followers?.length || 0}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide">Connects</span>
+                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connects</span>
                 </div>
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-bold text-base md:text-xl">{profileData.following?.length || 0}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide">Connections</span>
+                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connections</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="font-black text-base md:text-xl text-gray-900">{totalLikes}</span>
+                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Likes</span>
                 </div>
               </div>
             </div>
@@ -240,7 +274,7 @@ function Profile() {
               
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="text-blue-600 text-[11px] font-bold">#VelTech</span>
-                {/* <span className="text-blue-600 text-[11px] font-bold">#CST2026</span> */}
+                <span className="text-blue-600 text-[11px] font-bold">#CST2026</span>
               </div>
             </div>
 
@@ -272,6 +306,7 @@ function Profile() {
 
                     setTimeout(() => {
                       const section = document.getElementById("profile-grid-section");
+
                       if (section) {
                         section.scrollIntoView({
                           behavior: "smooth",
@@ -296,26 +331,26 @@ function Profile() {
 
           {/* ================= SCROLLABLE GRID CONTENT ================= */}
           <div id="profile-grid-section" className="w-full bg-white">
-            <div className="grid grid-cols-3 gap-[1px] md:gap-4 mt-1 md:mt-4 md:px-4 pb-28">
+            <div className="grid grid-cols-3 auto-rows-fr gap-[1px] md:gap-4 mt-1 md:mt-4 md:px-4 pb-28">
               {currentDisplayList.length > 0 ? (
                 currentDisplayList.map((post) => {
                   const isVideo = post.mediaType === "video" || post.type === "video" || post.video || post.feedItemType === "reel";
                   const mediaSrc = post.mediaUrl || post.media || post.image || post.video;
-
+                  
                   return (
-                    <div key={post._id} onClick={() => setSelectedPost(post)} className="relative aspect-square overflow-hidden cursor-pointer bg-gray-100 group">
-
+                    <div key={post._id} onClick={() => setSelectedPost(post)} className="relative aspect-square min-h-[120px] md:min-h-[250px] overflow-hidden cursor-pointer bg-gray-100 group rounded-sm">
+                      
                       {isVideo ? (
-                        <video src={mediaSrc} poster="/fallback-post.jpg" className="w-full h-full object-cover" muted playsInline loop autoPlay />
+                        <video src={mediaSrc} poster="/fallback-post.jpg" className="w-full h-full object-cover block" muted playsInline />
                       ) : (
-                        <img
-                          src={mediaSrc}
-                          onError={(e) => { e.target.src = "https://placehold.co/400x400/eeeeee/999999?text=No+Image" }}
-                          className="w-full h-full object-cover block"
-                          alt=""
+                        <img 
+                          src={mediaSrc || "/fallback-post.jpg"} 
+                          onError={(e) => { e.target.src = "https://placehold.co/400x400/eeeeee/999999?text=No+Image" }} 
+                          className="w-full h-full object-cover block" 
+                          alt="" 
                         />
                       )}
-
+                      
                       {/* GRID POSTS OVERLAY */}
                       {(post.overlayText || post.text) && (
                         <div
@@ -325,10 +360,11 @@ function Profile() {
                             left: `${(post.textX || 0.5) * 100}%`,
                             transform: "translate(-50%, -50%)",
                             color: post.textColor || "white",
-                            fontSize: `${(post.textSize || 42) * 0.3}px`,
+                            fontSize: `${Math.max(12, (post.textSize || 42) * 0.28)}px`,
                             filter: post.filter || "none",
-                            lineHeight: "1.4",
+                            lineHeight: "1.3",
                             maxWidth: "90%",
+                            padding: "2px 6px",
                             ...getTextStyle(post),
                           }}
                         >
@@ -338,8 +374,9 @@ function Profile() {
 
                       {/* Hover Stats (Desktop) */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white z-30">
+                        {/* 🔥 STEP 5: FIX REEL VIEWS */}
                         <span className="flex items-center gap-1.5 font-bold">
-                          <FaPlay /> {post.feedItemType === "reel" ? post.views || 0 : post.views?.length || 0}
+                          <FaPlay /> {post.feedItemType === "reel" ? (typeof post.views === "number" ? post.views : post.views?.length || 0) : post.views?.length || 0}
                         </span>
                         <span className="flex items-center gap-1.5 font-bold">
                           <FaHeart /> {post.likesCount || post.likes?.length || 0}
@@ -348,7 +385,7 @@ function Profile() {
                           <FaComment /> {post.comments?.length || 0}
                         </span>
                       </div>
-
+                      
                       {isVideo && (
                         <div className="absolute top-2 right-2 text-white drop-shadow-md z-30">
                           <FaPlay size={12} />
@@ -452,7 +489,7 @@ function Profile() {
                 <FaTrash className="text-red-500 text-xl" />
               </div>
               <h3 className="text-[18px] font-black text-gray-900 mb-2 tracking-tight capitalize">
-                {activeTab === "saved" ? "Unsave Item?" : "Delete Post?"}
+                {activeTab === "saved" ? "Unsave Item?" : "Delete Item?"}
               </h3>
               <p className="text-[13px] text-gray-500 font-medium mb-6 leading-relaxed px-2">
                 Are you sure you want to permanently {activeTab === "saved" ? "remove this from your saved collection" : "delete this from your profile"}?

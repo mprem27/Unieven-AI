@@ -4,7 +4,8 @@ import Stories from "../components/Stories";
 import CommentsModal from "../components/CommentsModal";
 import ShareModal from "../components/ShareModal";
 import { getFeed, likePost, deletePost, savePost, unsavePost } from "../services/postService"; 
-import { getReels, likeReel, deleteReel } from "../services/reelService";
+// 🔥 FIX 1: IMPORT REEL SAVE SERVICES
+import { getReels, likeReel, deleteReel, saveReel, unsaveReel } from "../services/reelService";
 import { getStories } from "../services/storyService";
 import { getSuggestedUsers } from "../services/userService";
 import Suggestions from "../components/Suggestions";
@@ -36,7 +37,7 @@ const shuffleArray = (array) => {
   return shuffled;
 };
 
-// 🔥 FIX 1: FONT MAP
+// FONT MAP
 const fontMap = {
   classic: "font-sans font-bold",
   typewriter: "font-serif italic",
@@ -47,7 +48,7 @@ const fontMap = {
   sleek: "font-sans font-light tracking-[0.3em] uppercase",
 };
 
-// 🔥 FIX 2: TEXT STYLES HELPER
+// TEXT STYLES HELPER
 const getTextStyle = (post) => {
   switch (post.textStyle) {
     case "highlight":
@@ -133,7 +134,8 @@ function Feed() {
           feedItemType: "reel", 
           media: r.video || r.media, 
           type: "video",
-          isSaved: r.savedBy?.includes(user?._id) || false
+          // 🔥 FIX 4: INITIAL SAVE DETECTION FOR REELS
+          isSaved: r.savedBy?.includes(user?._id) || user?.savedReels?.includes(r._id) || false
         }));
 
       const sortedFeed = [...fetchedPosts, ...fetchedReels].sort((a, b) => 
@@ -146,6 +148,11 @@ function Feed() {
       
       const combinedFeed = [...recentPosts, ...shuffledOlderPosts];
       setPosts(combinedFeed);
+      
+      // 🔥 STEP 4: VERIFY REEL IDS (Debug Logging)
+      console.log("Fetched Reels:", fetchedReels);
+      console.log("Saved Reels Source:", user?.savedReels);
+      console.log("Combined Feed:", combinedFeed);
       
       if (combinedFeed.length > 0) {
         setSuggestionIndex(Math.min(combinedFeed.length - 1, Math.floor(Math.random() * 3) + 1));
@@ -195,7 +202,6 @@ function Feed() {
                 v.currentTime = v.currentTime; 
               }
             });
-            // 🔥 FIX 4: REEL AUDIO PERSISTENCE
             video.muted = mutedVideos[video.dataset.id] ?? false;
             video.play().catch(() => {});
           } else {
@@ -211,7 +217,7 @@ function Feed() {
     });
 
     return () => observer.disconnect();
-  }, [posts, mutedVideos]); // Added mutedVideos dependency for latest state
+  }, [posts, mutedVideos]);
 
   const handleLike = async (item) => {
     if (!user) return toast.error("Please login");
@@ -251,27 +257,50 @@ function Feed() {
     }
   };
 
+  // 🔥 FIX 2: REEL SAVE / UNSAVE LOGIC
   const handleToggleSave = async (item) => {
     if (!user) return toast.error("Please login");
+
     const id = item._id;
     const isCurrentlySaved = item.isSaved;
 
-    setPosts(prev => prev.map(p => p._id === id ? { ...p, isSaved: !isCurrentlySaved } : p));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p._id === id
+          ? { ...p, isSaved: !isCurrentlySaved }
+          : p
+      )
+    );
+
     setOpenMenuId(null);
 
     try {
-      if (isCurrentlySaved) {
-        await unsavePost(id);
-        toast.info("Removed from saved");
+      if (item.feedItemType === "reel") {
+        if (isCurrentlySaved) {
+          await unsaveReel(id);
+          toast.info("Removed reel from saved");
+        } else {
+          await saveReel(id);
+          toast.success("Reel saved to profile");
+        }
       } else {
-        await savePost(id);
-        toast.success("Saved to profile");
+        if (isCurrentlySaved) {
+          await unsavePost(id);
+          toast.info("Removed from saved");
+        } else {
+          await savePost(id);
+          toast.success("Saved to profile");
+        }
       }
-      // 🔥 FIX 7: SAVED POSTS BACKEND SYNC
-      window.dispatchEvent(new Event("profileUpdated"));
+
+      window.dispatchEvent(
+        new Event("profileUpdated")
+      );
     } catch (error) {
       loadFeedData();
-      toast.error("Could not update save status");
+      toast.error(
+        "Could not update save status"
+      );
     }
   };
 
@@ -280,7 +309,8 @@ function Feed() {
     setIsDeleting(true);
     
     try {
-      if (itemToDelete.feedItemType === "reel") {
+      // 🔥 FIX 5: SAFER REEL DELETE CHECK
+      if (itemToDelete.feedItemType === "reel" || itemToDelete.video) {
         await deleteReel(itemToDelete._id);
       } else {
         await deletePost(itemToDelete._id);
@@ -290,7 +320,6 @@ function Feed() {
       const typeName = itemToDelete.feedItemType === "reel" ? "Reel" : (itemToDelete.isEvent ? "Event" : "Post");
       toast.success(`${typeName} deleted successfully!`);
       
-      // 🔥 FIX 6: DELETE SYNC IMPROVEMENT
       window.dispatchEvent(new Event("profileUpdated"));
     } catch (error) {
       toast.error("Failed to delete item.");
@@ -360,7 +389,6 @@ function Feed() {
                           onClick={() => window.dispatchEvent(new Event("profileUpdated"))}
                           className="font-bold text-sm flex items-center gap-1 hover:underline"
                         >
-                          {/* 🔥 FIX 5: PROFILE FALLBACK SAFETY */}
                           {post.user?.username || "user"} <RoleBadge role={post.user?.role} />
                         </Link>
                         {post.feedItemType === "reel" && (
@@ -436,10 +464,9 @@ function Feed() {
                       <img src={post.media} className="w-full h-full object-contain pointer-events-none" alt="" />
                     )}
                     
-                    {/* 🔥 FIX 1: TEXT OVERLAY RENDERING */}
                     {(post.overlayText || post.text) && (
-                      <div
-                        className={`absolute z-30 pointer-events-none whitespace-pre-wrap break-words ${fontMap[post.textFont] || fontMap.classic}`}
+                      <div 
+                        className={`absolute z-30 pointer-events-none text-center whitespace-pre-wrap break-words ${fontMap[post.textFont] || fontMap.classic}`}
                         style={{
                           top: `${(post.textY || 0.5) * 100}%`,
                           left: `${(post.textX || 0.5) * 100}%`,
@@ -448,7 +475,6 @@ function Feed() {
                           fontSize: `${post.textSize || 42}px`,
                           filter: post.filter || "none",
                           lineHeight: "1.4",
-                          textAlign: "center",
                           maxWidth: "90%",
                           ...getTextStyle(post)
                         }}
@@ -494,11 +520,11 @@ function Feed() {
                   <div className="px-4 pb-4">
                     <p className="font-bold text-[13px] mb-1.5">{post.likes?.length || 0} likes</p>
                     
-                    {/* 🔥 FIX 3: ADD VIEWS COUNT */}
+                    {/* 🔥 FIX 3: ACCURATE REEL VIEWS */}
                     <p className="font-semibold text-[12px] text-gray-600 mb-1 flex items-center gap-1.5">
                       <FaPlay className="text-[10px]" />
                       {post.feedItemType === "reel"
-                        ? `${post.views?.length || post.views || 0} views`
+                        ? `${typeof post.views === "number" ? post.views : post.views?.length || 0} views`
                         : `${post.views?.length || 0} views`}
                     </p>
                     
