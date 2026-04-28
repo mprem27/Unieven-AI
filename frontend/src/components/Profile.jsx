@@ -122,7 +122,7 @@ function Profile() {
         
         const myItems = combinedFeed.filter((p) => String(p.user?._id || p.user) === String(currentUser._id));
         
-        // 🔥 STEP 2: FIX SAVED ITEMS MERGE
+        // FIX SAVED ITEMS MERGE
         const savedPostsSource = userData?.user?.savedPosts || currentUser?.savedPosts || [];
         const savedReelsSource = userData?.user?.savedReels || currentUser?.savedReels || [];
 
@@ -147,7 +147,7 @@ function Profile() {
     return () => { isMounted = false; };
   }, [currentUser]);
 
-  // 🔥 STEP 4: FIX DELETE / UNSAVE LOGIC
+  // FIX DELETE / UNSAVE LOGIC
   const handleDeleteOrUnsave = async () => {
     try {
       if (activeTab === "saved") {
@@ -191,15 +191,13 @@ function Profile() {
   const activeEvents = allEvents.filter((e) => !isEventExpired(e));
   const historyEvents = allEvents.filter((e) => isEventExpired(e));
 
-  // 🔥 STEP 3: FIX POSTS FILTER
+  // 🔥 RESTORED BULLETPROOF FILTER (Fixes empty grid issue)
   const currentDisplayList =
     activeTab === "posts"
       ? posts.filter((p) => {
           if (!p || !p._id) return false;
-          if (p.isEvent === true || p.isEvent === "true") {
-            return false;
-          }
-          return (p.feedItemType === "reel" || p.feedItemType === "post");
+          if (p.isEvent === true || p.isEvent === "true") return false;
+          return true; // Shows both normal posts and reels
         })
       : activeTab === "saved"
       ? savedPosts.filter((p) => p && p._id)
@@ -208,10 +206,6 @@ function Profile() {
       : historyEvents.filter((p) => p && p._id);
 
   const hasStory = profileData?.hasStory || profileData?.stories?.length > 0;
-
-  const postsCount = posts.length; 
-  const reelsCount = posts.filter(p => p.feedItemType === "reel").length;
-  const totalLikes = posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0);
 
   return (
     <>
@@ -235,15 +229,11 @@ function Profile() {
                 </div>
               </div>
 
-              {/* STATS BLOCK */}
-              <div className="flex flex-1 justify-center md:justify-start gap-4 sm:gap-10 flex-wrap w-full md:pt-4">
+              {/* 🔥 FIXED STATS BLOCK: Removed Likes and Views, counts total posts correctly */}
+              <div className="flex flex-1 justify-center md:justify-start gap-6 sm:gap-10 flex-wrap w-full md:pt-4">
                 <div className="flex flex-col items-center">
-                  <span className="font-black text-base md:text-xl text-gray-900">{postsCount}</span>
+                  <span className="font-black text-base md:text-xl text-gray-900">{posts.length}</span>
                   <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Posts</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="font-black text-base md:text-xl text-gray-900">{reelsCount}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Reels</span>
                 </div>
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-black text-base md:text-xl text-gray-900">{profileData.followers?.length || 0}</span>
@@ -252,10 +242,6 @@ function Profile() {
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-bold text-base md:text-xl">{profileData.following?.length || 0}</span>
                   <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connections</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="font-black text-base md:text-xl text-gray-900">{totalLikes}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Likes</span>
                 </div>
               </div>
             </div>
@@ -304,6 +290,7 @@ function Profile() {
                   onClick={() => {
                     setActiveTab(tab.id);
 
+                    // TAB BUTTON FIX
                     setTimeout(() => {
                       const section = document.getElementById("profile-grid-section");
 
@@ -340,13 +327,15 @@ function Profile() {
                   return (
                     <div key={post._id} onClick={() => setSelectedPost(post)} className="relative aspect-square min-h-[120px] md:min-h-[250px] overflow-hidden cursor-pointer bg-gray-100 group rounded-sm">
                       
+                      {/* 🔥 FIXED MEDIA VISIBILITY FOR REELS */}
                       {isVideo ? (
-                        <video src={mediaSrc} poster="/fallback-post.jpg" className="w-full h-full object-cover block" muted playsInline />
+                        <video src={mediaSrc} className="w-full h-full object-cover block" autoPlay loop muted playsInline preload="metadata" />
                       ) : (
                         <img 
                           src={mediaSrc || "/fallback-post.jpg"} 
                           onError={(e) => { e.target.src = "https://placehold.co/400x400/eeeeee/999999?text=No+Image" }} 
                           className="w-full h-full object-cover block" 
+                          loading="lazy"
                           alt="" 
                         />
                       )}
@@ -356,8 +345,8 @@ function Profile() {
                         <div
                           className={`absolute z-20 pointer-events-none text-center whitespace-pre-wrap break-words ${fontMap[post.textFont] || fontMap.classic}`}
                           style={{
-                            top: `${(post.textY || 0.5) * 100}%`,
-                            left: `${(post.textX || 0.5) * 100}%`,
+                            top: `${(post.textY ?? 0.5) * 100}%`,
+                            left: `${(post.textX ?? 0.5) * 100}%`,
                             transform: "translate(-50%, -50%)",
                             color: post.textColor || "white",
                             fontSize: `${Math.max(12, (post.textSize || 42) * 0.28)}px`,
@@ -374,7 +363,6 @@ function Profile() {
 
                       {/* Hover Stats (Desktop) */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white z-30">
-                        {/* 🔥 STEP 5: FIX REEL VIEWS */}
                         <span className="flex items-center gap-1.5 font-bold">
                           <FaPlay /> {post.feedItemType === "reel" ? (typeof post.views === "number" ? post.views : post.views?.length || 0) : post.views?.length || 0}
                         </span>
@@ -432,6 +420,7 @@ function Profile() {
                     src={selectedPost.mediaUrl || selectedPost.media || selectedPost.image || "/fallback-post.jpg"} 
                     onError={(e) => { e.target.src = "https://placehold.co/600x600/eeeeee/999999?text=No+Image" }}
                     className="w-full h-full object-contain block" 
+                    loading="lazy"
                     alt="" 
                   />
               )}
