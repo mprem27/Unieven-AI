@@ -1,51 +1,112 @@
-import React from "react";
-// Import your logo here if it's in your assets folder, e.g.:
-// import Logo from "../assets/logo.png";
+import React, { useState } from "react";
 
-const Loader = ({ size = "48px", fullPage = false, logoSrc = "/logo.png" }) => {
+// =====================================================
+// SAFE DEFAULT LOGO
+// =====================================================
+// This points to the logo in your public folder
+const DEFAULT_LOGO = "/logo.png";
+
+const Loader = ({ size = "72px", fullPage = false, customLogo }) => {
+  // =====================================================
+  // SAFE IMAGE FALLBACK
+  // =====================================================
+  // Start with customLogo (if provided) or fallback to DEFAULT_LOGO
+  const [imgSrc, setImgSrc] = useState(customLogo || DEFAULT_LOGO);
+
+  const handleImageError = () => {
+    // Prevent infinite loop if the default logo is also missing
+    if (imgSrc !== DEFAULT_LOGO) {
+      setImgSrc(DEFAULT_LOGO);
+    }
+  };
+
+  // =====================================================
+  // MAIN LOADER UI
+  // =====================================================
   const loaderContent = (
-    <div 
-      className="relative flex items-center justify-center" 
+    <div
+      className="relative flex items-center justify-center"
       style={{ width: size, height: size }}
     >
-      {/* 1. Subtle Glow Behind the Logo */}
-      <div className="absolute w-[60%] h-[60%] bg-indigo-500/30 blur-md rounded-full animate-pulse" />
-
-      {/* 2. Your Logo (Breathing/Pulsing) */}
-      {/* The w-[55%] ensures it sits perfectly inside the spinning rings */}
-      <img 
-        src={logoSrc} 
-        alt="Loading..." 
-        className="absolute w-[55%] h-[55%] object-contain animate-pulse drop-shadow-md z-10"
-      />
-
-      {/* 3. Subtle Background Track */}
-      <div 
-        className="absolute inset-0 rounded-full border-[3px] border-slate-200/60 dark:border-slate-800/60"
-      />
-      
-      {/* 4. Modern Smooth Spinning Ring */}
-      {/* Asymmetrical tail effect spinning around your logo */}
+      {/* Ambient Glow */}
       <div
-        className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-indigo-600 border-r-indigo-600/20 animate-spin z-20"
-        style={{ animationDuration: '0.8s', animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
+        className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full animate-pulse z-0"
+        style={{ animationDuration: "3s" }}
+      />
+
+      {/* Outer Track */}
+      <div className="absolute inset-0 rounded-full border-[2px] border-slate-200/30 dark:border-slate-700/30 z-10" />
+
+      {/* Outer Spinner */}
+      <div
+        className="absolute inset-0 rounded-full border-[2px] border-transparent border-t-indigo-600 border-r-indigo-600/30 shadow-[0_0_15px_rgba(79,70,229,0.4)] animate-spin z-20"
+        style={{
+          animationDuration: "1.2s",
+          animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      />
+
+      {/* Inner Track */}
+      <div className="absolute inset-[18%] rounded-full border-[2px] border-slate-200/30 dark:border-slate-700/30 z-10" />
+
+      {/* Inner Reverse Spinner */}
+      <div
+        className="absolute inset-[18%] rounded-full border-[2px] border-transparent border-b-sky-400 border-l-sky-400/30 shadow-[0_0_10px_rgba(56,189,248,0.4)] animate-spin z-20"
+        style={{
+          animationDuration: "1.8s",
+          animationDirection: "reverse",
+          animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      />
+
+      {/* Center Logo */}
+      <img
+        src={imgSrc}
+        alt="Loading..."
+        onError={handleImageError}
+        className="absolute w-[45%] h-[45%] object-contain animate-pulse z-30 transition-opacity duration-300"
+        style={{
+          animationDuration: "2.5s",
+          filter: "drop-shadow(0px 4px 6px rgba(0,0,0,0.15))",
+        }}
       />
     </div>
   );
 
+  // =====================================================
+  // FULL PAGE LOADER
+  // =====================================================
   if (fullPage) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl animate-in fade-in duration-300">
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/60 dark:bg-slate-950/70 backdrop-blur-xl animate-in fade-in duration-300">
         
-        {/* Optional: Premium faint gradient orb in the background */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+        {/* Background Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] max-w-[600px] h-[60vw] max-h-[600px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
 
         {loaderContent}
-        
-        {/* Sleek, wide-tracked typography */}
-        <p className="mt-8 text-[10px] font-black tracking-[0.4em] text-slate-500 dark:text-slate-400 uppercase animate-pulse drop-shadow-sm">
-          Loading
-        </p>
+
+        {/* Loading Text */}
+        <div className="mt-8 flex flex-col items-center gap-4 z-10">
+          <p className="text-xs font-bold tracking-[0.4em] text-slate-800 dark:text-slate-200 uppercase drop-shadow-sm ml-2">
+            Loading
+          </p>
+
+          {/* Animated Dots */}
+          <div className="flex gap-2">
+            <span
+              className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"
+              style={{ animationDuration: "1s", animationDelay: "0ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-pulse"
+              style={{ animationDuration: "1s", animationDelay: "200ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
+              style={{ animationDuration: "1s", animationDelay: "400ms" }}
+            />
+          </div>
+        </div>
       </div>
     );
   }
