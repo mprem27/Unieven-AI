@@ -73,20 +73,24 @@ function Events() {
     loadData();
   }, []);
 
+  // 🔥 ISSUE 4 FIX: DISCOVER TAB SHOULD EXCLUDE COMPLETED
   const upcomingEvents = events.filter(
-    (e) => !isEventExpired(e) && e.status !== "completed"
+    (e) => e && !isEventExpired(e) && e.status !== "completed"
   );
 
   const pastEvents = events
-    .filter((e) => isEventExpired(e) || e.status === "completed")
+    .filter((e) => e && (isEventExpired(e) || e.status === "completed"))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 6);
 
+  // 🔥 ISSUE 3 FIX: ACTIVE TAB EXCLUDES COMPLETED
   const activeRegistrations = myRegistrations.filter(
-    (reg) => !isEventExpired(reg.event)
+    (reg) => reg?.event && !isEventExpired(reg.event) && reg.event.status !== "completed"
   );
+  
+  // 🔥 ISSUE 2 FIX: HISTORY TAB ONLY COMPLETED/EXPIRED
   const pastRegistrations = myRegistrations.filter(
-    (reg) => isEventExpired(reg.event)
+    (reg) => reg?.event && (isEventExpired(reg.event) || reg.event.status === "completed")
   ).sort((a, b) => new Date(b.event.date) - new Date(a.event.date));
 
   if (loading) {
@@ -99,7 +103,7 @@ function Events() {
         <div key={reg._id} onClick={() => setSelectedEvent(reg.event)} className="bg-white border border-slate-100 p-4 md:p-6 rounded-[32px] flex items-center gap-4 md:gap-6 cursor-pointer hover:shadow-xl transition-all group relative overflow-hidden">
           <div className="w-20 h-20 md:w-32 md:h-32 shrink-0 rounded-[24px] overflow-hidden shadow-sm relative">
             <img src={reg.event.image || "/default-event.jpg"} className="w-full h-full object-cover group-hover:scale-110 transition-transform" alt="" />
-            {isEventExpired(reg.event) && (
+            {(isEventExpired(reg.event) || reg.event.status === "completed") && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <span className="text-white text-[9px] font-black uppercase tracking-widest bg-black/50 px-2 py-1 rounded-md">Past</span>
               </div>
@@ -113,8 +117,8 @@ function Events() {
               <span className="flex items-center gap-1.5"><FaClock /> {reg.event.time}</span>
             </div>
           </div>
-          <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter hidden md:block ${reg.status === 'attended' ? 'bg-emerald-50 text-emerald-600' : isEventExpired(reg.event) ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600'}`}>
-            {reg.status === 'attended' ? 'Verified' : isEventExpired(reg.event) ? 'Expired' : 'Registered'}
+          <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter hidden md:block ${reg.status === 'attended' ? 'bg-emerald-50 text-emerald-600' : (isEventExpired(reg.event) || reg.event.status === "completed") ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600'}`}>
+            {reg.status === 'attended' ? 'Verified' : (isEventExpired(reg.event) || reg.event.status === "completed") ? 'Expired' : 'Registered'}
           </div>
         </div>
       )) : (
@@ -254,7 +258,7 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
   const isCreator = event.createdBy?._id === currentUser?._id || event.createdBy === currentUser?._id;
   const myReg = myRegistrations.find(t => t.event._id === event._id);
   
-  const isPast = isEventExpired(event); 
+  const isPast = isEventExpired(event) || event.status === "completed"; 
 
   useEffect(() => {
     if (isCreator) {
@@ -508,14 +512,15 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                </div>
                
                <div className="space-y-3">
-                  {participants.map(reg => (
+                  {/* 🔥 ISSUE 1 FIX: SAFE PARTICIPANTS MAPPING */}
+                  {participants.filter(reg => reg?.user).map(reg => (
                     <div key={reg._id} className="bg-white p-4 rounded-[24px] border border-slate-100 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-3 min-w-0">
-                            <img src={getProfileImage(reg.user)} className="w-10 h-10 rounded-full object-cover border border-slate-100 shrink-0" alt="" />
+                            <img src={getProfileImage(reg.user || {})} className="w-10 h-10 rounded-full object-cover border border-slate-100 shrink-0" alt="" />
                             <div className="min-w-0">
-                               <p className="text-xs font-black text-slate-800 leading-none mb-1 truncate">{reg.user.name}</p>
-                               <p className="text-[9px] text-slate-400 font-bold tracking-widest truncate">@{reg.user.username}</p>
+                               <p className="text-xs font-black text-slate-800 leading-none mb-1 truncate">{reg.user?.name || "Unknown User"}</p>
+                               <p className="text-[9px] text-slate-400 font-bold tracking-widest truncate">@{reg.user?.username || "unknown"}</p>
                             </div>
                          </div>
                          {reg.status === 'attended' ? (
@@ -537,7 +542,7 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                       </div>
                     </div>
                   ))}
-                  {participants.length === 0 && (
+                  {participants.filter(reg => reg?.user).length === 0 && (
                     <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl">
                       <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No registrations yet</p>
                     </div>
