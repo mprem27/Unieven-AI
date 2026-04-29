@@ -33,16 +33,42 @@ function NotificationPanel({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // 🔥 STEP 1: INSTANT READ STATE & GLOBAL BADGE UPDATE
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
-      markAsRead().catch(() => null);
+      
+      markAsRead()
+        .then(() => {
+          setNotifications((prev) =>
+            prev.map((n) => ({
+              ...n,
+              read: true,
+            }))
+          );
+          // Instantly sync the badge everywhere in the app
+          window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+        })
+        .catch(() => null);
+
       // Prevent background scrolling on mobile when open
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
+    
     return () => { document.body.style.overflow = 'unset'; };
+  }, [isOpen]);
+
+  // 🔥 STEP 4: AUTO POLLING (Keeps notifications fresh while panel is open)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isOpen) {
+        fetchNotifications();
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, [isOpen]);
 
   const fetchNotifications = async () => {
@@ -73,10 +99,12 @@ function NotificationPanel({ isOpen, onClose }) {
 
   const grouped = groupByDate(notifications);
 
+  // 🔥 STEP 2: GLOBAL DISPATCH AFTER ACTIONS
   const handleAccept = async (id) => {
     try {
       await acceptFollowRequest(id);
-      fetchNotifications();
+      await fetchNotifications();
+      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
     } catch (error) {
       console.log(error);
     }
@@ -85,7 +113,8 @@ function NotificationPanel({ isOpen, onClose }) {
   const handleReject = async (id) => {
     try {
       await rejectFollowRequest(id);
-      fetchNotifications();
+      await fetchNotifications();
+      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
     } catch (error) {
       console.log(error);
     }
@@ -95,6 +124,7 @@ function NotificationPanel({ isOpen, onClose }) {
     try {
       setNotifications((prev) => prev.filter((n) => n._id !== id));
       await deleteNotification(id);
+      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
     } catch (error) {
       console.log(error);
     }

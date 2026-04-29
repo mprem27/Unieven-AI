@@ -1,46 +1,49 @@
 import React from "react";
+// Import your logo here if it's in your assets folder, e.g.:
+// import Logo from "../assets/logo.png";
 
-const Loader = ({ size = "24px", fullPage = false }) => {
+const Loader = ({ size = "48px", fullPage = false, logoSrc = "/logo.png" }) => {
   const loaderContent = (
-    <div className="relative flex items-center justify-center">
-      {/* Outer Glow Circle */}
+    <div 
+      className="relative flex items-center justify-center" 
+      style={{ width: size, height: size }}
+    >
+      {/* 1. Subtle Glow Behind the Logo */}
+      <div className="absolute w-[60%] h-[60%] bg-indigo-500/30 blur-md rounded-full animate-pulse" />
+
+      {/* 2. Your Logo (Breathing/Pulsing) */}
+      {/* The w-[55%] ensures it sits perfectly inside the spinning rings */}
+      <img 
+        src={logoSrc} 
+        alt="Loading..." 
+        className="absolute w-[55%] h-[55%] object-contain animate-pulse drop-shadow-md z-10"
+      />
+
+      {/* 3. Subtle Background Track */}
       <div 
-        style={{ width: size, height: size }}
-        className="absolute rounded-full border-2 border-white/5 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+        className="absolute inset-0 rounded-full border-[3px] border-slate-200/60 dark:border-slate-800/60"
       />
       
-      {/* Spinning Gradient Element */}
+      {/* 4. Modern Smooth Spinning Ring */}
+      {/* Asymmetrical tail effect spinning around your logo */}
       <div
-        style={{ 
-          width: size, 
-          height: size,
-          borderTop: "2px solid #3b82f6", // Your theme's blue
-          borderRight: "2px solid transparent",
-          borderBottom: "2px solid transparent",
-          borderLeft: "2px solid transparent",
-        }}
-        className="rounded-full animate-spin shadow-inner"
+        className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-indigo-600 border-r-indigo-600/20 animate-spin z-20"
+        style={{ animationDuration: '0.8s', animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
       />
-
-      <style>
-        {`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-          .animate-spin {
-            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-          }
-        `}
-      </style>
     </div>
   );
 
   if (fullPage) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0f0f0f]/80 backdrop-blur-md">
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl animate-in fade-in duration-300">
+        
+        {/* Optional: Premium faint gradient orb in the background */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+
         {loaderContent}
-        <p className="mt-4 text-xs font-bold tracking-[0.2em] text-white/40 uppercase animate-pulse">
+        
+        {/* Sleek, wide-tracked typography */}
+        <p className="mt-8 text-[10px] font-black tracking-[0.4em] text-slate-500 dark:text-slate-400 uppercase animate-pulse drop-shadow-sm">
           Loading
         </p>
       </div>

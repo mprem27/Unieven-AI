@@ -12,8 +12,7 @@ import {
   FaPlay,
   FaTh,
   FaCalendarAlt,
-  FaLock,
-  FaHistory
+  FaLock
 } from "react-icons/fa";
 
 // 🔥 FONT MAP
@@ -126,13 +125,19 @@ function UserProfile() {
             setFollowState("follow");
           }
 
-          // SAFE USER OBJECT NORMALIZATION & BLOCK INVALID USERS
+          // 🔥 FIX 5: FETCH NORMALIZATION & MERGE
           const postsRes = await getUserPosts(userId);
-          const validPosts = (postsRes?.posts || [])
-            .filter((p) => p.user?._id && p.user?.username) 
+          const validPosts = [
+            ...(postsRes?.posts || []),
+            ...(postsRes?.reels || []),
+          ]
+            .filter((p) => p && p._id && p.user?._id)
             .map((p) => ({
               ...p,
-              user: p.user || {}, 
+              user: p.user || {},
+              feedItemType:
+                p.feedItemType ||
+                (p.video || p.type === "video" ? "reel" : "post"),
             }));
             
           setPosts(validPosts);
@@ -230,26 +235,36 @@ function UserProfile() {
     );
   }
 
-  // EVENT HISTORY SEPARATION
+  // EVENT SEPARATION (History Removed)
   const allEvents = posts.filter((p) => p.isEvent === true || p.isEvent === "true");
   const activeEvents = allEvents.filter((e) => !isEventExpired(e));
-  const historyEvents = allEvents.filter((e) => isEventExpired(e));
 
-  // BULLETPROOF FILTER
-  const currentDisplayList = 
-    activeTab === "posts" 
-      ? posts.filter((p) => p && p._id && (p.feedItemType === "reel" || p.isEvent === false || p.isEvent === "false" || p.isEvent === undefined)) 
-      : activeTab === "events" 
-      ? activeEvents.filter((p) => p && p._id) 
-      : historyEvents.filter((p) => p && p._id);
+  // 🔥 FIX 1: BULLETPROOF FILTER (Posts + Reels merged, History gone)
+  const currentDisplayList =
+    activeTab === "posts"
+      ? posts.filter((p) => {
+          if (!p || !p._id) return false;
+
+          if (p.isEvent === true || p.isEvent === "true") {
+            return false;
+          }
+
+          return (
+            p.feedItemType === "post" ||
+            p.feedItemType === "reel" ||
+            p.type === "video" ||
+            p.video
+          );
+        })
+      : activeEvents.filter((p) => p && p._id);
   
-  // SMART VISIBILITY (Includes check if it's your own profile)
+  // SMART VISIBILITY
   const isPrivate = profileData.isPrivate === true || profileData.isPrivate === "true";
   const isOwnProfile = profileData._id === currentUser?._id;
   const canViewContent = !isPrivate || followState === "following" || isOwnProfile; 
   const hasStory = profileData?.hasStory || profileData?.stories?.length > 0;
 
-  const postsCount = posts.length;
+  const postsCount = posts.filter(p => p.isEvent !== true && p.isEvent !== "true").length;
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col items-center font-['-apple-system','BlinkMacSystemFont','Segoe_UI','Roboto','Helvetica','Arial',sans-serif]">
@@ -257,11 +272,11 @@ function UserProfile() {
       <div className="w-full max-w-[935px] mx-auto flex flex-col relative">
         
         {/* ================= INSTAGRAM STYLE HEADER ================= */}
-        <header className="px-4 py-6 md:py-10 flex flex-col gap-5 bg-white shrink-0">
+        <header className="px-4 py-6 md:py-10 flex flex-col gap-4 md:gap-5 bg-white shrink-0">
           
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-20">
+          <div className="flex flex-row items-center gap-6 md:gap-14 w-full">
             <div className="relative shrink-0">
-              <div className={`w-[90px] h-[90px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
+              <div className={`w-[80px] h-[80px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
                 hasStory ? "bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600" : "bg-gray-200"
               }`}>
                 <div className="bg-white p-1 rounded-full w-full h-full">
@@ -270,24 +285,24 @@ function UserProfile() {
               </div>
             </div>
 
-            {/* Stats Block */}
-            <div className="flex flex-1 justify-center md:justify-start gap-8 md:gap-14 flex-wrap w-full md:pt-4">
+            {/* STATS BLOCK */}
+            <div className="flex flex-1 justify-around md:justify-start gap-2 sm:gap-10 w-full md:pt-4">
               <div className="flex flex-col items-center">
-                <span className="font-bold text-base md:text-xl text-gray-900">{postsCount}</span>
-                <span className="text-[12px] md:text-[14px] text-gray-500">posts</span>
+                <span className="font-black text-base md:text-xl text-gray-900">{postsCount}</span>
+                <span className="text-[10px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Posts</span>
               </div>
               <div className="flex flex-col items-center cursor-pointer">
-                <span className="font-bold text-base md:text-xl text-gray-900">{profileData.followers?.length || 0}</span>
-                <span className="text-[12px] md:text-[14px] text-gray-500">connects</span>
+                <span className="font-black text-base md:text-xl text-gray-900">{profileData.followers?.length || 0}</span>
+                <span className="text-[10px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connects</span>
               </div>
               <div className="flex flex-col items-center cursor-pointer">
                 <span className="font-bold text-base md:text-xl text-gray-900">{profileData.following?.length || 0}</span>
-                <span className="text-[12px] md:text-[14px] text-gray-500">connections</span>
+                <span className="text-[10px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connections</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col px-1 mt-2">
+          <div className="flex flex-col px-1 mt-1 md:mt-2">
             <h1 className="font-bold text-[15px] md:text-lg mb-0.5">{profileData.name}</h1>
             
             <div className="flex items-center gap-2 mb-1">
@@ -305,7 +320,7 @@ function UserProfile() {
             </div>
           </div>
 
-          <div className="flex gap-2 w-full mt-2">
+          <div className="flex gap-2 w-full mt-1 md:mt-2">
             {!isOwnProfile ? (
               <button 
                 onClick={handleFollowClick}
@@ -364,10 +379,10 @@ function UserProfile() {
             {/* ================= TABS ================= */}
             <div className="border-t border-gray-200 sticky top-0 md:top-[60px] bg-white z-30 shrink-0">
               <div className="flex justify-around items-center max-w-[400px] mx-auto md:max-w-none">
+                {/* 🔥 FIX 2: TABS ARRAY UPDATED (Removed History) */}
                 {[
                   { id: "posts", icon: <FaTh />, label: "POSTS" },
-                  { id: "events", icon: <FaCalendarAlt />, label: "EVENTS" },
-                  { id: "history", icon: <FaHistory />, label: "HISTORY" } 
+                  { id: "events", icon: <FaCalendarAlt />, label: "EVENTS" }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -408,12 +423,13 @@ function UserProfile() {
                     return (
                       <div 
                         key={post._id} 
-                        onClick={() => navigate(`/post/${post._id}`)} 
+                        // 🔥 FIX 4: FIX POST CLICK FOR REELS
+                        onClick={() => navigate(post.feedItemType === "reel" ? `/reels` : `/post/${post._id}`)}
                         className="relative aspect-square min-h-[120px] md:min-h-[250px] overflow-hidden cursor-pointer bg-gray-100 group rounded-sm"
                       >
-                        {/* MEDIA */}
+                        {/* MEDIA VISIBILITY */}
                         {isVideo ? (
-                          <video src={mediaSrc} poster="/fallback-post.jpg" className="w-full h-full object-cover block" muted playsInline preload="metadata" />
+                          <video src={mediaSrc} poster="/fallback-post.jpg" className="w-full h-full object-cover block" autoPlay loop muted playsInline preload="metadata" />
                         ) : (
                           <img 
                             src={mediaSrc || "/fallback-post.jpg"} 
@@ -447,7 +463,7 @@ function UserProfile() {
 
                         {/* Hover Stats (Desktop) */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white z-30">
-                          <span className="flex items-center gap-1.5 font-bold"><FaPlay /> {post.views?.length || 0}</span>
+                          <span className="flex items-center gap-1.5 font-bold"><FaPlay /> {post.feedItemType === "reel" ? (typeof post.views === "number" ? post.views : post.views?.length || 0) : post.views?.length || 0}</span>
                           <span className="flex items-center gap-1.5 font-bold"><FaHeart /> {post.likesCount || post.likes?.length || 0}</span>
                           <span className="flex items-center gap-1.5 font-bold"><FaComment /> {post.comments?.length || 0}</span>
                         </div>
@@ -463,7 +479,8 @@ function UserProfile() {
                 ) : (
                   <div className="col-span-3 min-h-[50vh] flex flex-col justify-center items-center text-center">
                     <div className="w-14 h-14 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-2xl mb-4">
-                      {activeTab === "posts" ? <FaTh /> : activeTab === "events" ? <FaCalendarAlt /> : <FaHistory />}
+                      {/* 🔥 FIX 3: EMPTY STATE ICON */}
+                      {activeTab === "posts" ? <FaTh /> : <FaCalendarAlt />}
                     </div>
                     <h3 className="text-xl font-bold text-gray-800 uppercase tracking-widest text-sm">No {activeTab} yet</h3>
                   </div>

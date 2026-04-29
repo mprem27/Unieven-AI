@@ -57,16 +57,43 @@ const getTextStyle = (post) => {
 };
 
 // Event expiry helper
-const isEventExpired = (event) => {
+export const isEventExpired = (event) => {
   if (!event?.date) return false;
   try {
     const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
     const datePart = dateStr.split("T")[0];
     const timePart = event.time || "23:59";
-    return new Date(`${datePart}T${timePart}`) < new Date();
-  } catch {
+    const eventDateTime = new Date(`${datePart}T${timePart}`);
+    return eventDateTime < new Date();
+  } catch (e) {
     return new Date(event.date) < new Date();
   }
+};
+
+// 🔥 FIX 1: 3-Day Cleanup Helper
+export const isEventOlderThan3Days = (event) => {
+  if (!event?.date) return false;
+  try {
+    const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
+    const datePart = dateStr.split("T")[0];
+    const timePart = event.time || "23:59";
+    
+    const eventDateTime = new Date(`${datePart}T${timePart}`);
+    const currentDate = new Date();
+    
+    // Calculate difference in days
+    const diffTime = Math.abs(currentDate - eventDateTime);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    
+    return eventDateTime < currentDate && diffDays > 3;
+  } catch (e) {
+    return false;
+  }
+};
+
+export const getEventStatus = (event) => {
+  if (isEventExpired(event) || event.status === "completed") return "Completed";
+  return "Upcoming";
 };
 
 function Profile() {
@@ -147,7 +174,6 @@ function Profile() {
     return () => { isMounted = false; };
   }, [currentUser]);
 
-  // FIX DELETE / UNSAVE LOGIC
   const handleDeleteOrUnsave = async () => {
     try {
       if (activeTab === "saved") {
@@ -191,7 +217,6 @@ function Profile() {
   const activeEvents = allEvents.filter((e) => !isEventExpired(e));
   const historyEvents = allEvents.filter((e) => isEventExpired(e));
 
-  // 🔥 RESTORED BULLETPROOF FILTER (Fixes empty grid issue)
   const currentDisplayList =
     activeTab === "posts"
       ? posts.filter((p) => {
@@ -216,11 +241,12 @@ function Profile() {
         <div className="w-full max-w-[935px] mx-auto flex flex-col relative">
           
           {/* ================= INSTAGRAM STYLE HEADER ================= */}
-          <header className="px-4 py-6 md:py-10 flex flex-col gap-5 bg-white shrink-0">
+          <header className="px-4 py-6 md:py-10 flex flex-col gap-4 md:gap-5 bg-white shrink-0">
             
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-14">
+            {/* 🔥 FIX: Changed to flex-row for all devices so it stays side-by-side */}
+            <div className="flex flex-row items-center gap-6 md:gap-14 w-full">
               <div className="relative shrink-0">
-                <div className={`w-[90px] h-[90px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
+                <div className={`w-[80px] h-[80px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
                   hasStory ? "bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600" : "bg-gray-200"
                 }`}>
                   <div className="bg-white p-1 rounded-full w-full h-full">
@@ -229,24 +255,23 @@ function Profile() {
                 </div>
               </div>
 
-              {/* 🔥 FIXED STATS BLOCK: Removed Likes and Views, counts total posts correctly */}
-              <div className="flex flex-1 justify-center md:justify-start gap-6 sm:gap-10 flex-wrap w-full md:pt-4">
+              <div className="flex flex-1 justify-around md:justify-start gap-2 sm:gap-10 w-full md:pt-4">
                 <div className="flex flex-col items-center">
                   <span className="font-black text-base md:text-xl text-gray-900">{posts.length}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Posts</span>
+                  <span className="text-[10px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Posts</span>
                 </div>
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-black text-base md:text-xl text-gray-900">{profileData.followers?.length || 0}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connects</span>
+                  <span className="text-[10px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connects</span>
                 </div>
                 <div className="flex flex-col items-center cursor-pointer">
                   <span className="font-bold text-base md:text-xl">{profileData.following?.length || 0}</span>
-                  <span className="text-[11px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connections</span>
+                  <span className="text-[10px] sm:text-[13px] text-gray-500 font-semibold tracking-wide uppercase">Connections</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col px-1 mt-2">
+            <div className="flex flex-col px-1 mt-1 md:mt-2">
               <h1 className="font-bold text-[15px] md:text-lg mb-0.5">{profileData.name}</h1>
               
               <div className="flex items-center gap-2 mb-1">
@@ -264,7 +289,7 @@ function Profile() {
               </div>
             </div>
 
-            <div className="flex gap-2 w-full mt-2">
+            <div className="flex gap-2 w-full mt-1 md:mt-2">
               <Link to="/edit-profile" className="flex-1">
                 <button className="w-full bg-[#efefef] hover:bg-gray-200 text-black px-4 py-1.5 rounded-lg text-sm font-semibold transition-all active:scale-95">
                   Edit Profile
@@ -317,25 +342,25 @@ function Profile() {
           </div>
 
           {/* ================= SCROLLABLE GRID CONTENT ================= */}
+          {/* GRID CONTENT WRAPPER FIX */}
           <div id="profile-grid-section" className="w-full bg-white">
-            <div className="grid grid-cols-3 auto-rows-fr gap-[1px] md:gap-4 mt-1 md:mt-4 md:px-4 pb-28">
+            {/* GRID SECTION HEIGHT FIX */}
+            <div className="grid grid-cols-3 gap-[1px] md:gap-4 mt-1 md:mt-4 md:px-4 pb-28">
               {currentDisplayList.length > 0 ? (
                 currentDisplayList.map((post) => {
                   const isVideo = post.mediaType === "video" || post.type === "video" || post.video || post.feedItemType === "reel";
                   const mediaSrc = post.mediaUrl || post.media || post.image || post.video;
                   
                   return (
-                    <div key={post._id} onClick={() => setSelectedPost(post)} className="relative aspect-square min-h-[120px] md:min-h-[250px] overflow-hidden cursor-pointer bg-gray-100 group rounded-sm">
+                    <div key={post._id} onClick={() => setSelectedPost(post)} className="relative aspect-square overflow-hidden cursor-pointer bg-gray-100 group">
                       
-                      {/* 🔥 FIXED MEDIA VISIBILITY FOR REELS */}
                       {isVideo ? (
-                        <video src={mediaSrc} className="w-full h-full object-cover block" autoPlay loop muted playsInline preload="metadata" />
+                        <video src={mediaSrc} poster="/fallback-post.jpg" className="w-full h-full object-cover" muted playsInline />
                       ) : (
                         <img 
                           src={mediaSrc || "/fallback-post.jpg"} 
                           onError={(e) => { e.target.src = "https://placehold.co/400x400/eeeeee/999999?text=No+Image" }} 
                           className="w-full h-full object-cover block" 
-                          loading="lazy"
                           alt="" 
                         />
                       )}
@@ -345,15 +370,14 @@ function Profile() {
                         <div
                           className={`absolute z-20 pointer-events-none text-center whitespace-pre-wrap break-words ${fontMap[post.textFont] || fontMap.classic}`}
                           style={{
-                            top: `${(post.textY ?? 0.5) * 100}%`,
-                            left: `${(post.textX ?? 0.5) * 100}%`,
+                            top: `${(post.textY || 0.5) * 100}%`,
+                            left: `${(post.textX || 0.5) * 100}%`,
                             transform: "translate(-50%, -50%)",
                             color: post.textColor || "white",
-                            fontSize: `${Math.max(12, (post.textSize || 42) * 0.28)}px`,
+                            fontSize: `${(post.textSize || 42) * 0.3}px`,
                             filter: post.filter || "none",
-                            lineHeight: "1.3",
+                            lineHeight: "1.4",
                             maxWidth: "90%",
-                            padding: "2px 6px",
                             ...getTextStyle(post),
                           }}
                         >
@@ -364,7 +388,7 @@ function Profile() {
                       {/* Hover Stats (Desktop) */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex justify-center items-center gap-6 text-white z-30">
                         <span className="flex items-center gap-1.5 font-bold">
-                          <FaPlay /> {post.feedItemType === "reel" ? (typeof post.views === "number" ? post.views : post.views?.length || 0) : post.views?.length || 0}
+                          <FaPlay /> {post.feedItemType === "reel" ? post.views || 0 : post.views?.length || 0}
                         </span>
                         <span className="flex items-center gap-1.5 font-bold">
                           <FaHeart /> {post.likesCount || post.likes?.length || 0}
@@ -383,6 +407,7 @@ function Profile() {
                   );
                 })
               ) : (
+                /* EMPTY STATE FIX */
                 <div className="col-span-3 min-h-[50vh] flex flex-col justify-center items-center text-center">
                   <div className="w-14 h-14 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-2xl mb-4">
                     {activeTab === "posts" ? <FaTh /> : activeTab === "events" ? <FaCalendarAlt /> : activeTab === "saved" ? <FaRegBookmark /> : <FaHistory />}
@@ -400,11 +425,12 @@ function Profile() {
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4">
           <div className="absolute inset-0" onClick={() => setSelectedPost(null)}></div>
           
+          {/* MODAL RESPONSIVE FIX */}
           <div className="bg-white md:rounded-2xl rounded-t-2xl w-full max-w-[95vw] md:max-w-[650px] max-h-[95vh] flex flex-col overflow-hidden relative z-10 animate-in slide-in-from-bottom duration-300">
             
-            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto my-3 md:hidden shrink-0"></div>
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto my-3 md:hidden"></div>
 
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <img src={getProfileImage(selectedPost.user)} className="w-8 h-8 rounded-full object-cover" alt="" />
                 <span className="font-bold text-sm">{selectedPost.user?.username || currentUser.username}</span>
@@ -412,15 +438,15 @@ function Profile() {
               <button onClick={() => setSelectedPost(null)} className="text-gray-500"><FaTimes size={18} /></button>
             </div>
 
+            {/* MODAL MEDIA FIX */}
             <div className="w-full bg-[#0a0a0a] aspect-square max-h-[70vh] overflow-hidden shrink-0 relative flex items-center justify-center">
               {selectedPost.type === "video" || selectedPost.mediaType === "video" || selectedPost.feedItemType === "reel" ? (
-                 <video src={selectedPost.mediaUrl || selectedPost.media || selectedPost.video} className="w-full h-full object-contain block" autoPlay loop muted controls playsInline />
+                 <video src={selectedPost.mediaUrl || selectedPost.media || selectedPost.video} className="w-full h-full object-contain" autoPlay loop muted controls playsInline />
               ) : (
                  <img 
                     src={selectedPost.mediaUrl || selectedPost.media || selectedPost.image || "/fallback-post.jpg"} 
                     onError={(e) => { e.target.src = "https://placehold.co/600x600/eeeeee/999999?text=No+Image" }}
-                    className="w-full h-full object-contain block" 
-                    loading="lazy"
+                    className="w-full h-full object-contain" 
                     alt="" 
                   />
               )}
@@ -428,17 +454,17 @@ function Profile() {
               {/* MODAL VIEWER OVERLAY */}
               {(selectedPost.overlayText || selectedPost.text) && (
                 <div
-                  className={`absolute z-30 pointer-events-none text-center whitespace-pre-wrap break-words ${fontMap[selectedPost.textFont] || fontMap.classic}`}
+                  className={`absolute z-30 pointer-events-none ${fontMap[selectedPost.textFont] || fontMap.classic}`}
                   style={{
-                    top: `${(selectedPost.textY ?? 0.5) * 100}%`,
-                    left: `${(selectedPost.textX ?? 0.5) * 100}%`,
+                    top: `${(selectedPost.textY || 0.5) * 100}%`,
+                    left: `${(selectedPost.textX || 0.5) * 100}%`,
                     transform: "translate(-50%, -50%)",
                     color: selectedPost.textColor || "white",
-                    fontSize: `clamp(14px, ${(selectedPost.textSize || 42) * 0.7}px, 6vw)`,
+                    fontSize: `${selectedPost.textSize || 42}px`,
                     filter: selectedPost.filter || "none",
-                    lineHeight: "1.3",
+                    lineHeight: "1.4",
                     maxWidth: "90%",
-                    padding: "2px 6px",
+                    textAlign: "center",
                     ...getTextStyle(selectedPost),
                   }}
                 >
@@ -447,17 +473,18 @@ function Profile() {
               )}
             </div>
 
-            <div className="p-4 overflow-y-auto max-h-[25vh] md:max-h-[20vh] flex flex-col gap-4">
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {/* MODAL CONTENT SCROLL FIX */}
+            <div className="p-4 overflow-y-auto max-h-[25vh] md:max-h-[20vh]">
+              <p className="text-sm leading-relaxed mb-4">
                 <span className="font-bold mr-2">{selectedPost.user?.username || currentUser.username}</span>
                 {selectedPost.caption}
               </p>
               
-              <div className="flex flex-col gap-2 mt-auto">
-                <button onClick={() => { setOpenShare(selectedPost); setSelectedPost(null); }} className="w-full py-3 bg-gray-100 text-sm font-bold rounded-lg flex items-center justify-center gap-2"><FaShare /> Share</button>
+              <div className="flex flex-col gap-2">
+                <button onClick={() => { setOpenShare(selectedPost); setSelectedPost(null); }} className="w-full py-2 bg-gray-100 text-sm font-bold rounded-lg flex items-center justify-center gap-2"><FaShare /> Share</button>
                 <button 
                   onClick={() => setItemToDelete(selectedPost)} 
-                  className="w-full py-3 bg-red-50 text-red-600 text-sm font-bold rounded-lg flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-red-50 text-red-600 text-sm font-bold rounded-lg flex items-center justify-center gap-2"
                 >
                    <FaTrash /> {activeTab === "saved" ? "Unsave" : "Delete"}
                 </button>
@@ -478,7 +505,7 @@ function Profile() {
                 <FaTrash className="text-red-500 text-xl" />
               </div>
               <h3 className="text-[18px] font-black text-gray-900 mb-2 tracking-tight capitalize">
-                {activeTab === "saved" ? "Unsave Item?" : "Delete Item?"}
+                {activeTab === "saved" ? "Unsave Item?" : "Delete Post?"}
               </h3>
               <p className="text-[13px] text-gray-500 font-medium mb-6 leading-relaxed px-2">
                 Are you sure you want to permanently {activeTab === "saved" ? "remove this from your saved collection" : "delete this from your profile"}?

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-// 🔥 STEP 1: UPDATED IMPORTS
 import { 
   getAllEvents, 
   getMyEvents, 
@@ -13,7 +12,6 @@ import {
   exportParticipantsCSV,
   deleteEvent
 } from "../services/eventService";
-// 🔥 REPLACED QR READER FOR REACT 19 COMPATIBILITY
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { toast } from "react-toastify";
 import Loader from "../components/Loader";
@@ -24,17 +22,64 @@ import {
   FaDownload, FaQrcode, FaCertificate, FaChartBar, FaTrash
 } from "react-icons/fa";
 
+// FONT MAP
+const fontMap = {
+  classic: "font-sans font-bold",
+  typewriter: "font-serif italic",
+  modern: "font-mono uppercase tracking-widest",
+  impact: "font-black uppercase tracking-tight",
+  cursive: "font-[cursive]",
+  marker: "font-[fantasy] tracking-wide",
+  sleek: "font-sans font-light tracking-[0.3em] uppercase",
+};
+
+// TEXT STYLE HELPER
+const getTextStyle = (post) => {
+  switch (post.textStyle) {
+    case "highlight":
+      return { background: "rgba(0,0,0,0.45)", padding: "4px 16px", borderRadius: "14px" };
+    case "neon":
+      return { textShadow: "0 0 8px currentColor, 0 0 16px currentColor" };
+    case "outline":
+      return { WebkitTextStroke: "1px black" };
+    case "glitch":
+      return { textShadow: "2px 0 red, -2px 0 cyan" };
+    case "3d-pop":
+      return { textShadow: "3px 3px 0 rgba(0,0,0,0.4)" };
+    default:
+      return {};
+  }
+};
+
+// Event expiry helper
 export const isEventExpired = (event) => {
   if (!event?.date) return false;
   try {
     const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
     const datePart = dateStr.split("T")[0];
     const timePart = event.time || "23:59";
-    
     const eventDateTime = new Date(`${datePart}T${timePart}`);
     return eventDateTime < new Date();
   } catch (e) {
     return new Date(event.date) < new Date();
+  }
+};
+
+// 3-Day Cleanup Helper (Strictly calculates time difference)
+export const isEventOlderThan3Days = (event) => {
+  if (!event?.date) return false;
+  try {
+    const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
+    const datePart = dateStr.split("T")[0];
+    const timePart = event.time || "23:59";
+    
+    const eventDateTime = new Date(`${datePart}T${timePart}`).getTime();
+    const currentTime = new Date().getTime();
+    
+    const diffDays = (currentTime - eventDateTime) / (1000 * 3600 * 24);
+    return diffDays > 3;
+  } catch (e) {
+    return false;
   }
 };
 
@@ -52,6 +97,8 @@ function Events() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   
   const [participantsCache, setParticipantsCache] = useState({});
+
+  const isFacultyOrAdmin = currentUser?.role === "faculty" || currentUser?.role === "admin";
 
   const loadData = async () => {
     setLoading(true);
@@ -73,22 +120,22 @@ function Events() {
     loadData();
   }, []);
 
-  // 🔥 ISSUE 4 FIX: DISCOVER TAB SHOULD EXCLUDE COMPLETED
   const upcomingEvents = events.filter(
     (e) => e && !isEventExpired(e) && e.status !== "completed"
   );
 
+  // PUBLIC FEED: Hides events 3 days after completion
   const pastEvents = events
-    .filter((e) => e && (isEventExpired(e) || e.status === "completed"))
+    .filter((e) => e && (isEventExpired(e) || e.status === "completed") && !isEventOlderThan3Days(e))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 6);
 
-  // 🔥 ISSUE 3 FIX: ACTIVE TAB EXCLUDES COMPLETED
+  // USER TABS: Active Events
   const activeRegistrations = myRegistrations.filter(
     (reg) => reg?.event && !isEventExpired(reg.event) && reg.event.status !== "completed"
   );
   
-  // 🔥 ISSUE 2 FIX: HISTORY TAB ONLY COMPLETED/EXPIRED
+  // USER TABS: History (Keeps all past events permanently)
   const pastRegistrations = myRegistrations.filter(
     (reg) => reg?.event && (isEventExpired(reg.event) || reg.event.status === "completed")
   ).sort((a, b) => new Date(b.event.date) - new Date(a.event.date));
@@ -98,7 +145,7 @@ function Events() {
   }
 
   const renderRegistrations = (regs, emptyMessage) => (
-    <div className="grid grid-cols-1 gap-4 max-w-3xl mx-auto">
+    <div className="grid grid-cols-1 gap-4 max-w-3xl mx-auto px-4 md:px-0">
       {regs.length > 0 ? regs.map(reg => (
         <div key={reg._id} onClick={() => setSelectedEvent(reg.event)} className="bg-white border border-slate-100 p-4 md:p-6 rounded-[32px] flex items-center gap-4 md:gap-6 cursor-pointer hover:shadow-xl transition-all group relative overflow-hidden">
           <div className="w-20 h-20 md:w-32 md:h-32 shrink-0 rounded-[24px] overflow-hidden shadow-sm relative">
@@ -118,7 +165,9 @@ function Events() {
             </div>
           </div>
           <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter hidden md:block ${reg.status === 'attended' ? 'bg-emerald-50 text-emerald-600' : (isEventExpired(reg.event) || reg.event.status === "completed") ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600'}`}>
-            {reg.status === 'attended' ? 'Verified' : (isEventExpired(reg.event) || reg.event.status === "completed") ? 'Expired' : 'Registered'}
+            {isFacultyOrAdmin 
+              ? (isEventExpired(reg.event) ? 'Concluded' : 'Hosting') 
+              : (reg.status === 'attended' ? 'Verified' : (isEventExpired(reg.event) || reg.event.status === "completed") ? 'Expired' : 'Registered')}
           </div>
         </div>
       )) : (
@@ -130,7 +179,7 @@ function Events() {
   );
 
   return (
-    <div className="w-full min-h-screen bg-[#F8FAFC] font-['Poppins',sans-serif] pb-24 relative">
+    <div className="w-full min-h-screen bg-[#F8FAFC] font-['Poppins',sans-serif] pb-24 relative overflow-x-hidden">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 md:py-12">
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6 text-center md:text-left">
@@ -138,29 +187,30 @@ function Events() {
             <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">University Events</h1>
             <p className="text-slate-500 font-medium max-w-lg italic">University Event Managements </p>
           </div>
-          {(currentUser?.role === "faculty" || currentUser?.role === "admin") && (
+          {isFacultyOrAdmin && (
             <Link to="/create/event" className="w-full md:w-auto bg-black text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-indigo-600 transition-all active:scale-95 flex items-center justify-center gap-2">
               <FaPlus /> New Event
             </Link>
           )}
         </div>
 
-        <div className="flex justify-center md:justify-start gap-4 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex justify-start md:justify-start gap-3 mb-10 overflow-x-auto pb-4 scrollbar-hide w-full snap-x">
           <button 
             onClick={() => setActiveTab("discover")}
-            className={`px-8 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === "discover" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100"}`}
+            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === "discover" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100"}`}
           >
             Discover Events
           </button>
+          
           <button 
             onClick={() => setActiveTab("registrations")}
-            className={`px-8 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "registrations" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100"}`}
+            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "registrations" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100"}`}
           >
-            My Registrations {activeRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{activeRegistrations.length}</span>}
+            {isFacultyOrAdmin ? "My Events" : "My Registrations"} {activeRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{activeRegistrations.length}</span>}
           </button>
           <button 
             onClick={() => setActiveTab("history")}
-            className={`px-8 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "history" ? "bg-slate-800 text-white shadow-lg shadow-slate-200" : "bg-white text-slate-400 border border-slate-100"}`}
+            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "history" ? "bg-slate-800 text-white shadow-lg shadow-slate-200" : "bg-white text-slate-400 border border-slate-100"}`}
           >
             History {pastRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{pastRegistrations.length}</span>}
           </button>
@@ -187,8 +237,8 @@ function Events() {
               )}
             </div>
           )}
-          {activeTab === "registrations" && renderRegistrations(activeRegistrations, "No active registrations found")}
-          {activeTab === "history" && renderRegistrations(pastRegistrations, "No past registrations found")}
+          {activeTab === "registrations" && renderRegistrations(activeRegistrations, isFacultyOrAdmin ? "No active events found" : "No active registrations found")}
+          {activeTab === "history" && renderRegistrations(pastRegistrations, "No history found")}
         </div>
       </div>
 
@@ -212,8 +262,8 @@ const EventCard = ({ event, onClick, isPast }) => {
   const status = getEventStatus(event);
 
   return (
-    <div onClick={onClick} className="group bg-white rounded-[32px] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer border border-white hover:-translate-y-2 flex flex-col h-full">
-      <div className="h-56 w-full relative overflow-hidden bg-slate-100">
+    <div onClick={onClick} className="group bg-white rounded-[32px] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer border border-white hover:-translate-y-2 flex flex-col h-full w-full">
+      <div className="h-48 md:h-56 w-full relative overflow-hidden bg-slate-100">
         <img src={event.image || "/default-event.jpg"} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md rounded-2xl p-3 text-center min-w-[62px] shadow-xl">
@@ -226,18 +276,18 @@ const EventCard = ({ event, onClick, isPast }) => {
           </div>
         )}
       </div>
-      <div className="p-6 flex flex-col flex-1">
+      <div className="p-5 md:p-6 flex flex-col flex-1">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest px-2 py-0.5 bg-indigo-50 rounded-lg w-fit">{event.category}</span>
-          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg w-fit ${status === 'Completed' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600'}`}>{status}</span>
+          <span className="text-[8px] md:text-[9px] font-black text-indigo-500 uppercase tracking-widest px-2 py-0.5 bg-indigo-50 rounded-lg w-fit">{event.category}</span>
+          <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg w-fit ${status === 'Completed' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600'}`}>{status}</span>
         </div>
-        <h3 className="font-black text-lg text-slate-900 leading-tight mb-4 group-hover:text-indigo-600 transition-colors line-clamp-2">{event.title}</h3>
+        <h3 className="font-black text-base md:text-lg text-slate-900 leading-tight mb-4 group-hover:text-indigo-600 transition-colors line-clamp-2">{event.title}</h3>
         <div className="mt-auto space-y-2">
-           <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase">
-              <FaClock className="text-indigo-400" /> {event.time}
+           <div className="flex items-center gap-2 text-slate-400 font-bold text-[9px] md:text-[10px] uppercase">
+              <FaClock className="text-indigo-400 shrink-0" /> <span className="truncate">{event.time}</span>
            </div>
-           <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase">
-              <FaMapMarkerAlt className="text-red-400" /> {event.location}
+           <div className="flex items-center gap-2 text-slate-400 font-bold text-[9px] md:text-[10px] uppercase">
+              <FaMapMarkerAlt className="text-red-400 shrink-0" /> <span className="truncate">{event.location}</span>
            </div>
         </div>
       </div>
@@ -254,6 +304,8 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
   const [analytics, setAnalytics] = useState(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
+  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isCreator = event.createdBy?._id === currentUser?._id || event.createdBy === currentUser?._id;
   const myReg = myRegistrations.find(t => t.event._id === event._id);
@@ -304,54 +356,57 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
     : 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className={`bg-white rounded-[40px] w-full flex flex-col md:flex-row overflow-hidden relative z-10 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[95vh] ${isCreator ? 'max-w-6xl' : 'max-w-2xl'}`}>
+      <div className={`bg-white rounded-t-[32px] md:rounded-[40px] w-full flex flex-col md:flex-row overflow-hidden relative z-10 shadow-2xl animate-in slide-in-from-bottom md:zoom-in-95 duration-300 max-h-[90vh] ${isCreator ? 'max-w-6xl' : 'max-w-2xl'}`}>
         
+        {/* MOBILE DRAG HANDLE */}
+        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto my-3 md:hidden shrink-0"></div>
+
         {/* LEFT PANEL: SMART EVENT DETAILS */}
         <div className={`w-full ${isCreator ? 'md:w-[40%] border-r border-slate-50' : 'w-full'} flex flex-col overflow-y-auto bg-white scrollbar-hide`}>
-          <div className="h-64 md:h-80 relative shrink-0">
+          <div className="h-56 md:h-80 relative shrink-0">
             <img src={event.image || "/default-event.jpg"} className="w-full h-full object-cover" alt="" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent p-8 flex flex-col justify-end">
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent p-6 md:p-8 flex flex-col justify-end">
               <div className="flex gap-2 mb-3">
                 <span className="bg-indigo-600 text-white text-[9px] font-black uppercase px-3 py-1 rounded-lg tracking-widest">{event.category}</span>
                 {isPast && <span className="bg-red-500 text-white text-[9px] font-black uppercase px-3 py-1 rounded-lg tracking-widest">Closed</span>}
               </div>
               <h2 className="text-2xl md:text-3xl font-black text-white leading-tight">{event.title}</h2>
             </div>
-            <button onClick={onClose} className="absolute top-6 right-6 bg-white/10 backdrop-blur-md text-white p-3 rounded-2xl hover:bg-red-500 transition-all active:scale-90">
-              <FaTimes size={16} />
+            <button onClick={onClose} className="absolute top-4 right-4 md:top-6 md:right-6 bg-white/10 backdrop-blur-md text-white p-2.5 md:p-3 rounded-2xl hover:bg-red-500 transition-all active:scale-90">
+              <FaTimes size={14} className="md:w-4 md:h-4" />
             </button>
           </div>
 
-          <div className="p-8 space-y-8 flex-1">
+          <div className="p-6 md:p-8 space-y-6 md:space-y-8 flex-1">
             <div className="grid grid-cols-1 gap-4">
-               <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-[24px] border border-slate-100">
-                  <div className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-indigo-600"><FaCalendarAlt /></div>
+               <div className="flex items-center gap-4 bg-slate-50 p-4 md:p-5 rounded-[24px] border border-slate-100">
+                  <div className="w-10 h-10 md:w-11 md:h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-indigo-600"><FaCalendarAlt /></div>
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date & Time</p>
-                    <p className="text-sm font-bold text-slate-800">{new Date(event.date).toDateString()} | {event.time}</p>
+                    <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">Date & Time</p>
+                    <p className="text-xs md:text-sm font-bold text-slate-800">{new Date(event.date).toDateString()} | {event.time}</p>
                   </div>
                </div>
-               <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-[24px] border border-slate-100">
-                  <div className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-red-500"><FaMapMarkerAlt /></div>
+               <div className="flex items-center gap-4 bg-slate-50 p-4 md:p-5 rounded-[24px] border border-slate-100">
+                  <div className="w-10 h-10 md:w-11 md:h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-red-500"><FaMapMarkerAlt /></div>
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Venue</p>
-                    <p className="text-sm font-bold text-slate-800">{event.location}</p>
+                    <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">Venue</p>
+                    <p className="text-xs md:text-sm font-bold text-slate-800">{event.location}</p>
                   </div>
                </div>
             </div>
 
-            <div className="space-y-4">
-              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-200 pl-3">Event Abstract</p>
-              <p className="text-sm text-slate-600 leading-relaxed font-medium">{event.description}</p>
+            <div className="space-y-3 md:space-y-4">
+              <p className="text-[9px] md:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-200 pl-3">Event Abstract</p>
+              <p className="text-xs md:text-sm text-slate-600 leading-relaxed font-medium">{event.description}</p>
             </div>
 
             {!isCreator && (
-              <div className="pt-4">
+              <div className="pt-2 md:pt-4 pb-4 md:pb-0">
                 {myReg ? (
                   <div className="space-y-4">
-                    <div className="bg-emerald-50 text-emerald-700 p-5 rounded-[24px] flex items-center justify-center gap-3 font-black text-xs uppercase tracking-widest border border-emerald-100">
+                    <div className="bg-emerald-50 text-emerald-700 p-4 md:p-5 rounded-[24px] flex items-center justify-center gap-3 font-black text-[10px] md:text-xs uppercase tracking-widest border border-emerald-100">
                       <FaCheckCircle size={18} /> {myReg.status === 'attended' ? 'Attendance Verified' : 'RSVP Confirmed'}
                     </div>
                     <button
@@ -365,32 +420,32 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                     )}
                   </div>
                 ) : showRegForm ? (
-                  <form onSubmit={handleRSVP} className="bg-slate-50 p-6 rounded-[32px] space-y-4 border border-slate-100">
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 text-center">RSVP Details</h4>
+                  <form onSubmit={handleRSVP} className="bg-slate-50 p-5 md:p-6 rounded-[32px] space-y-4 border border-slate-100">
+                    <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 text-center">RSVP Details</h4>
                     <div className="space-y-3">
                       <div className="relative">
-                        <FaIdCard className="absolute left-4 top-4 text-slate-300" />
-                        <input required className="w-full bg-white rounded-2xl py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="STUDENT ID / ROLL NO" value={regData.studentId} onChange={e => setRegData({...regData, studentId: e.target.value})} />
+                        <FaIdCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                        <input required className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="STUDENT ID / ROLL NO" value={regData.studentId} onChange={e => setRegData({...regData, studentId: e.target.value})} />
                       </div>
                       <div className="relative">
-                        <FaBuilding className="absolute left-4 top-4 text-slate-300" />
-                        <input required className="w-full bg-white rounded-2xl py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="FACULTY / DEPT" value={regData.department} onChange={e => setRegData({...regData, department: e.target.value})} />
+                        <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                        <input required className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="FACULTY / DEPT" value={regData.department} onChange={e => setRegData({...regData, department: e.target.value})} />
                       </div>
                       <div className="relative">
-                        <FaPhone className="absolute left-4 top-4 text-slate-300" />
-                        <input required type="tel" className="w-full bg-white rounded-2xl py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="CONTACT NUMBER" value={regData.phone} onChange={e => setRegData({...regData, phone: e.target.value})} />
+                        <FaPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                        <input required type="tel" className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="CONTACT NUMBER" value={regData.phone} onChange={e => setRegData({...regData, phone: e.target.value})} />
                       </div>
                     </div>
                     <div className="flex gap-2">
-                       <button type="button" onClick={() => setShowRegForm(false)} className="px-6 py-4 bg-white rounded-2xl font-black text-[10px] uppercase text-slate-400 transition-all">Back</button>
-                       <button type="submit" disabled={loading} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100 active:scale-95 transition-all">Confirm Enrollment</button>
+                       <button type="button" onClick={() => setShowRegForm(false)} className="px-6 py-4 bg-white rounded-2xl font-black text-[10px] uppercase text-slate-400 transition-all hover:bg-slate-100">Back</button>
+                       <button type="submit" disabled={loading} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100 active:scale-95 transition-all">Confirm</button>
                     </div>
                   </form>
                 ) : (
                   <button 
                     onClick={() => setShowRegForm(true)} 
                     disabled={isPast}
-                    className={`w-full py-5 rounded-[24px] font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isPast ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-black text-white shadow-slate-200'}`}
+                    className={`w-full py-4 md:py-5 rounded-[24px] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isPast ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-black text-white shadow-slate-200'}`}
                   >
                     <FaClipboardList /> {isPast ? 'Registration Closed' : 'RSVP for Event'}
                   </button>
@@ -403,11 +458,11 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
         {/* RIGHT PANEL: SMART MANAGEMENT DASHBOARD (CREATOR ONLY) */}
         {isCreator && (
           <div className="flex-1 p-6 md:p-8 bg-slate-50 overflow-y-auto scrollbar-hide relative flex flex-col">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+            <div className="flex justify-between items-center mb-6 md:mb-8">
+              <h3 className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2 md:gap-3">
                  <FaClipboardList className="text-indigo-500" /> Admin Controller
               </h3>
-              {isPast && <span className="bg-slate-200 text-slate-500 text-[9px] px-2 py-1 rounded uppercase font-black tracking-widest">Event Concluded</span>}
+              {isPast && <span className="bg-slate-200 text-slate-500 text-[8px] md:text-[9px] px-2 py-1 rounded uppercase font-black tracking-widest">Concluded</span>}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
@@ -455,96 +510,96 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
 
             {analytics && (
               <div className="bg-white rounded-[32px] p-6 border border-slate-100 mb-6 animate-in fade-in slide-in-from-top-4 duration-300 shadow-sm">
-                <h4 className="font-black text-sm uppercase mb-4 text-indigo-600 tracking-widest flex items-center justify-between">
+                <h4 className="font-black text-[11px] md:text-sm uppercase mb-4 text-indigo-600 tracking-widest flex items-center justify-between">
                   <span>Analytics Dashboard</span>
                   <button onClick={() => setAnalytics(null)} className="text-slate-400 hover:text-slate-600"><FaTimes /></button>
                 </h4>
 
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="bg-slate-50 p-4 rounded-2xl flex flex-col items-center">
-                    <span className="text-2xl font-black text-slate-800">{analytics.totalRegistered}</span>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total</span>
+                <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
+                  <div className="bg-slate-50 p-3 md:p-4 rounded-2xl flex flex-col items-center text-center">
+                    <span className="text-xl md:text-2xl font-black text-slate-800">{analytics.totalRegistered}</span>
+                    <span className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total</span>
                   </div>
-                  <div className="bg-emerald-50 p-4 rounded-2xl flex flex-col items-center">
-                    <span className="text-2xl font-black text-emerald-600">{analytics.totalAttended}</span>
-                    <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mt-1">Attended</span>
+                  <div className="bg-emerald-50 p-3 md:p-4 rounded-2xl flex flex-col items-center text-center">
+                    <span className="text-xl md:text-2xl font-black text-emerald-600">{analytics.totalAttended}</span>
+                    <span className="text-[8px] md:text-[9px] font-bold text-emerald-400 uppercase tracking-widest mt-1">Attended</span>
                   </div>
-                  <div className="bg-blue-50 p-4 rounded-2xl flex flex-col items-center">
-                    <span className="text-2xl font-black text-blue-600">{analytics.attendanceRate}%</span>
-                    <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mt-1">Rate</span>
+                  <div className="bg-blue-50 p-3 md:p-4 rounded-2xl flex flex-col items-center text-center">
+                    <span className="text-xl md:text-2xl font-black text-blue-600">{analytics.attendanceRate}%</span>
+                    <span className="text-[8px] md:text-[9px] font-bold text-blue-400 uppercase tracking-widest mt-1">Rate</span>
                   </div>
                 </div>
 
                 <div>
-                  <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Department Breakdown</h5>
+                  <h5 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Department Breakdown</h5>
                   {Object.entries(analytics.departmentStats || {}).map(([dept, count]) => (
-                    <div key={dept} className="flex justify-between py-2 border-b border-slate-50 last:border-0">
-                      <span className="text-xs font-bold text-slate-600 uppercase">{dept}</span>
-                      <span className="text-xs font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{count}</span>
+                    <div key={dept} className="flex justify-between py-2 border-b border-slate-50 last:border-0 items-center">
+                      <span className="text-[10px] md:text-xs font-bold text-slate-600 uppercase truncate pr-2">{dept}</span>
+                      <span className="text-[10px] md:text-xs font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{count}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4 mb-10">
-                <div className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                   <FaUsers className="text-indigo-600 mb-2 text-xl" />
-                   <p className="text-2xl font-black text-slate-900 leading-none">{participants.length}</p>
-                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Registered</p>
+            <div className="grid grid-cols-3 gap-3 md:gap-4 mb-8 md:mb-10">
+                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                   <FaUsers className="text-indigo-600 mb-2 text-lg md:text-xl" />
+                   <p className="text-xl md:text-2xl font-black text-slate-900 leading-none">{participants.length}</p>
+                   <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Registered</p>
                 </div>
-                <div className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                   <FaCheckCircle className="text-emerald-500 mb-2 text-xl" />
-                   <p className="text-2xl font-black text-slate-900 leading-none">{participants.filter(p => p.status === "attended").length}</p>
-                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Verified</p>
+                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                   <FaCheckCircle className="text-emerald-500 mb-2 text-lg md:text-xl" />
+                   <p className="text-xl md:text-2xl font-black text-slate-900 leading-none">{participants.filter(p => p.status === "attended").length}</p>
+                   <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Verified</p>
                 </div>
-                <div className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                   <div className="text-blue-500 mb-2 text-xl font-black">%</div>
-                   <p className="text-2xl font-black text-slate-900 leading-none">{attendancePercentage}%</p>
-                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Attendance</p>
+                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                   <div className="text-blue-500 mb-2 text-lg md:text-xl font-black">%</div>
+                   <p className="text-xl md:text-2xl font-black text-slate-900 leading-none">{attendancePercentage}%</p>
+                   <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Attendance</p>
                 </div>
             </div>
 
             <div className="space-y-4 flex-1">
                <div className="flex justify-between items-center ml-1">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrolled Roster</p>
-                 <span className="text-[10px] font-bold text-indigo-500">{participants.length} Total</span>
+                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrolled Roster</p>
+                 <span className="text-[9px] md:text-[10px] font-bold text-indigo-500">{participants.length} Total</span>
                </div>
                
                <div className="space-y-3">
-                  {/* 🔥 ISSUE 1 FIX: SAFE PARTICIPANTS MAPPING */}
                   {participants.filter(reg => reg?.user).map(reg => (
-                    <div key={reg._id} className="bg-white p-4 rounded-[24px] border border-slate-100 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div key={reg._id} className="bg-white p-4 rounded-[20px] md:rounded-[24px] border border-slate-100 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-3 min-w-0">
                             <img src={getProfileImage(reg.user || {})} className="w-10 h-10 rounded-full object-cover border border-slate-100 shrink-0" alt="" />
                             <div className="min-w-0">
-                               <p className="text-xs font-black text-slate-800 leading-none mb-1 truncate">{reg.user?.name || "Unknown User"}</p>
-                               <p className="text-[9px] text-slate-400 font-bold tracking-widest truncate">@{reg.user?.username || "unknown"}</p>
+                               <p className="text-[11px] md:text-xs font-black text-slate-800 leading-none mb-1 truncate">{reg.user?.name || "Unknown User"}</p>
+                               <p className="text-[8px] md:text-[9px] text-slate-400 font-bold tracking-widest truncate">@{reg.user?.username || "unknown"}</p>
                             </div>
                          </div>
                          {reg.status === 'attended' ? (
-                           <div className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5 shrink-0"><FaCheckCircle /> Verified</div>
+                           <div className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-[8px] md:text-[9px] font-black uppercase flex items-center gap-1.5 shrink-0"><FaCheckCircle /> Verified</div>
                          ) : (
                            <button onClick={() => markAttendance(reg._id).then(res => {
                                if(res.success) {
+                                 toast.success("Attendance verified manually!");
                                  const updated = participants.map(p => p._id === reg._id ? {...p, status: 'attended'} : p);
                                  setParticipants(updated);
                                  setParticipantsCache(prev => ({...prev, [event._id]: updated}));
                                }
-                           })} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-all shrink-0 shadow-md">Verify RSVP</button>
+                           })} className="bg-indigo-600 text-white px-3 md:px-4 py-2 rounded-xl text-[8px] md:text-[9px] font-black uppercase active:scale-95 transition-all shrink-0 shadow-md">Verify Manually</button>
                          )}
                       </div>
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50 text-center">
-                         <div><p className="text-[7px] font-black text-slate-300 uppercase mb-0.5">ID No.</p><p className="text-[10px] font-bold text-slate-600 truncate">{reg.studentId}</p></div>
-                         <div><p className="text-[7px] font-black text-slate-300 uppercase mb-0.5">Dept</p><p className="text-[10px] font-bold text-slate-600 truncate">{reg.department}</p></div>
-                         <div><p className="text-[7px] font-black text-slate-300 uppercase mb-0.5">Mobile</p><p className="text-[10px] font-bold text-slate-600 truncate">{reg.phone}</p></div>
+                         <div><p className="text-[6px] md:text-[7px] font-black text-slate-300 uppercase mb-0.5">ID No.</p><p className="text-[9px] md:text-[10px] font-bold text-slate-600 truncate">{reg.studentId}</p></div>
+                         <div><p className="text-[6px] md:text-[7px] font-black text-slate-300 uppercase mb-0.5">Dept</p><p className="text-[9px] md:text-[10px] font-bold text-slate-600 truncate">{reg.department}</p></div>
+                         <div><p className="text-[6px] md:text-[7px] font-black text-slate-300 uppercase mb-0.5">Mobile</p><p className="text-[9px] md:text-[10px] font-bold text-slate-600 truncate">{reg.phone}</p></div>
                       </div>
                     </div>
                   ))}
                   {participants.filter(reg => reg?.user).length === 0 && (
                     <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl">
-                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No registrations yet</p>
+                      <p className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">No registrations yet</p>
                     </div>
                   )}
                </div>
@@ -552,18 +607,8 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
 
             <div className="mt-8 pt-6 border-t border-slate-200 shrink-0">
               <button
-                onClick={async () => {
-                  if (!window.confirm("Delete this event permanently?")) return;
-                  try {
-                    await deleteEvent(event._id);
-                    toast.success("Event deleted");
-                    onRefresh();
-                    onClose();
-                  } catch {
-                    toast.error("Delete failed");
-                  }
-                }}
-                className="w-full py-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all rounded-2xl font-black text-[10px] uppercase tracking-widest border border-red-100 hover:border-red-500 shadow-sm flex justify-center items-center gap-2"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full py-3 md:py-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all rounded-2xl font-black text-[10px] uppercase tracking-widest border border-red-100 hover:border-red-500 shadow-sm flex justify-center items-center gap-2"
               >
                 <FaTrash /> Delete Event
               </button>
@@ -643,6 +688,36 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
               <button onClick={() => setShowQRScanner(false)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-slate-900/20">
                 Cancel
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* 🔥 CUSTOM EVENT DELETE CONFIRMATION MODAL */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-[32px] w-full max-w-[340px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="p-6 md:p-8 text-center flex flex-col items-center">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-5 shadow-inner">
+                  <FaTrash className="text-red-500 text-2xl" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2 tracking-tight">Delete Event?</h3>
+                <p className="text-[13px] text-slate-500 font-medium mb-8 leading-relaxed px-2">
+                  Are you sure you want to permanently delete <span className="font-bold text-slate-700">{event.title}</span>? This action cannot be undone.
+                </p>
+                <div className="flex gap-3 w-full">
+                  <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 text-[11px] uppercase tracking-widest font-black text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-colors">Cancel</button>
+                  <button onClick={async () => {
+                    try {
+                      await deleteEvent(event._id);
+                      toast.success("Event deleted successfully");
+                      onRefresh();
+                      onClose();
+                    } catch {
+                      toast.error("Delete failed");
+                    }
+                  }} className="flex-1 py-3 text-[11px] uppercase tracking-widest font-black text-white bg-red-500 hover:bg-red-600 rounded-2xl transition-colors shadow-lg shadow-red-500/20 active:scale-95">Delete</button>
+                </div>
+              </div>
             </div>
           </div>
         )}
