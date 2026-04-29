@@ -1,29 +1,44 @@
 import express from "express";
+
+// ============================================
+// EVENT CONTROLLERS
+// ============================================
 import {
   createEvent,
   getAllEvents,
   getSingleEvent,
   deleteEvent,
-  updateEventStatus,
+  registerForEvent,
 } from "../controllers/eventController.js";
 
-// Middlewares
+// ============================================
+// EVENT REGISTRATION CONTROLLERS
+// ============================================
+import {
+  registerEvent,
+  getUserEvents,
+  markAttendance,
+  verifyEventQR,
+  getEventParticipants,
+  getEventAnalytics,
+  exportParticipantsCSV,
+} from "../controllers/eventRegistrationController.js";
+
+// ============================================
+// MIDDLEWARES
+// ============================================
 import authMiddleware from "../middlewares/authMiddleware.js";
+import optionalAuth from "../middlewares/optionalAuth.js";
 import { checkRole } from "../middlewares/roleMiddleware.js";
 import { uploadImage } from "../middlewares/uploadMiddleware.js";
 import { validateRequest } from "../middlewares/validateMiddleware.js";
 import asyncHandler from "../middlewares/asyncHandler.js";
-import optionalAuth from "../middlewares/optionalAuth.js";
 
 const router = express.Router();
 
-/**
- * 🎉 EVENT ROUTES
- */
-
-// -----------------------------
-// ➕ CREATE EVENT
-// -----------------------------
+// =====================================================
+// 🎉 EVENT CREATION
+// =====================================================
 router.post(
   "/create",
   authMiddleware,
@@ -33,36 +48,96 @@ router.post(
   asyncHandler(createEvent)
 );
 
-// -----------------------------
+// =====================================================
 // 📅 GET ALL EVENTS
-// -----------------------------
+// =====================================================
 router.get(
   "/",
-  optionalAuth, // 🔥 allow guests
+  optionalAuth,
   asyncHandler(getAllEvents)
 );
 
-// -----------------------------
-// 🔍 SINGLE EVENT
-// -----------------------------
+// =====================================================
+// 🔍 GET SINGLE EVENT
+// =====================================================
 router.get(
   "/:id",
   optionalAuth,
   asyncHandler(getSingleEvent)
 );
 
-// -----------------------------
-// 🎟 JOIN / LEAVE EVENT
-// -----------------------------
+// =====================================================
+// 🎟 REGISTER / UNREGISTER EVENT
+// =====================================================
 router.post(
-  "/join/:id",
+  "/register",
   authMiddleware,
-  asyncHandler(updateEventStatus)
+  validateRequest("eventRegistration"),
+  asyncHandler(registerEvent)
 );
 
-// -----------------------------
+// =====================================================
+// 👤 USER REGISTERED EVENTS
+// =====================================================
+router.get(
+  "/my-events",
+  authMiddleware,
+  asyncHandler(getUserEvents)
+);
+
+// =====================================================
+// 📝 MANUAL ATTENDANCE MARKING (FACULTY)
+// =====================================================
+router.post(
+  "/attendance/:registrationId",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(markAttendance)
+);
+
+// =====================================================
+// 📷 QR ATTENDANCE VERIFICATION
+// =====================================================
+router.post(
+  "/verify-qr",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(verifyEventQR)
+);
+
+// =====================================================
+// 👥 EVENT PARTICIPANTS
+// =====================================================
+router.get(
+  "/participants/:eventId",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(getEventParticipants)
+);
+
+// =====================================================
+// 📊 EVENT ANALYTICS
+// =====================================================
+router.get(
+  "/analytics/:eventId",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(getEventAnalytics)
+);
+
+// =====================================================
+// 📁 EXPORT PARTICIPANTS CSV
+// =====================================================
+router.get(
+  "/export/:eventId",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(exportParticipantsCSV)
+);
+
+// =====================================================
 // 🗑 DELETE EVENT
-// -----------------------------
+// =====================================================
 router.delete(
   "/:id",
   authMiddleware,

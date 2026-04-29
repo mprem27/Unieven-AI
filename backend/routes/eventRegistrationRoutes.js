@@ -1,48 +1,54 @@
 import express from "express";
+
 import {
   registerEvent,
   markAttendance,
   getUserEvents,
   getEventParticipants,
+  verifyEventQR,
+  getEventAnalytics,
+  exportParticipantsCSV,
 } from "../controllers/eventRegistrationController.js";
 
+// ============================================
 // MIDDLEWARES
+// ============================================
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { checkRole } from "../middlewares/roleMiddleware.js";
 import asyncHandler from "../middlewares/asyncHandler.js";
 import { apiLimiter } from "../middlewares/rateLimiter.js";
+import { validateRequest } from "../middlewares/validateMiddleware.js";
 
 const router = express.Router();
 
 /**
  * 🎟 EVENT REGISTRATION ROUTES
- * Base URL → /api/event-registration
+ * BASE URL → /api/event-registration
  */
 
-// ---------------------------------------------------
-// 📝 REGISTER / UNREGISTER EVENT
-// ---------------------------------------------------
+// =====================================================
+//  REGISTER / UNREGISTER EVENT
+// =====================================================
 router.post(
   "/register",
   authMiddleware,
-  apiLimiter, // prevent spam clicks
+  apiLimiter,
+  validateRequest("eventRegistration"),
   asyncHandler(registerEvent)
 );
 
-
-// ---------------------------------------------------
-// 📅 GET MY REGISTERED EVENTS
-// ---------------------------------------------------
+// =====================================================
+//  GET USER REGISTERED EVENTS
+// =====================================================
 router.get(
   "/my-events",
   authMiddleware,
   asyncHandler(getUserEvents)
 );
 
-
-// ---------------------------------------------------
-// 👥 GET EVENT PARTICIPANTS (FACULTY / ADMIN)
-// ---------------------------------------------------
+// =====================================================
+//  GET EVENT PARTICIPANTS
+// =====================================================
 router.get(
   "/participants/:eventId",
   authMiddleware,
@@ -50,10 +56,9 @@ router.get(
   asyncHandler(getEventParticipants)
 );
 
-
-// ---------------------------------------------------
-// ✅ MARK ATTENDANCE (FACULTY / ADMIN)
-// ---------------------------------------------------
+// =====================================================
+//  MANUAL ATTENDANCE MARKING
+// =====================================================
 router.put(
   "/attendance/:registrationId",
   authMiddleware,
@@ -61,5 +66,34 @@ router.put(
   asyncHandler(markAttendance)
 );
 
+// =====================================================
+//  VERIFY QR CODE ATTENDANCE
+// =====================================================
+router.post(
+  "/verify-qr",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(verifyEventQR)
+);
+
+// =====================================================
+//  EVENT ANALYTICS
+// =====================================================
+router.get(
+  "/analytics/:eventId",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(getEventAnalytics)
+);
+
+// =====================================================
+//  EXPORT PARTICIPANTS CSV
+// =====================================================
+router.get(
+  "/export/:eventId",
+  authMiddleware,
+  checkRole("faculty", "admin"),
+  asyncHandler(exportParticipantsCSV)
+);
 
 export default router;
