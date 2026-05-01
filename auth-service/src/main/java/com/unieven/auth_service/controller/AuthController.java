@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "*")
@@ -16,7 +15,6 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
- 
     @GetMapping({"", "/"})
     public ResponseEntity<?> healthCheck() {
         return ResponseEntity.ok(
@@ -27,7 +25,6 @@ public class AuthController {
         );
     }
 
-
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(
             @RequestBody Map<String, String> body
@@ -35,7 +32,6 @@ public class AuthController {
         try {
             String email = body.get("email");
 
-           
             if (
                     email == null ||
                     email.trim().isEmpty()
@@ -50,11 +46,9 @@ public class AuthController {
 
             email = email.trim().toLowerCase();
 
-         
             String response =
                     authService.forgotPassword(email);
 
-      
             return ResponseEntity.ok(
                     Map.of(
                             "success", true,
@@ -83,7 +77,6 @@ public class AuthController {
         }
     }
 
-
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(
             @RequestBody Map<String, String> body
@@ -92,7 +85,6 @@ public class AuthController {
             String email = body.get("email");
             String otp = body.get("otp");
 
-           
             if (
                     email == null ||
                     email.trim().isEmpty() ||
@@ -111,7 +103,6 @@ public class AuthController {
             email = email.trim().toLowerCase();
             otp = otp.trim();
 
-        
             String response =
                     authService.verifyOTP(
                             email,

@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.util.Date;
 
-
 @Service
 public class AuthService {
 
@@ -18,7 +17,6 @@ public class AuthService {
 
     @Autowired
     private EmailService emailService;
-
 
     private static final SecureRandom secureRandom =
             new SecureRandom();
@@ -31,10 +29,8 @@ public class AuthService {
         return String.valueOf(otp);
     }
 
-
     public String forgotPassword(String email) {
 
-  
         User user =
                 userRepository.findByEmail(email)
                         .orElseThrow(() ->
@@ -43,28 +39,26 @@ public class AuthService {
                                 )
                         );
 
-
         String otp = generateOTP();
 
- 
         user.setResetOTP(otp);
 
         user.setOtpExpires(
                 new Date(
                         System.currentTimeMillis() +
-                        (5 * 60 * 1000) // 5 min
+                        (5 * 60 * 1000)
                 )
         );
 
         userRepository.save(user);
 
-      
-        try {
-            emailService.sendOtp(
-                    email,
-                    otp
-            );
-        } catch (Exception e) {
+        boolean emailSent =
+                emailService.sendOtp(
+                        email,
+                        otp
+                );
+
+        if (!emailSent) {
             throw new RuntimeException(
                     "Failed to send OTP email"
             );
@@ -73,13 +67,11 @@ public class AuthService {
         return "OTP sent successfully";
     }
 
-
     public String verifyOTP(
             String email,
             String otp
     ) {
 
-   
         User user =
                 userRepository.findByEmail(email)
                         .orElseThrow(() ->
@@ -88,7 +80,6 @@ public class AuthService {
                                 )
                         );
 
-  
         if (
                 user.getResetOTP() == null ||
                 user.getResetOTP().isEmpty()
@@ -98,7 +89,6 @@ public class AuthService {
             );
         }
 
-     
         if (
                 !otp.trim().equals(
                         user.getResetOTP().trim()
@@ -109,7 +99,6 @@ public class AuthService {
             );
         }
 
-       
         if (
                 user.getOtpExpires() == null ||
                 new Date().after(
@@ -121,11 +110,10 @@ public class AuthService {
             );
         }
 
-
         user.setResetOTP("VERIFIED");
 
         userRepository.save(user);
 
-        return "OTP verified successfully";
+        return "OTP verified";
     }
 }

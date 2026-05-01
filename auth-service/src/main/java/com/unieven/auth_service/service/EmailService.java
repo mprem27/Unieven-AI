@@ -6,9 +6,7 @@ import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
 
 @Service
 public class EmailService {
@@ -16,19 +14,16 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
-
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-
-    @Async
-    public void sendOtp(
+    public boolean sendOtp(
             String toEmail,
             String otp
     ) {
 
         try {
-          
+
             SimpleMailMessage message =
                     new SimpleMailMessage();
 
@@ -39,7 +34,6 @@ public class EmailService {
                     "UniEven - Password Reset Verification Code"
             );
 
-          
             message.setText(
                     "Hello,\n\n" +
 
@@ -56,36 +50,32 @@ public class EmailService {
                     "UniEven Team"
             );
 
-
             mailSender.send(message);
 
-         
             System.out.println(
-                    " OTP email sent successfully to: " +
+                    "OTP email sent successfully to: " +
                     toEmail
             );
+
+            return true;
 
         } catch (MailAuthenticationException e) {
 
             System.out.println(
-                    " SMTP Authentication failed for sender: " +
+                    "SMTP Authentication failed for sender: " +
                     fromEmail
             );
 
-            throw new RuntimeException(
-                    "Email authentication failed"
-            );
+            return false;
 
         } catch (MailException e) {
 
             System.out.println(
-                    " Mail server error while sending OTP to: " +
+                    "Mail server error while sending OTP to: " +
                     toEmail
             );
 
-            throw new RuntimeException(
-                    "Failed to send OTP email"
-            );
+            return false;
 
         } catch (Exception e) {
 
@@ -94,9 +84,7 @@ public class EmailService {
                     toEmail
             );
 
-            throw new RuntimeException(
-                    "Unexpected email service failure"
-            );
+            return false;
         }
     }
 }
