@@ -6,8 +6,8 @@ import com.unieven.auth_service.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
 import java.util.Date;
-import java.util.Random;
 
 
 @Service
@@ -20,62 +20,75 @@ public class AuthService {
     private EmailService emailService;
 
 
+    private static final SecureRandom secureRandom =
+            new SecureRandom();
 
     public String generateOTP() {
-        return String.valueOf(
-                100000 + new Random().nextInt(900000)
-        );
+        int otp =
+                100000 +
+                secureRandom.nextInt(900000);
+
+        return String.valueOf(otp);
     }
+
 
     public String forgotPassword(String email) {
 
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+  
+        User user =
+                userRepository.findByEmail(email)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "User not found"
+                                )
+                        );
 
-        // Generate OTP
+
         String otp = generateOTP();
 
-        // Save OTP + Expiry
+ 
         user.setResetOTP(otp);
+
         user.setOtpExpires(
                 new Date(
-                        System.currentTimeMillis() + 300000
-                ) // 5 minutes
+                        System.currentTimeMillis() +
+                        (5 * 60 * 1000) // 5 min
+                )
         );
 
         userRepository.save(user);
 
+      
         try {
-            // Send OTP Email
             emailService.sendOtp(
                     email,
                     otp
             );
         } catch (Exception e) {
             throw new RuntimeException(
-                    "Failed to send OTP email: " +
-                            e.getMessage()
+                    "Failed to send OTP email"
             );
         }
 
         return "OTP sent successfully";
     }
 
+
     public String verifyOTP(
             String email,
             String otp
     ) {
 
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+   
+        User user =
+                userRepository.findByEmail(email)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "User not found"
+                                )
+                        );
 
-        // OTP Missing
+  
         if (
                 user.getResetOTP() == null ||
                 user.getResetOTP().isEmpty()
@@ -85,7 +98,7 @@ public class AuthService {
             );
         }
 
-        // Invalid OTP
+     
         if (
                 !otp.trim().equals(
                         user.getResetOTP().trim()
@@ -96,7 +109,7 @@ public class AuthService {
             );
         }
 
-        // Expired OTP
+       
         if (
                 user.getOtpExpires() == null ||
                 new Date().after(
@@ -108,7 +121,7 @@ public class AuthService {
             );
         }
 
-        // Mark OTP verified
+
         user.setResetOTP("VERIFIED");
 
         userRepository.save(user);

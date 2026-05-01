@@ -10,16 +10,14 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*") // Allow frontend/backend communication
+@CrossOrigin(origins = "*")
 public class AuthController {
 
     @Autowired
     private AuthService authService;
 
-    // =====================================================
-    // 🟢 HEALTH CHECK
-    // =====================================================
-    @GetMapping("/")
+ 
+    @GetMapping({"", "/"})
     public ResponseEntity<?> healthCheck() {
         return ResponseEntity.ok(
                 Map.of(
@@ -29,9 +27,7 @@ public class AuthController {
         );
     }
 
-    // =====================================================
-    // 📩 FORGOT PASSWORD → SEND OTP
-    // =====================================================
+
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(
             @RequestBody Map<String, String> body
@@ -39,7 +35,11 @@ public class AuthController {
         try {
             String email = body.get("email");
 
-            if (email == null || email.trim().isEmpty()) {
+           
+            if (
+                    email == null ||
+                    email.trim().isEmpty()
+            ) {
                 return ResponseEntity.badRequest().body(
                         Map.of(
                                 "success", false,
@@ -48,10 +48,13 @@ public class AuthController {
                 );
             }
 
-            String response = authService.forgotPassword(
-                    email.trim().toLowerCase()
-            );
+            email = email.trim().toLowerCase();
 
+         
+            String response =
+                    authService.forgotPassword(email);
+
+      
             return ResponseEntity.ok(
                     Map.of(
                             "success", true,
@@ -59,19 +62,28 @@ public class AuthController {
                     )
             );
 
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(
+        } catch (RuntimeException e) {
+
+            return ResponseEntity.status(400).body(
                     Map.of(
                             "success", false,
                             "message", e.getMessage()
                     )
             );
+
+        } catch (Exception e) {
+
+            return ResponseEntity.status(500).body(
+                    Map.of(
+                            "success", false,
+                            "message",
+                            "Internal server error"
+                    )
+            );
         }
     }
 
-    // =====================================================
-    // 🔢 VERIFY OTP
-    // =====================================================
+
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(
             @RequestBody Map<String, String> body
@@ -80,22 +92,31 @@ public class AuthController {
             String email = body.get("email");
             String otp = body.get("otp");
 
+           
             if (
-                    email == null || email.trim().isEmpty() ||
-                    otp == null || otp.trim().isEmpty()
+                    email == null ||
+                    email.trim().isEmpty() ||
+                    otp == null ||
+                    otp.trim().isEmpty()
             ) {
                 return ResponseEntity.badRequest().body(
                         Map.of(
                                 "success", false,
-                                "message", "Email and OTP are required"
+                                "message",
+                                "Email and OTP are required"
                         )
                 );
             }
 
-            String response = authService.verifyOTP(
-                    email.trim().toLowerCase(),
-                    otp.trim()
-            );
+            email = email.trim().toLowerCase();
+            otp = otp.trim();
+
+        
+            String response =
+                    authService.verifyOTP(
+                            email,
+                            otp
+                    );
 
             return ResponseEntity.ok(
                     Map.of(
@@ -104,11 +125,22 @@ public class AuthController {
                     )
             );
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+
             return ResponseEntity.status(400).body(
                     Map.of(
                             "success", false,
                             "message", e.getMessage()
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity.status(500).body(
+                    Map.of(
+                            "success", false,
+                            "message",
+                            "Internal server error"
                     )
             );
         }
