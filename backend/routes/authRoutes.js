@@ -1,74 +1,68 @@
 import express from "express";
+
 import {
   registerUser,
   loginUser,
   sendRegisterOTP,
   resetPassword,
   getCurrentUser,
-
-  // ✅ NEW
   forgotPassword,
   verifyOtpController,
-
 } from "../controllers/authController.js";
 
-// Middlewares
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
 import { validateRequest } from "../middlewares/validateMiddleware.js";
+import asyncHandler from "../middlewares/asyncHandler.js";
 
 const router = express.Router();
 
-//  SEND OTP FOR REGISTER
 router.post(
   "/send-register-otp",
   authLimiter,
-  validateRequest("email"),
-  sendRegisterOTP
+  validateRequest("register"),
+  asyncHandler(sendRegisterOTP)
 );
 
-//  REGISTER
+
 router.post(
   "/register",
   authLimiter,
-  validateRequest("register"),
-  registerUser
+  asyncHandler(registerUser)
 );
 
-//  LOGIN
 router.post(
   "/login",
   authLimiter,
   validateRequest("auth"),
-  loginUser
+  asyncHandler(loginUser)
 );
 
-//  FORGOT PASSWORD 
 router.post(
   "/forgot-password",
   authLimiter,
   validateRequest("email"),
-  forgotPassword
+  asyncHandler(forgotPassword)
 );
-// VERIFY OTP 
+
 router.post(
   "/verify-otp",
   authLimiter,
   validateRequest("email"),
-  verifyOtpController
+  asyncHandler(verifyOtpController)
 );
 
-// RESET PASSWORD
 router.post(
   "/reset-password",
+  authLimiter,
   validateRequest("email"),
-  resetPassword
+  asyncHandler(resetPassword)
 );
-//  CURRENT USER
+
 router.get(
   "/me",
   authMiddleware,
-  getCurrentUser
+  asyncHandler(getCurrentUser)
 );
 
 export default router;

@@ -3,19 +3,29 @@ import mongoose from "mongoose";
 const eventRegistrationSchema =
   new mongoose.Schema(
     {
-
+      // =====================================================
+      // 👤 USER
+      // =====================================================
       user: {
-        type: mongoose.Schema.Types.ObjectId,
+        type:
+          mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true,
       },
 
+      // =====================================================
+      // 🎉 EVENT
+      // =====================================================
       event: {
-        type: mongoose.Schema.Types.ObjectId,
+        type:
+          mongoose.Schema.Types.ObjectId,
         ref: "Event",
         required: true,
       },
 
+      // =====================================================
+      // 🎓 STUDENT DETAILS
+      // =====================================================
       studentId: {
         type: String,
         required: true,
@@ -34,7 +44,9 @@ const eventRegistrationSchema =
         trim: true,
       },
 
-
+      // =====================================================
+      // 📌 REGISTRATION STATUS
+      // =====================================================
       status: {
         type: String,
         enum: [
@@ -45,7 +57,9 @@ const eventRegistrationSchema =
         default: "registered",
       },
 
-
+      // =====================================================
+      // 🔥 QR SYSTEM
+      // =====================================================
       qrCode: {
         type: String,
         default: "",
@@ -58,7 +72,9 @@ const eventRegistrationSchema =
         sparse: true,
       },
 
-
+      // =====================================================
+      // ✅ ATTENDANCE
+      // =====================================================
       attendanceTime: {
         type: Date,
         default: null,
@@ -70,23 +86,6 @@ const eventRegistrationSchema =
         ref: "User",
         default: null,
       },
-
-
-      certificateIssued: {
-        type: Boolean,
-        default: false,
-      },
-
-      certificateUrl: {
-        type: String,
-        default: "",
-      },
-
-      certificateIssuedAt: {
-        type: Date,
-        default: null,
-      },
-
 
       checkInMethod: {
         type: String,
@@ -108,7 +107,27 @@ const eventRegistrationSchema =
         default: false,
       },
 
+      // =====================================================
+      // 🏆 CERTIFICATE
+      // =====================================================
+      certificateIssued: {
+        type: Boolean,
+        default: false,
+      },
 
+      certificateUrl: {
+        type: String,
+        default: "",
+      },
+
+      certificateIssuedAt: {
+        type: Date,
+        default: null,
+      },
+
+      // =====================================================
+      // 📝 NOTES
+      // =====================================================
       notes: {
         type: String,
         default: "",
@@ -120,6 +139,11 @@ const eventRegistrationSchema =
     }
   );
 
+// =====================================================
+// 🔥 INDEXES
+// =====================================================
+
+// Prevent duplicate registration per event
 eventRegistrationSchema.index(
   {
     user: 1,
@@ -130,24 +154,21 @@ eventRegistrationSchema.index(
   }
 );
 
-
+// Event participant analytics
 eventRegistrationSchema.index({
   event: 1,
   createdAt: -1,
 });
 
-
-eventRegistrationSchema.index({
-  qrToken: 1,
-});
-
-
+// Event attendance analytics
 eventRegistrationSchema.index({
   event: 1,
   status: 1,
 });
 
-
+// =====================================================
+// 🚀 SAFE EXPORT
+// =====================================================
 const EventRegistration =
   mongoose.models.EventRegistration ||
   mongoose.model(

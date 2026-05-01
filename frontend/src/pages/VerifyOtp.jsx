@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import Loader from "../components/Loader";
 import { FaChevronLeft, FaEnvelope } from "react-icons/fa";
 import { Assets } from "../assets/Assets";
-import AUTH_API from "../api/authApi"; // ✅ Imported your Axios instance
+import AUTH_API from "../api/authApi"; 
 
 function VerifyOtp() {
   const navigate = useNavigate();
@@ -14,49 +14,82 @@ function VerifyOtp() {
   const [email, setEmail] = useState(location.state?.email || "");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 🟦 STEP 5: OTP EXPIRY TIMER STATE
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [resending, setResending] = useState(false);
 
-  // ✅ UPDATED handleVerify logic
-  const handleVerify = async (e) => {
-    e.preventDefault();
+  // Timer Countdown Effect
+  useEffect(() => {
+    if (timeLeft > 0) {
+      const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timerId);
+    }
+  }, [timeLeft]);
 
+  // 🟦 STEP 4 & 6: EXTRACTED VERIFICATION LOGIC & BETTER LOGGING
+  const submitVerification = async (otpCode) => {
     if (!email) return toast.error("Email is required");
-    if (!otp || otp.length < 6)
-      return toast.error("Please enter a valid 6-digit OTP");
+    if (!otpCode || otpCode.length < 6) return toast.error("Please enter a valid 6-digit OTP");
 
     setLoading(true);
 
     try {
       const res = await AUTH_API.post("/auth/verify-otp", {
         email: email.toLowerCase().trim(),
-        otp,
+        otp: otpCode,
       });
 
       const data = res.data;
 
-      // ✅ Handle both string and object responses
+      // Handle both string and object responses
       if (data === "OTP verified" || data?.message === "OTP verified") {
         toast.success("Email verified successfully!");
 
+        // 🟦 STEP 2: SAFE NAVIGATION
         navigate("/reset-password", {
+          replace: true, 
           state: { email: email.toLowerCase().trim() },
         });
 
       } else if (data === "Invalid OTP" || data?.message === "Invalid OTP") {
         toast.error("Incorrect verification code");
-
       } else if (data === "OTP expired" || data?.message === "OTP expired") {
         toast.error("OTP expired. Request again");
-
       } else {
         toast.error(data?.message || data || "Verification failed");
       }
 
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Server error"
-      );
+      // 🟦 STEP 6: BETTER ERROR LOGGING
+      console.error("VERIFY OTP ERROR:", error?.response?.data || error);
+      toast.error(error.response?.data?.message || "Server error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify = (e) => {
+    e.preventDefault();
+    submitVerification(otp);
+  };
+
+  // 🟦 STEP 3: RESEND OTP FEATURE
+  const handleResendOtp = async () => {
+    if (timeLeft > 0) return;
+    
+    setResending(true);
+    try {
+      await AUTH_API.post("/auth/forgot-password", {
+        email: email.toLowerCase().trim(),
+      });
+      toast.success("OTP resent successfully");
+      setTimeLeft(60); // Reset timer
+      setOtp(""); // Clear OTP input
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to resend OTP");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -81,7 +114,6 @@ function VerifyOtp() {
         </button>
 
         <div className="flex flex-col items-center mb-8 mt-6">
-          {/* ✅ UPDATED TO USE PROJECT LOGO */}
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 shadow-inner">
              <img src={Assets.logoicon} className="w-8 h-8 object-contain opacity-80" alt="Logo" />
           </div>
@@ -107,7 +139,8 @@ function VerifyOtp() {
                 placeholder="name@university.edu.in" 
                 className={`${inputStyle} pl-12 text-gray-500 bg-white/40`} 
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                // 🟦 STEP 1: AUTO-TRIM EMAIL INPUT
+                onChange={(e) => setEmail(e.target.value.toLowerCase().trimStart())}
                 readOnly={!!location.state?.email}
                 required 
               />
@@ -125,22 +158,46 @@ function VerifyOtp() {
               maxLength="6"
               className={`${inputStyle} tracking-[10px] sm:tracking-[12px] text-center font-bold text-lg sm:text-xl placeholder:tracking-normal`} 
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ""))}
+              onChange={(e) => {
+                const newOtp = e.target.value.replace(/[^0-9]/g, "");
+                setOtp(newOtp);
+                // 🟦 STEP 4: AUTO VERIFY ON 6 DIGITS
+                if (newOtp.length === 6) {
+                  submitVerification(newOtp);
+                }
+              }}
               required 
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading || !email || otp.length < 6}
+            disabled={loading || !email.trim() || otp.length < 6}
             className={`w-full mt-2 py-4 rounded-[18px] sm:rounded-[20px] font-black text-[15px] sm:text-[16px] tracking-wide transition-all duration-300 flex justify-center items-center h-[54px] sm:h-[60px] ${
-              email && otp.length === 6
+              email.trim() && otp.length === 6
               ? "bg-gray-900 text-white hover:bg-black hover:-translate-y-1 active:scale-95 shadow-lg shadow-gray-200" 
               : "bg-white/80 text-gray-400 cursor-not-allowed border border-white/40 shadow-none"
             }`}
           >
             {loading ? <Loader size="20px" color="#fff" /> : "Verify Code"}
           </button>
+
+          {/* 🟦 STEP 3 & 5: RESEND OTP WITH TIMER */}
+          <div className="text-center mt-2">
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={timeLeft > 0 || resending}
+              className={`text-[13px] sm:text-[14px] font-bold transition-colors ${
+                timeLeft > 0 || resending
+                  ? "text-gray-400 cursor-not-allowed" 
+                  : "text-blue-600 hover:text-blue-800 hover:underline"
+              }`}
+            >
+              {resending ? "Sending..." : timeLeft > 0 ? `Resend Code in ${timeLeft}s` : "Resend Code"}
+            </button>
+          </div>
+
         </form>
 
       </div>

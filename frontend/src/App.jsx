@@ -1,65 +1,127 @@
-import { useState } from "react";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import React, { useState, useEffect, Suspense, lazy } from "react";
+import {
+  Routes,
+  Route,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
+
 import { useAuth } from "./context/AuthContext";
 
+// =====================================================
 // TOAST
+// =====================================================
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Components
+// =====================================================
+// COMPONENTS (Eagerly loaded - needed immediately)
+// =====================================================
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import FloatingSidebarButton from "./components/FloatingSidebarButton";
 import CornerSidebar from "./components/CornerSidebar";
-import Loader from "./components/Loader"; // ✅ FIXED: Added missing Loader import
+import Loader from "./components/Loader";
 
-// pages
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Feed from "./pages/Feed";
-import AddStory from "./pages/AddStory";
-import Reels from "./pages/Reels";
-import Profile from "./components/Profile";
-import EditProfile from "./pages/EditProfile";
-import UserProfile from "./pages/UserProfile";
-import Search from "./pages/Search";
+// =====================================================
+// 🚀 LAZY LOADED PAGES (Performance Upgrade)
+// =====================================================
+// Auth
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const VerifyOtp = lazy(() => import("./pages/VerifyOtp"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
-// CREATE
-import CreatePost from "./pages/CreatePost";
-import CreateReel from "./pages/CreateReel";
-import CreateEvent from "./pages/CreateEvent";
+// Main Pages
+const Feed = lazy(() => import("./pages/Feed"));
+const AddStory = lazy(() => import("./pages/AddStory"));
+const Reels = lazy(() => import("./pages/Reels"));
+const Search = lazy(() => import("./pages/Search"));
+const Events = lazy(() => import("./pages/Events"));
 
-// EVENTS
-import Events from "./pages/Events";
+// Profile
+const Profile = lazy(() => import("./components/Profile"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const UserProfile = lazy(() => import("./pages/UserProfile"));
 
-// FORGOT PASSWORD
-import ForgotPassword from "./pages/ForgotPassword";
-import VerifyOtp from "./pages/VerifyOtp";
-import ResetPassword from "./pages/ResetPassword";
+// Create
+const CreatePost = lazy(() => import("./pages/CreatePost"));
+const CreateReel = lazy(() => import("./pages/CreateReel"));
+const CreateEvent = lazy(() => import("./pages/CreateEvent"));
 
+// =====================================================
+// 🔐 PRIVATE ROUTE
+// =====================================================
 const PrivateRoute = ({ children }) => {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
-};
-
-function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading } = useAuth();
-  const location = useLocation();
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState(null);
-
-  // 🔥 PAGE CHECKS (FIXED: Added all auth-related pages)
-  const authRoutes = ["/login", "/register", "/forgot-password", "/verify-otp", "/reset-password"];
-  const isAuthPage = authRoutes.includes(location.pathname);
-
-  const isReelsPage = location.pathname.startsWith("/reels");
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center text-gray-500">
-        <Loader size="40px" color="#3b82f6" />
+      <div className="h-screen flex items-center justify-center bg-white">
+        <Loader size="42px" fullPage={false} />
+      </div>
+    );
+  }
+
+  return user ? children : <Navigate to="/login" replace />;
+};
+
+// =====================================================
+// 🔓 PUBLIC AUTH ROUTE
+// =====================================================
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white">
+        <Loader size="42px" fullPage={false} />
+      </div>
+    );
+  }
+
+  return !user ? children : <Navigate to="/feed" replace />;
+};
+
+// =====================================================
+// MAIN APP
+// =====================================================
+function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  // 🟦 STEP 2: SCROLL RESTORATION
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  // =====================================================
+  // PAGE DETECTION
+  // =====================================================
+  const authRoutes = [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/verify-otp",
+    "/reset-password",
+  ];
+
+  // 🟦 STEP 3: SAFER ROUTE MATCHING (Handles URL Params)
+  const isAuthPage = authRoutes.some(route => location.pathname.startsWith(route));
+  const isReelsPage = location.pathname.startsWith("/reels");
+
+  // =====================================================
+  // GLOBAL LOADING
+  // =====================================================
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white">
+        <Loader size="48px" fullPage={false} />
       </div>
     );
   }
@@ -67,83 +129,119 @@ function App() {
   return (
     <div className="min-h-screen bg-[#fafafa]">
 
-      {/* TOAST */}
+      {/* =====================================================
+          TOAST SYSTEM
+      ===================================================== */}
       <ToastContainer
         position="bottom-center"
-        autoClose={2000}
+        autoClose={2500}
         hideProgressBar
+        newestOnTop
+        closeOnClick
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
         theme="dark"
       />
 
-      {/* ✅ NAVBAR (hidden for reels & auth) */}
+      {/* =====================================================
+          NAVBAR
+      ===================================================== */}
       {!isAuthPage && !isReelsPage && <Navbar />}
 
       <div className="flex w-full">
 
-        {/* ✅ SIDEBAR (hidden for reels & auth) */}
+        {/* =====================================================
+            DESKTOP SIDEBAR
+        ===================================================== */}
         {!isAuthPage && !isReelsPage && (
           <div className="hidden lg:block">
             <Sidebar setSidebarOpen={setSidebarOpen} />
           </div>
         )}
 
-        {/* ✅ MAIN CONTENT */}
+        {/* =====================================================
+            MAIN CONTENT
+        ===================================================== */}
         <main
           className={`
-            flex-1 transition-all duration-300 w-full
-
-            ${isReelsPage
-              ? "m-0 h-screen bg-black"
-              : !isAuthPage
+            flex-1 w-full transition-all duration-300
+            ${
+              isReelsPage
+                ? "m-0 h-screen bg-black"
+                : !isAuthPage
                 ? "md:mt-[56px] lg:ml-20"
                 : "h-screen"
             }
           `}
         >
-          <Routes>
+          {/* 🟦 LAZY LOAD SUSPENSE WRAPPER */}
+          <Suspense 
+            fallback={
+              <div className="h-[80vh] flex items-center justify-center">
+                <Loader size="42px" fullPage={false} />
+              </div>
+            }
+          >
+            <Routes>
 
-            {/* AUTH */}
-            <Route path="/login" element={!user ? <Login /> : <Navigate to="/feed" />} />
-            <Route path="/register" element={!user ? <Register /> : <Navigate to="/feed" />} />
-            
-            {/* FORGOT PASSWORD (FIXED: Protected from logged-in users) */}
-            <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/feed" />} />
-            <Route path="/verify-otp" element={!user ? <VerifyOtp /> : <Navigate to="/feed" />} />
-            <Route path="/reset-password" element={!user ? <ResetPassword /> : <Navigate to="/feed" />} />
+              {/* =====================================================
+                  AUTH ROUTES
+              ===================================================== */}
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+              <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+              <Route path="/verify-otp" element={<PublicRoute><VerifyOtp /></PublicRoute>} />
+              <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
 
-            {/* MAIN */}
-            <Route path="/" element={<PrivateRoute><Feed /></PrivateRoute>} />
-            <Route path="/feed" element={<PrivateRoute><Feed /></PrivateRoute>} />
-            <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
+              {/* =====================================================
+                  FEED & POSTS
+              ===================================================== */}
+              <Route path="/" element={<PrivateRoute><Feed /></PrivateRoute>} />
+              <Route path="/feed" element={<PrivateRoute><Feed /></PrivateRoute>} />
+              <Route path="/post/:id" element={<PrivateRoute><Feed /></PrivateRoute>} />
 
-            {/* REELS */}
-            <Route path="/reels" element={<PrivateRoute><Reels /></PrivateRoute>} />
-            <Route path="/reels/:id" element={<PrivateRoute><Reels /></PrivateRoute>} />
+              {/* =====================================================
+                  SEARCH & EVENTS
+              ===================================================== */}
+              <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
+              <Route path="/events" element={<PrivateRoute><Events /></PrivateRoute>} />
+              <Route path="/events/:id" element={<PrivateRoute><Events /></PrivateRoute>} />
 
-            {/* CREATE */}
-            <Route path="/create/post" element={<PrivateRoute><CreatePost /></PrivateRoute>} />
-            <Route path="/create/reel" element={<PrivateRoute><CreateReel /></PrivateRoute>} />
-            <Route path="/create/event" element={<PrivateRoute><CreateEvent /></PrivateRoute>} />
+              {/* =====================================================
+                  REELS
+              ===================================================== */}
+              <Route path="/reels" element={<PrivateRoute><Reels /></PrivateRoute>} />
+              <Route path="/reels/:id" element={<PrivateRoute><Reels /></PrivateRoute>} />
 
-            {/* EVENTS */}
-            <Route path="/events" element={<PrivateRoute><Events /></PrivateRoute>} />
-            <Route path="/events/:id" element={<PrivateRoute><Events /></PrivateRoute>} />
+              {/* =====================================================
+                  CREATE / ADD
+              ===================================================== */}
+              <Route path="/add-story" element={<PrivateRoute><AddStory /></PrivateRoute>} />
+              <Route path="/create/post" element={<PrivateRoute><CreatePost /></PrivateRoute>} />
+              <Route path="/create/reel" element={<PrivateRoute><CreateReel /></PrivateRoute>} />
+              <Route path="/create/event" element={<PrivateRoute><CreateEvent /></PrivateRoute>} />
 
-            {/* OTHER */}
-            <Route path="/post/:id" element={<PrivateRoute><Feed /></PrivateRoute>} />
-            <Route path="/add-story" element={<PrivateRoute><AddStory /></PrivateRoute>} />
-            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-            <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
-            <Route path="/user/:username" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+              {/* =====================================================
+                  PROFILE
+              ===================================================== */}
+              <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+              <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
+              <Route path="/user/:username" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
 
-            {/* FALLBACK */}
-            <Route path="*" element={<Navigate to={user ? "/feed" : "/login"} />} />
+              {/* =====================================================
+                  FALLBACK (404 / REDIRECT)
+              ===================================================== */}
+              <Route path="*" element={<Navigate to={user ? "/feed" : "/login"} replace />} />
 
-          </Routes>
+            </Routes>
+          </Suspense>
         </main>
       </div>
 
-      {/* ✅ MOBILE FLOAT MENU (Also hidden on new auth pages) */}
+      {/* =====================================================
+          MOBILE SIDEBAR
+      ===================================================== */}
       {!isAuthPage && !isReelsPage && (
         <div className="lg:hidden">
           <FloatingSidebarButton
@@ -159,7 +257,6 @@ function App() {
           />
         </div>
       )}
-
     </div>
   );
 }

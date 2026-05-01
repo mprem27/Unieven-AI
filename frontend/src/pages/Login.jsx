@@ -44,9 +44,16 @@ function Login() {
         password: form.password
       });
 
-      localStorage.setItem("token", data.token);
+      // 🟦 STEP 1: REMOVED REDUNDANT TOKEN SAVE (Handled in authService.js)
+      
       setUser(data.user);
-      navigate("/feed");
+      
+      // 🟦 STEP 2: ADD SUCCESS TOAST
+      toast.success("Login successful");
+      
+      // 🟦 STEP 6: SAFE NAVIGATION
+      navigate("/feed", { replace: true });
+
     } catch (err) {
       setError(
         err?.response?.data?.message ||
@@ -58,7 +65,8 @@ function Login() {
     }
   };
 
-  const isFormValid = form.identity.trim().length > 0 && form.password.length > 5;
+  // 🟦 STEP 5: IMPROVE FORM VALIDATION
+  const isFormValid = form.identity.trim().length > 0 && form.password.trim().length >= 6;
 
   return (
     <div className="min-h-screen w-full flex bg-[#F8FAFC] font-['Poppins',sans-serif] antialiased items-center justify-center p-4 sm:p-8">
@@ -94,7 +102,11 @@ function Login() {
                   className={`w-full bg-gray-50/50 border-2 ${error ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
                     } rounded-xl px-4 py-3 sm:py-3.5 text-[14px] sm:text-[15px] font-medium text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all hover:bg-white`}
                   value={form.identity}
-                  onChange={(e) => setForm({ ...form, identity: e.target.value })}
+                  onChange={(e) => {
+                    // 🟦 STEP 3: CLEAR ERROR ON INPUT CHANGE
+                    setError("");
+                    setForm({ ...form, identity: e.target.value });
+                  }}
                 />
               </div>
 
@@ -116,7 +128,11 @@ function Login() {
                     className={`w-full bg-gray-50/50 border-2 ${error ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
                       } rounded-xl px-4 py-3 sm:py-3.5 text-[14px] sm:text-[15px] font-medium text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all hover:bg-white pr-16`}
                     value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    onChange={(e) => {
+                      // 🟦 STEP 3: CLEAR ERROR ON INPUT CHANGE
+                      setError("");
+                      setForm({ ...form, password: e.target.value });
+                    }}
                   />
                   {form.password.length > 0 && (
                     <button
@@ -131,7 +147,7 @@ function Login() {
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex items-center gap-2">
+                <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex items-center gap-2 animate-in fade-in duration-200">
                   <span className="text-red-500 text-sm font-bold">!</span>
                   <p className="text-red-600 text-[12px] sm:text-[13px] font-semibold leading-snug">
                     {error}
