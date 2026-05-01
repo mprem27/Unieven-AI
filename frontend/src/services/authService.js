@@ -1,237 +1,159 @@
 import API from "../api/axios";
 
-// =====================================================
-// 🔓 LOGIN
-// =====================================================
-export const login =
-  async (formData) => {
-    try {
-      const { data } =
-        await API.post(
-          "/auth/login",
-          formData,
-          {
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          }
-        );
+const jsonHeaders = {
+  headers: {
+    "Content-Type": "application/json",
+  },
+};
 
-      // Save token
-      if (
-        data?.token
-      ) {
-        localStorage.setItem(
-          "token",
-          data.token
-        );
+const saveToken = (token) => {
+  if (token) {
+    localStorage.setItem("token", token);
+  }
+};
 
-        // console.log(
-        //   "✅ Token saved:",
-        //   data.token
-        // );
-      } else {
-        console.warn(
-          "⚠️ No token received from backend"
-        );
-      }
+const clearToken = () => {
+  localStorage.removeItem("token");
+};
 
-      return data;
-    } catch (error) {
-      console.error(
-        "❌ Login Error:",
-        error?.response
-          ?.data || error
-      );
+const handleError = (
+  error,
+  fallbackMessage
+) => {
+  console.error(
+    error?.response?.data || error
+  );
 
-      if (
-        error.response
-          ?.status ===
-        401
-      ) {
-        throw {
-          message:
-            "Invalid email/username or password",
-        };
-      }
-
-      throw (
-        error.response
-          ?.data || {
-          message:
-            "Login failed",
-        }
-      );
+  throw (
+    error?.response?.data || {
+      success: false,
+      message: fallbackMessage,
     }
-  };
+  );
+};
 
-// =====================================================
-// 📩 SEND REGISTER OTP
-// 🔥 NEW PROFESSIONAL FLOW
-// =====================================================
+export const login = async (
+  formData
+) => {
+  try {
+    const { data } =
+      await API.post(
+        "/auth/login",
+        formData,
+        jsonHeaders
+      );
+
+    saveToken(data?.token);
+
+    return data;
+  } catch (error) {
+    if (
+      error.response
+        ?.status === 401
+    ) {
+      throw {
+        success: false,
+        message:
+          "Invalid email/username or password",
+      };
+    }
+
+    handleError(
+      error,
+      "Login failed"
+    );
+  }
+};
+
 export const sendRegisterOtp =
-  async (
-    formData
-  ) => {
+  async (formData) => {
     try {
       const { data } =
         await API.post(
           "/auth/send-register-otp",
           formData,
-          {
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          }
+          jsonHeaders
         );
 
       return data;
     } catch (error) {
-      console.error(
-        "❌ Send OTP Error:",
-        error?.response
-          ?.data || error
-      );
-
-      throw (
-        error.response
-          ?.data || {
-          message:
-            "Failed to send OTP",
-        }
+      handleError(
+        error,
+        "Failed to send OTP"
       );
     }
   };
 
-// =====================================================
-// 🧑 FINAL REGISTER
-// 🔥 ONLY EMAIL + OTP
-// =====================================================
-export const register =
-  async (formData) => {
-    try {
-      const { data } =
-        await API.post(
-          "/auth/register",
-          formData,
-          {
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          }
-        );
-
-      if (
-        data?.token
-      ) {
-        localStorage.setItem(
-          "token",
-          data.token
-        );
-
-        console.log(
-          "✅ Registered & token saved"
-        );
-      }
-
-      return data;
-    } catch (error) {
-      console.error(
-        "❌ Register Error:",
-        error?.response
-          ?.data || error
+export const register = async (
+  formData
+) => {
+  try {
+    const { data } =
+      await API.post(
+        "/auth/register",
+        formData,
+        jsonHeaders
       );
 
-      throw (
-        error.response
-          ?.data || {
-          message:
-            "Register failed",
-        }
+    saveToken(data?.token);
+
+    return data;
+  } catch (error) {
+    handleError(
+      error,
+      "Register failed"
+    );
+  }
+};
+
+export const getMe = async () => {
+  try {
+    const { data } =
+      await API.get(
+        "/auth/me"
       );
+
+    return data;
+  } catch (error) {
+    if (
+      error.response
+        ?.status === 401
+    ) {
+      clearToken();
+
+      throw {
+        success: false,
+        message:
+          "Session expired. Please login again.",
+      };
     }
-  };
 
-// =====================================================
-// 👤 GET CURRENT USER
-// =====================================================
-export const getMe =
-  async () => {
-    try {
-      const { data } =
-        await API.get(
-          "/auth/me"
-        );
+    handleError(
+      error,
+      "Failed to fetch user"
+    );
+  }
+};
 
-      return data;
-    } catch (error) {
-      console.error(
-        "❌ getMe Error:",
-        error?.response
-          ?.data || error
-      );
-
-      if (
-        error.response
-          ?.status ===
-        401
-      ) {
-        localStorage.removeItem(
-          "token"
-        );
-
-        throw {
-          message:
-            "Session expired. Please login again.",
-        };
-      }
-
-      throw (
-        error.response
-          ?.data || {
-          message:
-            "Failed to fetch user",
-        }
-      );
-    }
-  };
-
-// =====================================================
-// 🔑 FORGOT PASSWORD
-// =====================================================
 export const forgotPassword =
   async (email) => {
     try {
       const { data } =
         await API.post(
           "/auth/forgot-password",
-          { email }
+          { email },
+          jsonHeaders
         );
 
       return data;
     } catch (error) {
-      console.error(
-        "❌ Forgot Password Error:",
-        error?.response
-          ?.data || error
-      );
-
-      throw (
-        error.response
-          ?.data || {
-          message:
-            "Failed to send reset OTP",
-        }
+      handleError(
+        error,
+        "Failed to send reset OTP"
       );
     }
   };
 
-// =====================================================
-// ✅ VERIFY RESET OTP
-// =====================================================
 export const verifyOtp =
   async (
     email,
@@ -244,30 +166,19 @@ export const verifyOtp =
           {
             email,
             otp,
-          }
+          },
+          jsonHeaders
         );
 
       return data;
     } catch (error) {
-      console.error(
-        "❌ Verify OTP Error:",
-        error?.response
-          ?.data || error
-      );
-
-      throw (
-        error.response
-          ?.data || {
-          message:
-            "OTP verification failed",
-        }
+      handleError(
+        error,
+        "OTP verification failed"
       );
     }
   };
 
-// =====================================================
-// 🔁 RESET PASSWORD
-// =====================================================
 export const resetPassword =
   async (
     email,
@@ -280,37 +191,19 @@ export const resetPassword =
           {
             email,
             newPassword,
-          }
+          },
+          jsonHeaders
         );
 
       return data;
     } catch (error) {
-      console.error(
-        "❌ Reset Password Error:",
-        error?.response
-          ?.data || error
-      );
-
-      throw (
-        error.response
-          ?.data || {
-          message:
-            "Password reset failed",
-        }
+      handleError(
+        error,
+        "Password reset failed"
       );
     }
   };
 
-// =====================================================
-// 🚪 LOGOUT
-// =====================================================
-export const logout =
-  () => {
-    localStorage.removeItem(
-      "token"
-    );
-
-    console.log(
-      "🚪 User logged out"
-    );
-  };
+export const logout = () => {
+  clearToken();
+};

@@ -1,5 +1,6 @@
 import express from "express";
 
+
 import {
   registerUser,
   loginUser,
@@ -21,13 +22,13 @@ router.post(
   "/send-register-otp",
   authLimiter,
   validateRequest("sendRegisterOtp"),
-  sendRegisterOTP
+  asyncHandler(sendRegisterOTP)
 );
-
 
 router.post(
   "/register",
   authLimiter,
+  validateRequest("register"),
   asyncHandler(registerUser)
 );
 
@@ -48,16 +49,17 @@ router.post(
 router.post(
   "/verify-otp",
   authLimiter,
-  validateRequest("email"),
+  validateRequest("verifyOtp"),
   asyncHandler(verifyOtpController)
 );
 
 router.post(
   "/reset-password",
   authLimiter,
-  validateRequest("email"),
+  validateRequest("resetPassword"),
   asyncHandler(resetPassword)
 );
+
 
 router.get(
   "/me",

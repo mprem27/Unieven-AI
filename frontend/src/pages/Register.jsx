@@ -15,7 +15,8 @@ import { Assets } from "../assets/Assets";
 
 function Register() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  // We extract `login` instead of `setUser` because AuthContext's login() handles the token automatically
+  const { login } = useAuth();
 
   const [form, setForm] = useState({
     email: "",
@@ -134,7 +135,7 @@ function Register() {
     } catch (error) {
       console.error("Username check failed:", error);
       setUsernameAvailable(false);
-      setUsernameError("Unable to check username");
+      setUsernameError("Username check failed. Please try again.");
       return false;
     } finally {
       setCheckingUsername(false);
@@ -153,7 +154,7 @@ function Register() {
 
     const delay = setTimeout(() => {
       checkUsername(form.username);
-    }, 500);
+    }, 350);
 
     return () => clearTimeout(delay);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,6 +181,8 @@ function Register() {
 
   // SEND OTP
   const handleSendOtp = async () => {
+    if (sendingOtp) return;
+
     if (
       !form.email ||
       !form.password ||
@@ -226,7 +229,7 @@ function Register() {
       toast.error(
         err?.message ||
         err?.response?.data?.message ||
-        "Failed to send OTP"
+        "Failed to send OTP. Please try again."
       );
     } finally {
       setSendingOtp(false);
@@ -254,12 +257,16 @@ function Register() {
       const data = await registerUser(payload);
       
       if (data.success) {
-        localStorage.setItem("token", data.token);
-        setUser(data.user);
+        // Handled entirely by AuthContext now to prevent duplication and sync issues
+        login(data); 
         navigate("/feed");
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Registration failed");
+      toast.error(
+        err?.message ||
+        err?.response?.data?.message ||
+        "Registration failed"
+      );
     } finally {
       setLoading(false);
     }
@@ -276,9 +283,9 @@ function Register() {
     form.year &&
     otpSent;
 
-  // RESPONSIVE UI STYLES
-  const inputStyle = "w-full bg-white/60 backdrop-blur-md border border-white/40 rounded-[16px] sm:rounded-2xl px-4 sm:px-5 py-3.5 sm:py-4 text-[14px] sm:text-[16px] outline-none focus:bg-white focus:border-[#1877f2] focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm";
-  const selectStyle = "flex-1 bg-white/60 backdrop-blur-md border border-white/40 rounded-xl sm:rounded-2xl px-1 sm:px-2 py-3.5 sm:py-4 text-[13px] sm:text-[14px] outline-none cursor-pointer hover:bg-white hover:border-blue-300 transition-all appearance-none text-center font-medium shadow-sm";
+  // RESPONSIVE UI STYLES (Added visual cues for disabled states)
+  const inputStyle = "w-full bg-white/60 backdrop-blur-md border border-white/40 rounded-[16px] sm:rounded-2xl px-4 sm:px-5 py-3.5 sm:py-4 text-[14px] sm:text-[16px] outline-none focus:bg-white focus:border-[#1877f2] focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+  const selectStyle = "flex-1 bg-white/60 backdrop-blur-md border border-white/40 rounded-xl sm:rounded-2xl px-1 sm:px-2 py-3.5 sm:py-4 text-[13px] sm:text-[14px] outline-none cursor-pointer hover:bg-white hover:border-blue-300 transition-all appearance-none text-center font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
   const labelStyle = "block text-[13px] sm:text-[15px] font-bold text-gray-800 mb-1.5 sm:mb-2 ml-1";
 
   return (
@@ -309,7 +316,15 @@ function Register() {
           {/* EMAIL & TYPE DETECTION */}
           <div className="relative">
             <label className={labelStyle}>College Email</label>
-            <input name="email" type="email" placeholder="name@university.edu.in" className={inputStyle} onChange={handleChange} required />
+            <input 
+              name="email" 
+              type="email" 
+              placeholder="name@university.edu.in" 
+              className={inputStyle} 
+              onChange={handleChange} 
+              disabled={otpSent} 
+              required 
+            />
             
             {form.email && (
               <div className="mt-2 ml-1 flex flex-wrap items-center justify-between gap-2">
@@ -337,11 +352,15 @@ function Register() {
                   name="otp"
                   placeholder="Enter 6-digit OTP"
                   maxLength="6"
+                  value={form.otp}
                   className={`${inputStyle} tracking-[6px] sm:tracking-[10px] text-center font-bold`}
                   onChange={(e) => {
-                    setForm({ ...form, otp: e.target.value });
-                    if (e.target.value.length === 6) setOtpVerified(true);
-                    else setOtpVerified(false);
+                    const otpValue = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setForm((prev) => ({
+                      ...prev,
+                      otp: otpValue,
+                    }));
+                    setOtpVerified(otpValue.length === 6);
                   }}
                 />
                 {otpVerified && <FaCheckCircle className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 text-green-500 text-lg sm:text-xl" />}
@@ -352,7 +371,14 @@ function Register() {
           {/* FULL NAME */}
           <div>
             <label className={labelStyle}>Full Name</label>
-            <input name="name" placeholder="Enter your full name" className={inputStyle} onChange={handleChange} required />
+            <input 
+              name="name" 
+              placeholder="Enter your full name" 
+              className={inputStyle} 
+              onChange={handleChange} 
+              disabled={otpSent}
+              required 
+            />
           </div>
 
           {/* ===============================
@@ -365,14 +391,15 @@ function Register() {
                 name="username"
                 placeholder="Choose a handle"
                 className={`${inputStyle} pr-14 ${
-                  usernameError
+                  usernameError && !otpSent
                     ? "border-red-400 focus:border-red-400"
-                    : usernameAvailable
+                    : usernameAvailable && !otpSent
                     ? "border-green-400 focus:border-green-400"
                     : ""
                 }`}
                 value={form.username}
                 onChange={handleUsernameChange}
+                disabled={otpSent}
                 required
               />
               
@@ -381,13 +408,13 @@ function Register() {
                   <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
                 ) : usernameAvailable ? (
                   <FaCheckCircle className="text-green-500 text-xl" />
-                ) : usernameError ? (
+                ) : usernameError && !otpSent ? (
                   <FaTimesCircle className="text-red-500 text-xl" />
                 ) : null}
               </div>
             </div>
             
-            {usernameError && (
+            {usernameError && !otpSent && (
               <p className="text-xs text-red-500 mt-2 font-semibold ml-1">
                 {usernameError}
               </p>
@@ -401,15 +428,15 @@ function Register() {
                <FaQuestionCircle className="text-gray-400 text-[9px] sm:text-[10px]" title="Required for account verification" />
             </div>
             <div className="flex gap-2 sm:gap-3 relative">
-              <select name="month" className={selectStyle} onChange={handleChange} required>
+              <select name="month" className={selectStyle} onChange={handleChange} disabled={otpSent} required>
                 <option value="">Month</option>
                 {months.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
-              <select name="day" className={selectStyle} onChange={handleChange} required>
+              <select name="day" className={selectStyle} onChange={handleChange} disabled={otpSent} required>
                 <option value="">Day</option>
                 {days.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
-              <select name="year" className={selectStyle} onChange={handleChange} required>
+              <select name="year" className={selectStyle} onChange={handleChange} disabled={otpSent} required>
                 <option value="">Year</option>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
@@ -419,7 +446,15 @@ function Register() {
           {/* PASSWORD */}
           <div>
             <label className={labelStyle}>Password</label>
-            <input name="password" type="password" placeholder="Minimum 6 characters" className={inputStyle} onChange={handleChange} required />
+            <input 
+              name="password" 
+              type="password" 
+              placeholder="Minimum 6 characters" 
+              className={inputStyle} 
+              onChange={handleChange} 
+              disabled={otpSent}
+              required 
+            />
           </div>
 
           {/* SUBMIT BUTTONS */}
@@ -429,9 +464,9 @@ function Register() {
             </p>
 
             <button
-              disabled={!isFormValid || !otpVerified}
+              disabled={!isFormValid || !otpVerified || loading}
               className={`w-full py-4 sm:py-4.5 rounded-[18px] sm:rounded-[22px] font-black text-[16px] sm:text-[18px] tracking-wide transition-all duration-300 flex justify-center items-center h-[54px] sm:h-[60px] ${
-                isFormValid && otpVerified
+                isFormValid && otpVerified && !loading
                 ? "bg-gray-900 text-white hover:bg-black hover:-translate-y-1 active:scale-95 shadow-lg sm:shadow-xl shadow-gray-200" 
                 : "bg-white/80 text-gray-400 cursor-not-allowed border border-white/40 shadow-none"
               }`}
