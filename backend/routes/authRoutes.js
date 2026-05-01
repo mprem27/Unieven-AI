@@ -20,8 +20,8 @@ const router = express.Router();
 router.post(
   "/send-register-otp",
   authLimiter,
-  validateRequest("register"),
-  asyncHandler(sendRegisterOTP)
+  validateRequest("sendRegisterOtp"),
+  sendRegisterOTP
 );
 
 

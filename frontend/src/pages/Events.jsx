@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { 
@@ -19,7 +19,7 @@ import { getProfileImage } from "../utils/getProfileImage";
 import { 
   FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTimes, FaUsers, 
   FaCheckCircle, FaRegCompass, FaPlus, FaIdCard, FaBuilding, FaPhone, FaClipboardList,
-  FaDownload, FaQrcode, FaCertificate, FaChartBar, FaTrash
+  FaDownload, FaQrcode, FaCertificate, FaChartBar, FaTrash, FaArrowLeft, FaSearch, FaFilter
 } from "react-icons/fa";
 
 // FONT MAP
@@ -197,20 +197,20 @@ function Events() {
         <div className="flex justify-start md:justify-start gap-3 mb-10 overflow-x-auto pb-4 scrollbar-hide w-full snap-x">
           <button 
             onClick={() => setActiveTab("discover")}
-            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === "discover" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100"}`}
+            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === "discover" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"}`}
           >
             Discover Events
           </button>
           
           <button 
             onClick={() => setActiveTab("registrations")}
-            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "registrations" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100"}`}
+            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "registrations" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"}`}
           >
             {isFacultyOrAdmin ? "My Events" : "My Registrations"} {activeRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{activeRegistrations.length}</span>}
           </button>
           <button 
             onClick={() => setActiveTab("history")}
-            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "history" ? "bg-slate-800 text-white shadow-lg shadow-slate-200" : "bg-white text-slate-400 border border-slate-100"}`}
+            className={`shrink-0 snap-center px-6 md:px-8 py-3 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === "history" ? "bg-slate-800 text-white shadow-lg shadow-slate-200" : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"}`}
           >
             History {pastRegistrations.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">{pastRegistrations.length}</span>}
           </button>
@@ -295,6 +295,223 @@ const EventCard = ({ event, onClick, isPast }) => {
   );
 };
 
+// =====================================================
+// NEW FULL-PAGE ANALYTICS DASHBOARD
+// =====================================================
+const EventAnalyticsDashboard = ({ event, analytics, participants, onClose, onOpenScanner }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const filteredParticipants = useMemo(() => {
+    return participants.filter((p) => {
+      const matchesSearch = 
+        p.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.studentId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.department?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" ? true : p.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [participants, searchTerm, statusFilter]);
+
+  const handleExport = async () => {
+    try {
+      const blob = await exportParticipantsCSV(event._id);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${event.title}-Analytics.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("CSV Exported Successfully");
+    } catch {
+      toast.error("CSV export failed");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-[#F8FAFC] overflow-y-auto animate-in slide-in-from-bottom-8 duration-300">
+      
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-4 md:px-8 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-4">
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95">
+            <FaArrowLeft className="text-slate-600" />
+          </button>
+          <div>
+            <h1 className="font-black text-lg md:text-xl text-slate-900 leading-none truncate max-w-[150px] md:max-w-md">{event.title}</h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Analytics & Roster</p>
+          </div>
+        </div>
+        
+        {/* Export & Scan Buttons in Dashboard */}
+        <div className="flex items-center gap-2 md:gap-3">
+          <button onClick={onOpenScanner} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-3 md:px-5 py-2 md:py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 hover:shadow-md transition-all duration-300 active:scale-95">
+            <FaQrcode className="text-indigo-600" /> <span className="hidden md:inline">Scan QR</span>
+          </button>
+          <button onClick={handleExport} className="flex items-center gap-2 bg-indigo-600 text-white px-3 md:px-5 py-2 md:py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:shadow-md transition-all duration-300 active:scale-95 shadow-sm">
+            <FaDownload /> <span className="hidden md:inline">Export</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-[1200px] mx-auto p-4 md:p-8 space-y-6 md:space-y-8">
+        
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-black text-slate-800">{analytics.totalRegistered || 0}</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Total Registered</span>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[24px] shadow-sm flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-black text-emerald-600">{analytics.totalAttended || 0}</span>
+            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-2">Attended</span>
+          </div>
+          <div className="bg-orange-50 border border-orange-100 p-6 rounded-[24px] shadow-sm flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-black text-orange-500">{(analytics.totalRegistered || 0) - (analytics.totalAttended || 0)}</span>
+            <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mt-2">Pending</span>
+          </div>
+          <div className="bg-blue-50 border border-blue-100 p-6 rounded-[24px] shadow-sm flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-black text-blue-600">{analytics.attendanceRate || 0}%</span>
+            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-2">Attendance Rate</span>
+          </div>
+        </div>
+
+        {/* Charts & Breakdown Area */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-100 shadow-sm">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+              <FaBuilding className="text-indigo-500" /> Department Breakdown
+            </h3>
+            <div className="space-y-4">
+              {Object.entries(analytics.departmentStats || {}).map(([dept, count]) => (
+                <div key={dept}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-bold text-slate-700 truncate pr-4">{dept}</span>
+                    <span className="text-xs font-black text-slate-900">{count}</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2">
+                    <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${(count / analytics.totalRegistered) * 100}%` }}></div>
+                  </div>
+                </div>
+              ))}
+              {Object.keys(analytics.departmentStats || {}).length === 0 && (
+                <p className="text-sm text-slate-400 font-medium italic">No department data available.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+              <FaChartBar className="text-emerald-500" /> Event Health
+            </h3>
+            <div className="flex-1 flex items-center justify-center">
+              <div className="relative w-48 h-48 rounded-full border-[16px] border-slate-100 flex items-center justify-center">
+                {/* Simulated Donut Chart Overlay */}
+                <div 
+                  className="absolute inset-[-16px] rounded-full border-[16px] border-emerald-500 border-r-transparent border-t-transparent transition-all duration-1000"
+                  style={{ transform: `rotate(${(analytics.attendanceRate / 100) * 360}deg)` }}
+                />
+                <div className="text-center z-10 bg-white rounded-full w-full h-full flex flex-col items-center justify-center">
+                   <span className="text-4xl font-black text-slate-800">{analytics.attendanceRate || 0}%</span>
+                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Turnout</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Detailed Data Table */}
+        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[500px]">
+          <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.2em]">Participant Data</h3>
+            <div className="flex w-full md:w-auto gap-2">
+              <div className="relative flex-1 md:w-64">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Search name, ID, dept..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+              <div className="relative">
+                <FaFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-8 text-xs font-bold outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer"
+                >
+                  <option value="all">All</option>
+                  <option value="attended">Attended</option>
+                  <option value="registered">Pending</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div className="overflow-y-auto flex-1 p-0">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">Participant</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">ID / Dept</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 hidden md:table-cell">Contact</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredParticipants.map(p => (
+                  <tr key={p._id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <img src={getProfileImage(p.user || {})} className="w-8 h-8 rounded-full object-cover border border-slate-200" alt="" />
+                        <div>
+                          <p className="text-xs font-black text-slate-800">{p.user?.name || "Unknown"}</p>
+                          <p className="text-[9px] font-bold text-slate-400">@{p.user?.username || "unknown"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs font-bold text-slate-700">{p.studentId}</p>
+                      <p className="text-[10px] font-semibold text-slate-500 truncate max-w-[120px]">{p.department}</p>
+                    </td>
+                    <td className="px-6 py-4 hidden md:table-cell text-xs font-medium text-slate-600">
+                      {p.phone}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {p.status === "attended" ? (
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                          <FaCheckCircle /> Verified
+                        </span>
+                      ) : (
+                        <span className="inline-block bg-orange-50 text-orange-500 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-orange-100">
+                          Pending
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {filteredParticipants.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-12 text-center text-sm font-bold text-slate-400">
+                      No participants found matching your criteria.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, participantsCache, setParticipantsCache }) => {
   const [loading, setLoading] = useState(false);
   const [participants, setParticipants] = useState([]);
@@ -302,9 +519,10 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
   const [regData, setRegData] = useState({ studentId: "", department: "", phone: "" });
   
   const [analytics, setAnalytics] = useState(null);
+  const [showAnalyticsDashboard, setShowAnalyticsDashboard] = useState(false);
+
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
-  
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isCreator = event.createdBy?._id === currentUser?._id || event.createdBy === currentUser?._id;
@@ -354,6 +572,9 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
   const attendancePercentage = participants.length > 0 
     ? Math.round((participants.filter(p => p.status === "attended").length / participants.length) * 100) 
     : 0;
+
+  // Base style for admin control buttons
+  const adminBtnClass = "group flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-indigo-100 hover:shadow-md transition-all duration-300 text-slate-600 gap-2 shadow-sm active:scale-95 hover:-translate-y-0.5";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center sm:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -465,95 +686,43 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
               {isPast && <span className="bg-slate-200 text-slate-500 text-[8px] md:text-[9px] px-2 py-1 rounded uppercase font-black tracking-widest">Concluded</span>}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-                <button onClick={async () => {
-                  try {
-                    const blob = await exportParticipantsCSV(event._id);
-                    const url = window.URL.createObjectURL(new Blob([blob]));
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.setAttribute("download", `${event.title}-participants.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    toast.success("CSV Exported");
-                  } catch {
-                    toast.error("CSV export failed");
-                  }
-                }} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
-                    <FaDownload className="text-indigo-500 text-lg" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Export CSV</span>
+            <div className="grid grid-cols-3 gap-3 mb-8">
+                <button onClick={() => setShowQRScanner(true)} className={adminBtnClass}>
+                    <FaQrcode className="text-indigo-500 text-xl md:text-2xl group-hover:scale-110 transition-transform duration-300" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center group-hover:text-indigo-600 transition-colors mt-1">Scan QR</span>
                 </button>
                 
-                <button onClick={() => setShowQRScanner(true)} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
-                    <FaQrcode className="text-indigo-500 text-lg" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Scan QR</span>
-                </button>
-                
-                <button onClick={() => toast.success("Certificates module ready for next integration")} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
-                    <FaCertificate className="text-emerald-500 text-lg" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Certificates</span>
+                <button onClick={() => toast.success("Certificates module ready for next integration")} className={adminBtnClass}>
+                    <FaCertificate className="text-emerald-500 text-xl md:text-2xl group-hover:scale-110 transition-transform duration-300" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center group-hover:text-emerald-600 transition-colors mt-1">Certificates</span>
                 </button>
                 
                 <button onClick={async () => {
                   try {
                     const res = await getEventAnalytics(event._id);
                     setAnalytics(res.analytics);
+                    setShowAnalyticsDashboard(true);
                   } catch {
-                    toast.error("Analytics failed");
+                    toast.error("Analytics failed to load");
                   }
-                }} className="flex flex-col items-center justify-center p-3 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition text-slate-600 gap-2 shadow-sm active:scale-95">
-                    <FaChartBar className="text-blue-500 text-lg" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Analytics</span>
+                }} className={adminBtnClass}>
+                    <FaChartBar className="text-blue-500 text-xl md:text-2xl group-hover:scale-110 transition-transform duration-300" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center group-hover:text-blue-600 transition-colors mt-1">Full Analytics</span>
                 </button>
             </div>
 
-            {analytics && (
-              <div className="bg-white rounded-[32px] p-6 border border-slate-100 mb-6 animate-in fade-in slide-in-from-top-4 duration-300 shadow-sm">
-                <h4 className="font-black text-[11px] md:text-sm uppercase mb-4 text-indigo-600 tracking-widest flex items-center justify-between">
-                  <span>Analytics Dashboard</span>
-                  <button onClick={() => setAnalytics(null)} className="text-slate-400 hover:text-slate-600"><FaTimes /></button>
-                </h4>
-
-                <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
-                  <div className="bg-slate-50 p-3 md:p-4 rounded-2xl flex flex-col items-center text-center">
-                    <span className="text-xl md:text-2xl font-black text-slate-800">{analytics.totalRegistered}</span>
-                    <span className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total</span>
-                  </div>
-                  <div className="bg-emerald-50 p-3 md:p-4 rounded-2xl flex flex-col items-center text-center">
-                    <span className="text-xl md:text-2xl font-black text-emerald-600">{analytics.totalAttended}</span>
-                    <span className="text-[8px] md:text-[9px] font-bold text-emerald-400 uppercase tracking-widest mt-1">Attended</span>
-                  </div>
-                  <div className="bg-blue-50 p-3 md:p-4 rounded-2xl flex flex-col items-center text-center">
-                    <span className="text-xl md:text-2xl font-black text-blue-600">{analytics.attendanceRate}%</span>
-                    <span className="text-[8px] md:text-[9px] font-bold text-blue-400 uppercase tracking-widest mt-1">Rate</span>
-                  </div>
-                </div>
-
-                <div>
-                  <h5 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Department Breakdown</h5>
-                  {Object.entries(analytics.departmentStats || {}).map(([dept, count]) => (
-                    <div key={dept} className="flex justify-between py-2 border-b border-slate-50 last:border-0 items-center">
-                      <span className="text-[10px] md:text-xs font-bold text-slate-600 uppercase truncate pr-2">{dept}</span>
-                      <span className="text-[10px] md:text-xs font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-3 gap-3 md:gap-4 mb-8 md:mb-10">
-                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform duration-300">
                    <FaUsers className="text-indigo-600 mb-2 text-lg md:text-xl" />
                    <p className="text-xl md:text-2xl font-black text-slate-900 leading-none">{participants.length}</p>
                    <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Registered</p>
                 </div>
-                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform duration-300">
                    <FaCheckCircle className="text-emerald-500 mb-2 text-lg md:text-xl" />
                    <p className="text-xl md:text-2xl font-black text-slate-900 leading-none">{participants.filter(p => p.status === "attended").length}</p>
                    <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Verified</p>
                 </div>
-                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="bg-white p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform duration-300">
                    <div className="text-blue-500 mb-2 text-lg md:text-xl font-black">%</div>
                    <p className="text-xl md:text-2xl font-black text-slate-900 leading-none">{attendancePercentage}%</p>
                    <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Attendance</p>
@@ -562,12 +731,11 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
 
             <div className="space-y-4 flex-1">
                <div className="flex justify-between items-center ml-1">
-                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrolled Roster</p>
-                 <span className="text-[9px] md:text-[10px] font-bold text-indigo-500">{participants.length} Total</span>
+                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Enrolments</p>
                </div>
                
                <div className="space-y-3">
-                  {participants.filter(reg => reg?.user).map(reg => (
+                  {participants.filter(reg => reg?.user).slice(0, 5).map(reg => (
                     <div key={reg._id} className="bg-white p-4 rounded-[20px] md:rounded-[24px] border border-slate-100 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-3 min-w-0">
@@ -590,17 +758,28 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                            })} className="bg-indigo-600 text-white px-3 md:px-4 py-2 rounded-xl text-[8px] md:text-[9px] font-black uppercase active:scale-95 transition-all shrink-0 shadow-md">Verify Manually</button>
                          )}
                       </div>
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50 text-center">
-                         <div><p className="text-[6px] md:text-[7px] font-black text-slate-300 uppercase mb-0.5">ID No.</p><p className="text-[9px] md:text-[10px] font-bold text-slate-600 truncate">{reg.studentId}</p></div>
-                         <div><p className="text-[6px] md:text-[7px] font-black text-slate-300 uppercase mb-0.5">Dept</p><p className="text-[9px] md:text-[10px] font-bold text-slate-600 truncate">{reg.department}</p></div>
-                         <div><p className="text-[6px] md:text-[7px] font-black text-slate-300 uppercase mb-0.5">Mobile</p><p className="text-[9px] md:text-[10px] font-bold text-slate-600 truncate">{reg.phone}</p></div>
-                      </div>
                     </div>
                   ))}
                   {participants.filter(reg => reg?.user).length === 0 && (
                     <div className="text-center py-10 border border-dashed border-slate-200 rounded-3xl">
                       <p className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">No registrations yet</p>
                     </div>
+                  )}
+                  {participants.length > 5 && (
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const res = await getEventAnalytics(event._id);
+                          setAnalytics(res.analytics);
+                          setShowAnalyticsDashboard(true);
+                        } catch {
+                          toast.error("Analytics failed to load");
+                        }
+                      }} 
+                      className="w-full text-center text-xs font-bold text-indigo-600 hover:underline pt-2"
+                    >
+                      View all {participants.length} participants
+                    </button>
                   )}
                </div>
             </div>
@@ -617,8 +796,9 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
           </div>
         )}
         
+        {/* QR PASS MODAL */}
         {showMyQR && myReg?.qrCode && (
-          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[120] p-4 backdrop-blur-md">
+          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[250] p-4 backdrop-blur-md">
             <div className="bg-white p-8 rounded-[32px] text-center max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
               <h3 className="font-black text-xl mb-6 text-slate-800 tracking-tight uppercase">Event QR Pass</h3>
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 inline-block mb-6 shadow-inner">
@@ -632,8 +812,9 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
           </div>
         )}
 
+        {/* QR SCANNER MODAL */}
         {showQRScanner && (
-          <div className="fixed inset-0 bg-slate-900/95 flex items-center justify-center z-[120] p-4 backdrop-blur-md">
+          <div className="fixed inset-0 bg-slate-900/95 flex items-center justify-center z-[250] p-4 backdrop-blur-md">
             <div className="bg-white p-6 md:p-8 rounded-[32px] max-w-md w-full animate-in zoom-in-95 duration-200 shadow-2xl">
               <h3 className="font-black text-xl mb-6 text-center text-slate-800 uppercase tracking-tight">
                 Scan Student QR
@@ -692,9 +873,20 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
           </div>
         )}
 
+        {/* FULL PAGE ANALYTICS DASHBOARD OVERLAY */}
+        {showAnalyticsDashboard && analytics && (
+          <EventAnalyticsDashboard 
+            event={event} 
+            analytics={analytics} 
+            participants={participants} 
+            onClose={() => setShowAnalyticsDashboard(false)}
+            onOpenScanner={() => setShowQRScanner(true)}
+          />
+        )}
+
         {/* 🔥 CUSTOM EVENT DELETE CONFIRMATION MODAL */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-[32px] w-full max-w-[340px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
               <div className="p-6 md:p-8 text-center flex flex-col items-center">
                 <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-5 shadow-inner">

@@ -149,10 +149,10 @@ function Feed() {
       const combinedFeed = [...recentPosts, ...shuffledOlderPosts];
       setPosts(combinedFeed);
       
-      // 🔥 STEP 4: VERIFY REEL IDS (Debug Logging)
-      console.log("Fetched Reels:", fetchedReels);
-      console.log("Saved Reels Source:", user?.savedReels);
-      console.log("Combined Feed:", combinedFeed);
+      // // 🔥 STEP 4: VERIFY REEL IDS (Debug Logging)
+      // console.log("Fetched Reels:", fetchedReels);
+      // console.log("Saved Reels Source:", user?.savedReels);
+      // console.log("Combined Feed:", combinedFeed);
       
       if (combinedFeed.length > 0) {
         setSuggestionIndex(Math.min(combinedFeed.length - 1, Math.floor(Math.random() * 3) + 1));

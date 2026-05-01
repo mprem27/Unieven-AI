@@ -22,19 +22,31 @@ import {
   FaMusic
 } from "react-icons/fa";
 
+// 🔥 HELPER: Shuffles an array randomly
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 function Reels() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const videoRefs = useRef([]);
   const containerRef = useRef(null);
 
+  const [originalReels, setOriginalReels] = useState([]); // Keeps the pure, unshuffled fetch data
   const [reels, setReels] = useState([]);
+  
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
   
-  // 🔥 FIX 3: Default sound ON
+  // Default sound ON
   const [muted, setMuted] = useState(false);
-  const mutedRef = useRef(muted); // Used to sync mute state in the observer without re-rendering it
+  const mutedRef = useRef(muted);
 
   const [activeReel, setActiveReel] = useState(null);
   const [openShare, setOpenShare] = useState(null);
@@ -51,14 +63,14 @@ function Reels() {
     mutedRef.current = muted;
   }, [muted]);
 
-  // ─── FETCH ───────────────────────────────────────────────
+  // ─── FETCH INITIAL REELS ───────────────────────────────────────────────
   useEffect(() => {
     const fetchReels = async () => {
       try {
         setLoading(true);
         const res = await getReels();
         
-        // 🔥 FIX 1: Always ensure fallback profile structure after fetch
+        // Ensure fallback profile structure
         const data = (res.reels || [])
           .filter((reel) => reel.user && reel.user._id)
           .map((reel) => ({
@@ -66,21 +78,31 @@ function Reels() {
             user: reel.user,
           }));
 
-        setReels(data);
+        setOriginalReels(data);
 
-        const likeState = {};
-        const playState = {};
-        const saveState = {}; // 🔥 FIX 5: Save State
-        
-        data.forEach((r, i) => {
-          likeState[i] = r.likes?.includes(user?._id);
-          playState[i] = false;
-          saveState[i] = r.savedBy?.includes(user?._id) || false;
-        });
-        
-        setLiked(likeState);
-        setIsPlaying(playState);
-        setSaved(saveState);
+        // 🔥 INITIALIZE: Shuffle the reels and add unique keys for mapping
+        if (data.length > 0) {
+          const initialShuffled = shuffleArray(data).map(r => ({
+            ...r,
+            uniqueKey: `${r._id}-${Math.random().toString(36).substr(2, 9)}`
+          }));
+
+          setReels(initialShuffled);
+
+          const likeState = {};
+          const playState = {};
+          const saveState = {};
+          
+          initialShuffled.forEach((r, i) => {
+            likeState[i] = r.likes?.includes(user?._id);
+            playState[i] = false;
+            saveState[i] = r.savedBy?.includes(user?._id) || false;
+          });
+          
+          setLiked(likeState);
+          setIsPlaying(playState);
+          setSaved(saveState);
+        }
 
       } catch (err) {
         toast.error("Failed to load reels");
@@ -91,6 +113,44 @@ function Reels() {
     fetchReels();
   }, [user]);
 
+  // ─── INFINITE RANDOM LOOP ──────────────────────────────────────────────
+  // Triggered when user scrolls close to the bottom of the current feed
+  useEffect(() => {
+    if (reels.length > 0 && originalReels.length > 0) {
+      // If we are within 2 reels of the end, append more!
+      if (currentIndex >= reels.length - 2) {
+        const moreReels = shuffleArray(originalReels).map(r => ({
+          ...r,
+          uniqueKey: `${r._id}-${Math.random().toString(36).substr(2, 9)}`
+        }));
+
+        setReels(prev => {
+          const newReels = [...prev, ...moreReels];
+          const startIndex = prev.length;
+
+          // Extend the like, play, and save states for the newly appended reels
+          setLiked(p => {
+             const np = {...p};
+             moreReels.forEach((r, i) => np[startIndex + i] = r.likes?.includes(user?._id));
+             return np;
+          });
+          setIsPlaying(p => {
+             const np = {...p};
+             moreReels.forEach((r, i) => np[startIndex + i] = false);
+             return np;
+          });
+          setSaved(p => {
+             const np = {...p};
+             moreReels.forEach((r, i) => np[startIndex + i] = r.savedBy?.includes(user?._id) || false);
+             return np;
+          });
+
+          return newReels;
+        });
+      }
+    }
+  }, [currentIndex, originalReels, reels.length, user]);
+
   // ─── INTERSECTION OBSERVER (AUTO-PLAY) ───────────────────
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -100,7 +160,7 @@ function Reels() {
           const video = videoRefs.current[i];
           if (!video) return;
 
-          // 🔥 FIX 4: Only active reel plays, previous stops
+          // Only active reel plays, previous stops
           if (entry.isIntersecting) {
             videoRefs.current.forEach((v, idx) => {
               if (v && idx !== i) {
@@ -113,7 +173,7 @@ function Reels() {
             video.play().catch(() => {});
             
             setIsPlaying((p) => ({ ...p, [i]: true }));
-            setCurrentIndex(i);
+            setCurrentIndex(i); // 🔥 Updates index to trigger infinite loop above
             
             if (reels[i]?._id) viewReel(reels[i]._id).catch(() => {});
           } else {
@@ -127,7 +187,7 @@ function Reels() {
 
     videoRefs.current.forEach((v) => v && observer.observe(v));
     return () => observer.disconnect();
-  }, [reels]); // Not depending on `muted` so it doesn't break scrolling
+  }, [reels]);
 
   // ─── PROGRESS ────────────────────────────────────────────
   const handleTimeUpdate = (i) => {
@@ -141,9 +201,11 @@ function Reels() {
     const reel = reels[i];
     const wasLiked = liked[i];
     setLiked((p) => ({ ...p, [i]: !p[i] }));
+    
+    // Optimistically update ALL instances of this specific reel ID in the infinite loop
     setReels((prev) =>
-      prev.map((r, idx) =>
-        idx === i
+      prev.map((r) =>
+        r._id === reel._id
           ? {
               ...r,
               likes: wasLiked
@@ -206,7 +268,11 @@ function Reels() {
     if (!window.confirm("Delete this reel?")) return;
     try {
       await deletePost(reelId);
+      
+      // Remove all instances of this reel from the infinite loop
       setReels((prev) => prev.filter((r) => r._id !== reelId));
+      setOriginalReels((prev) => prev.filter((r) => r._id !== reelId));
+      
       toast.success("Reel deleted");
     } catch {
       toast.error("Failed to delete");
@@ -258,7 +324,7 @@ function Reels() {
       >
         {reels.map((reel, i) => (
           <div
-            key={reel._id}
+            key={reel.uniqueKey} // 🔥 Changed from reel._id to prevent duplication rendering crashes
             className="h-[100dvh] w-full snap-start relative bg-[#111] flex items-center justify-center overflow-hidden"
           >
             {/* VIDEO PLAYER */}
@@ -332,7 +398,7 @@ function Reels() {
                 onClick={() => setOpenShare(reel)}
               />
               
-              {/* 🔥 FIX 2: VIEWS COUNT */}
+              {/* VIEWS COUNT */}
               <ActionBtn
                 icon={<FaPlay className="text-white text-[22px] drop-shadow-md" />}
                 count={fmt(reel.views?.length || 0)}
@@ -381,7 +447,6 @@ function Reels() {
                       <RoleBadge role={reel.user?.role} />
                     </Link>
                     
-                    {/* 🔥 FIX 6: FUNCTIONAL VIEW PROFILE BUTTON */}
                     <button 
                       onClick={() => navigate(`/user/${encodeURIComponent(reel.user?.username)}`)}
                       className="border border-white/80 text-white text-[11px] font-bold px-3 py-[3px] rounded-md hover:bg-white hover:text-black transition-colors shrink-0 shadow-sm ml-1"
@@ -481,7 +546,7 @@ function Reels() {
           type="reel"
           onClose={() => setActiveReel(null)}
           onSync={(updated) => {
-            setReels((prev) => prev.map((r) => (r._id === updated._id ? updated : r)));
+            setReels((prev) => prev.map((r) => (r._id === updated._id ? { ...r, ...updated } : r)));
             setActiveReel(updated);
           }}
         />

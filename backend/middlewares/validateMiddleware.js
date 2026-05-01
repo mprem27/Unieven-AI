@@ -52,7 +52,7 @@ export const validateRequest = (type) => {
       // =====================================================
       // 📩 SEND OTP VALIDATION (Full Details)
       // =====================================================
-      if (type === "send-otp") {
+      if (type === "sendRegisterOtp" || type === "send-otp") {
         // FULL NAME
         if (isEmpty(body.name)) {
           return res.status(400).json({ success: false, message: "Full name is required" });

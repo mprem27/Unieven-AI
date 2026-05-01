@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.util.Date;
 import java.util.Random;
 
+
 @Service
 public class AuthService {
 
@@ -18,57 +19,100 @@ public class AuthService {
     @Autowired
     private EmailService emailService;
 
-    // 🔥 Generate OTP
+
+
     public String generateOTP() {
-        return String.valueOf(100000 + new Random().nextInt(900000));
+        return String.valueOf(
+                100000 + new Random().nextInt(900000)
+        );
     }
 
-    // 🔥 Forgot Password (SEND OTP ONLY)
     public String forgotPassword(String email) {
 
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
 
-        if (user == null) {
-            return "User not found";
-        }
-
+        // Generate OTP
         String otp = generateOTP();
 
-        // ✅ Save OTP in DB (same schema as Node)
+        // Save OTP + Expiry
         user.setResetOTP(otp);
-        user.setOtpExpires(new Date(System.currentTimeMillis() + 300000)); // 5 min
+        user.setOtpExpires(
+                new Date(
+                        System.currentTimeMillis() + 300000
+                ) // 5 minutes
+        );
 
         userRepository.save(user);
 
-        // ✅ Send email
-        emailService.sendOtp(email, otp);
+        try {
+            // Send OTP Email
+            emailService.sendOtp(
+                    email,
+                    otp
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to send OTP email: " +
+                            e.getMessage()
+            );
+        }
 
-        return "OTP sent to email";
+        return "OTP sent successfully";
     }
 
-    // 🔥 Verify OTP (ONLY VERIFY — NO PASSWORD LOGIC)
-    public String verifyOTP(String email, String otp) {
+    public String verifyOTP(
+            String email,
+            String otp
+    ) {
 
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
 
-        if (user == null) {
-            return "User not found";
+        // OTP Missing
+        if (
+                user.getResetOTP() == null ||
+                user.getResetOTP().isEmpty()
+        ) {
+            throw new RuntimeException(
+                    "No OTP found. Please request again."
+            );
         }
 
-        // ❌ Invalid OTP
-        if (user.getResetOTP() == null || !otp.equals(user.getResetOTP())) {
-            return "Invalid OTP";
+        // Invalid OTP
+        if (
+                !otp.trim().equals(
+                        user.getResetOTP().trim()
+                )
+        ) {
+            throw new RuntimeException(
+                    "Invalid OTP"
+            );
         }
 
-        // ❌ Expired
-        if (user.getOtpExpires() == null || new Date().after(user.getOtpExpires())) {
-            return "OTP expired";
+        // Expired OTP
+        if (
+                user.getOtpExpires() == null ||
+                new Date().after(
+                        user.getOtpExpires()
+                )
+        ) {
+            throw new RuntimeException(
+                    "OTP expired"
+            );
         }
 
-        // ✅ Mark verified
+        // Mark OTP verified
         user.setResetOTP("VERIFIED");
+
         userRepository.save(user);
 
-        return "OTP verified";
+        return "OTP verified successfully";
     }
 }

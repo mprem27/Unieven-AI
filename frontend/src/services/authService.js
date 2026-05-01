@@ -27,10 +27,10 @@ export const login =
           data.token
         );
 
-        console.log(
-          "✅ Token saved:",
-          data.token
-        );
+        // console.log(
+        //   "✅ Token saved:",
+        //   data.token
+        // );
       } else {
         console.warn(
           "⚠️ No token received from backend"

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { register as registerUser } from "../services/authService";
+import { register as registerUser, sendRegisterOtp } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
-import API from "../api/axios";
 import Loader from "../components/Loader";
 import { toast } from "react-toastify";
 import {
@@ -34,14 +33,27 @@ function Register() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
 
+  // ===============================
+  // 🔥 USERNAME STATES
+  // ===============================
   const [usernameError, setUsernameError] = useState("");
   const [usernameAvailable, setUsernameAvailable] = useState(false);
   const [checkingUsername, setCheckingUsername] = useState(false);
 
+  // RESERVED USERNAMES
+  const reservedUsernames = [
+    "admin",
+    "root",
+    "support",
+    "faculty",
+    "student",
+    "official",
+    "unieven",
+    "system",
+  ];
+
   // Generate Date Arrays
   const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-  
-  // Map Month Names to their Numeric Values for proper formatting
   const monthMap = {
     "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", 
     "May": "05", "Jun": "06", "Jul": "07", "Aug": "08", 
@@ -60,94 +72,183 @@ function Register() {
 
   const emailType = getEmailType(form.email);
 
-  // USERNAME CHECK (Debounced)
-  useEffect(() => {
-    const delay = setTimeout(() => {
-      if (form.username.length >= 3) checkUsername(form.username);
-      else {
-        setUsernameAvailable(false);
-        setUsernameError("");
-      }
-    }, 500);
-    return () => clearTimeout(delay);
-  }, [form.username]);
-
+  // ===============================
+  // 🔥 LIVE USERNAME CHECKER
+  // ===============================
   const checkUsername = async (value) => {
+    const username = value.toLowerCase().trim();
+
+    // RESET
+    if (!username) {
+      setUsernameAvailable(false);
+      setUsernameError("");
+      return false;
+    }
+
+    // FORMAT CHECK
+    const validFormat = /^[a-z0-9._]{3,20}$/.test(username);
+
+    if (!validFormat) {
+      setUsernameAvailable(false);
+      setUsernameError("3–20 chars: lowercase letters, numbers, . or _");
+      return false;
+    }
+
+    // RESERVED CHECK
+    if (reservedUsernames.includes(username)) {
+      setUsernameAvailable(false);
+      setUsernameError("This username is reserved");
+      return false;
+    }
+
     setCheckingUsername(true);
+
     try {
-      const res = await API.get(`/users/search?query=${value}`);
-      const isTaken = res.data.users.some(
-        (u) => u.username.toLowerCase() === value.toLowerCase()
+      const apiBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:4000/api";
+
+      const response = await fetch(
+        `${apiBase}/users/check-username?username=${encodeURIComponent(username)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
-      if (isTaken) {
-        setUsernameError("Username not available");
-        setUsernameAvailable(false);
-      } else {
-        setUsernameError("");
-        setUsernameAvailable(true);
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
       }
-    } catch {
-      setUsernameError("Error checking username");
+
+      const data = await response.json();
+
+      if (data.success && data.available) {
+        setUsernameAvailable(true);
+        setUsernameError("");
+        return true;
+      } else {
+        setUsernameAvailable(false);
+        setUsernameError(data.message || "Username already taken");
+        return false;
+      }
+    } catch (error) {
+      console.error("Username check failed:", error);
+      setUsernameAvailable(false);
+      setUsernameError("Unable to check username");
+      return false;
     } finally {
       setCheckingUsername(false);
     }
   };
 
-  // SEND OTP
-  const handleSendOtp = async () => {
-    if (!form.email) return toast.error("Enter email first");
-    setSendingOtp(true);
-    try {
-      const res = await API.post("/auth/send-register-otp", { email: form.email });
-      if (res.data.success) {
-        setOtpSent(true);
-        toast.success(res.data.message);
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to send OTP");
-    } finally {
-      setSendingOtp(false);
+  // ===============================
+  // 🔥 DEBOUNCE EFFECT
+  // ===============================
+  useEffect(() => {
+    if (!form.username) {
+      setUsernameAvailable(false);
+      setUsernameError("");
+      return;
     }
-  };
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+    const delay = setTimeout(() => {
+      checkUsername(form.username);
+    }, 500);
 
+    return () => clearTimeout(delay);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.username]);
+
+  // ===============================
+  // 🔥 USERNAME INPUT HANDLER
+  // ===============================
   const handleUsernameChange = (e) => {
-    // FIXED: Strips invalid characters, converts to lowercase, and limits to 20 chars
     const value = e.target.value
       .toLowerCase()
       .replace(/[^a-z0-9._]/g, "")
       .slice(0, 20);
+
+    setForm((prev) => ({
+      ...prev,
+      username: value,
+    }));
+  };
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  // SEND OTP
+  const handleSendOtp = async () => {
+    if (
+      !form.email ||
+      !form.password ||
+      !form.name ||
+      !form.username ||
+      !form.day ||
+      !form.month ||
+      !form.year
+    ) {
+      return toast.error("Complete all fields before requesting OTP");
+    }
+
+    setSendingOtp(true);
+
+    // LOCK USERNAME BEFORE OTP
+    const isAvail = await checkUsername(form.username);
     
-    setForm({ ...form, username: value });
+    if (!isAvail) {
+      setSendingOtp(false);
+      return toast.error("Username is no longer available or invalid");
+    }
+
+    try {
+      const numericMonth = monthMap[form.month];
+      const formattedDob = `${form.year}-${numericMonth}-${form.day}`;
+
+      const payload = {
+        email: form.email.toLowerCase().trim(),
+        password: form.password,
+        name: form.name.trim(),
+        username: form.username.toLowerCase().trim(),
+        dob: formattedDob,
+      };
+
+      const res = await sendRegisterOtp(payload);
+
+      if (res.success) {
+        setOtpSent(true);
+        toast.success(res.message || "OTP sent successfully");
+      }
+    } catch (err) {
+      console.error("OTP ERROR:", err);
+
+      toast.error(
+        err?.message ||
+        err?.response?.data?.message ||
+        "Failed to send OTP"
+      );
+    } finally {
+      setSendingOtp(false);
+    }
   };
 
   // REGISTER SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // FIXED: Hard validation for username
     if (!form.username || form.username.trim() === "") {
       return toast.error("Username is required");
     }
 
     if (!usernameAvailable) return toast.error("Username not available");
-    if (emailType !== "normal" && !otpVerified) return toast.error("Verify OTP first");
+    if (!otpVerified) return toast.error("Verify OTP first");
     
     setLoading(true);
     try {
-      const numericMonth = monthMap[form.month];
-      const formattedDob = `${form.year}-${numericMonth}-${form.day}`;
-
       const payload = {
-        email: form.email,
-        password: form.password,
-        name: form.name,
-        username: form.username,
-        otp: form.otp,
-        dob: formattedDob 
+        email: form.email.toLowerCase().trim(),
+        otp: form.otp.trim(),
       };
 
       const data = await registerUser(payload);
@@ -164,7 +265,6 @@ function Register() {
     }
   };
 
-  // FIXED: Added form.username requirement to isFormValid
   const isFormValid = 
     form.email && 
     form.password.length >= 6 && 
@@ -173,7 +273,8 @@ function Register() {
     usernameAvailable && 
     form.day && 
     form.month && 
-    form.year;
+    form.year &&
+    otpSent;
 
   // RESPONSIVE UI STYLES
   const inputStyle = "w-full bg-white/60 backdrop-blur-md border border-white/40 rounded-[16px] sm:rounded-2xl px-4 sm:px-5 py-3.5 sm:py-4 text-[14px] sm:text-[16px] outline-none focus:bg-white focus:border-[#1877f2] focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm";
@@ -218,7 +319,7 @@ function Register() {
                   {emailType === "normal" && <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Normal</span>}
                 </div>
                 
-                {emailType !== "normal" && !otpSent && (
+                {!otpSent && (
                   <button type="button" onClick={handleSendOtp} className="text-[#1877f2] text-[11px] sm:text-[12px] font-bold hover:underline flex items-center gap-1 shrink-0">
                     {sendingOtp ? <Loader size="12px" color="#1877f2" /> : <><FaPaperPlane size={10}/> Send OTP</>}
                   </button>
@@ -254,25 +355,43 @@ function Register() {
             <input name="name" placeholder="Enter your full name" className={inputStyle} onChange={handleChange} required />
           </div>
 
-          {/* USERNAME */}
+          {/* ===============================
+              🔥 USERNAME INPUT 
+             =============================== */}
           <div>
             <label className={labelStyle}>Username</label>
             <div className="relative">
               <input
                 name="username"
                 placeholder="Choose a handle"
-                className={`${inputStyle} pr-12 sm:pr-14 ${usernameError ? "border-red-400 focus:border-red-400" : usernameAvailable ? "border-green-400 focus:border-green-400" : ""}`}
+                className={`${inputStyle} pr-14 ${
+                  usernameError
+                    ? "border-red-400 focus:border-red-400"
+                    : usernameAvailable
+                    ? "border-green-400 focus:border-green-400"
+                    : ""
+                }`}
                 value={form.username}
                 onChange={handleUsernameChange}
                 required
               />
-              <div className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 flex items-center justify-center">
-                {checkingUsername ? <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" /> : 
-                 usernameAvailable ? <FaCheckCircle className="text-[#00a400] text-lg sm:text-xl" /> : 
-                 usernameError ? <FaTimesCircle className="text-[#fa3e3e] text-lg sm:text-xl" /> : null}
+              
+              <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                {checkingUsername ? (
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+                ) : usernameAvailable ? (
+                  <FaCheckCircle className="text-green-500 text-xl" />
+                ) : usernameError ? (
+                  <FaTimesCircle className="text-red-500 text-xl" />
+                ) : null}
               </div>
             </div>
-            {usernameError && <p className="text-[11px] sm:text-[12px] text-[#fa3e3e] mt-1.5 sm:mt-2 font-bold ml-1">{usernameError}</p>}
+            
+            {usernameError && (
+              <p className="text-xs text-red-500 mt-2 font-semibold ml-1">
+                {usernameError}
+              </p>
+            )}
           </div>
 
           {/* DATE OF BIRTH */}
@@ -310,9 +429,9 @@ function Register() {
             </p>
 
             <button
-              disabled={!isFormValid || (emailType !== "normal" && !otpVerified)}
+              disabled={!isFormValid || !otpVerified}
               className={`w-full py-4 sm:py-4.5 rounded-[18px] sm:rounded-[22px] font-black text-[16px] sm:text-[18px] tracking-wide transition-all duration-300 flex justify-center items-center h-[54px] sm:h-[60px] ${
-                isFormValid && (emailType === "normal" || otpVerified)
+                isFormValid && otpVerified
                 ? "bg-gray-900 text-white hover:bg-black hover:-translate-y-1 active:scale-95 shadow-lg sm:shadow-xl shadow-gray-200" 
                 : "bg-white/80 text-gray-400 cursor-not-allowed border border-white/40 shadow-none"
               }`}
