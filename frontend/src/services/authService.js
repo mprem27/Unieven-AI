@@ -14,6 +14,7 @@ const saveToken = (token) => {
 
 const clearToken = () => {
   localStorage.removeItem("token");
+  localStorage.removeItem("role");
 };
 
 const handleError = (
@@ -21,15 +22,20 @@ const handleError = (
   fallbackMessage
 ) => {
   console.error(
-    error?.response?.data || error
+    "AUTH ERROR:",
+    error?.response?.data ||
+      error?.message ||
+      error
   );
 
-  throw (
-    error?.response?.data || {
-      success: false,
-      message: fallbackMessage,
-    }
-  );
+  throw {
+    success: false,
+    message:
+      error?.response?.data
+        ?.message ||
+      error?.message ||
+      fallbackMessage,
+  };
 };
 
 export const login = async (
@@ -49,7 +55,9 @@ export const login = async (
   } catch (error) {
     if (
       error.response
-        ?.status === 401
+        ?.status === 401 ||
+      error.response
+        ?.status === 404
     ) {
       throw {
         success: false,
@@ -79,7 +87,7 @@ export const sendRegisterOtp =
     } catch (error) {
       handleError(
         error,
-        "Failed to send OTP"
+        "Failed to send OTP. Please try again."
       );
     }
   };
@@ -101,7 +109,7 @@ export const register = async (
   } catch (error) {
     handleError(
       error,
-      "Register failed"
+      "Registration failed"
     );
   }
 };

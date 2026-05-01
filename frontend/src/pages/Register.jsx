@@ -56,8 +56,8 @@ function Register() {
   // Generate Date Arrays
   const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
   const monthMap = {
-    "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", 
-    "May": "05", "Jun": "06", "Jul": "07", "Aug": "08", 
+    "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
+    "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
     "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
   };
   const months = Object.keys(monthMap);
@@ -199,7 +199,7 @@ function Register() {
 
     // LOCK USERNAME BEFORE OTP
     const isAvail = await checkUsername(form.username);
-    
+
     if (!isAvail) {
       setSendingOtp(false);
       return toast.error("Username is no longer available or invalid");
@@ -246,7 +246,7 @@ function Register() {
 
     if (!usernameAvailable) return toast.error("Username not available");
     if (!otpVerified) return toast.error("Verify OTP first");
-    
+
     setLoading(true);
     try {
       const payload = {
@@ -255,10 +255,10 @@ function Register() {
       };
 
       const data = await registerUser(payload);
-      
+
       if (data.success) {
         // Handled entirely by AuthContext now to prevent duplication and sync issues
-        login(data); 
+        login(data);
         navigate("/feed");
       }
     } catch (err) {
@@ -272,14 +272,14 @@ function Register() {
     }
   };
 
-  const isFormValid = 
-    form.email && 
-    form.password.length >= 6 && 
-    form.name && 
+  const isFormValid =
+    form.email &&
+    form.password.length >= 6 &&
+    form.name &&
     form.username &&
-    usernameAvailable && 
-    form.day && 
-    form.month && 
+    usernameAvailable &&
+    form.day &&
+    form.month &&
     form.year &&
     otpSent;
 
@@ -290,16 +290,16 @@ function Register() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-tr from-[#E0E7FF] via-[#F3F4F6] to-[#FDF2F8] font-['Poppins',sans-serif] antialiased p-4 sm:p-6 lg:p-8 relative overflow-hidden">
-      
+
       {/* Dynamic Background Blur Shapes */}
       <div className="absolute top-[-5%] left-[-10%] w-[300px] h-[300px] sm:w-[40vw] sm:h-[40vw] bg-blue-300 rounded-full blur-[100px] sm:blur-[120px] opacity-40 animate-pulse pointer-events-none"></div>
       <div className="absolute bottom-[-5%] right-[-10%] w-[250px] h-[250px] sm:w-[30vw] sm:h-[30vw] bg-purple-300 rounded-full blur-[100px] sm:blur-[120px] opacity-40 pointer-events-none"></div>
 
       <div className="w-full max-w-[550px] bg-white/40 backdrop-blur-2xl rounded-[32px] sm:rounded-[45px] border border-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.05)] overflow-hidden z-10 p-6 sm:p-10 md:p-14 relative mt-10 sm:mt-0">
-        
+
         {/* Back Button */}
-        <button 
-          onClick={() => navigate("/login")} 
+        <button
+          onClick={() => navigate("/login")}
           className="absolute top-4 left-4 sm:top-8 sm:left-8 p-2.5 sm:p-3 bg-white/60 rounded-full hover:bg-white transition-all shadow-sm group"
         >
           <FaChevronLeft className="text-gray-700 text-sm sm:text-base group-hover:scale-110 transition-transform" />
@@ -312,20 +312,20 @@ function Register() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 sm:gap-6">
-          
+
           {/* EMAIL & TYPE DETECTION */}
           <div className="relative">
             <label className={labelStyle}>College Email</label>
-            <input 
-              name="email" 
-              type="email" 
-              placeholder="name@university.edu.in" 
-              className={inputStyle} 
-              onChange={handleChange} 
-              disabled={otpSent} 
-              required 
+            <input
+              name="email"
+              type="email"
+              placeholder="name@university.edu.in"
+              className={inputStyle}
+              onChange={handleChange}
+              disabled={otpSent}
+              required
             />
-            
+
             {form.email && (
               <div className="mt-2 ml-1 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex gap-2">
@@ -333,10 +333,10 @@ function Register() {
                   {emailType === "faculty" && <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Faculty</span>}
                   {emailType === "normal" && <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Normal</span>}
                 </div>
-                
+
                 {!otpSent && (
                   <button type="button" onClick={handleSendOtp} className="text-[#1877f2] text-[11px] sm:text-[12px] font-bold hover:underline flex items-center gap-1 shrink-0">
-                    {sendingOtp ? <Loader size="12px" color="#1877f2" /> : <><FaPaperPlane size={10}/> Send OTP</>}
+                    {sendingOtp ? <Loader size="12px" color="#1877f2" /> : <><FaPaperPlane size={10} /> Send OTP</>}
                   </button>
                 )}
               </div>
@@ -371,13 +371,13 @@ function Register() {
           {/* FULL NAME */}
           <div>
             <label className={labelStyle}>Full Name</label>
-            <input 
-              name="name" 
-              placeholder="Enter your full name" 
-              className={inputStyle} 
-              onChange={handleChange} 
+            <input
+              name="name"
+              placeholder="Enter your full name"
+              className={inputStyle}
+              onChange={handleChange}
               disabled={otpSent}
-              required 
+              required
             />
           </div>
 
@@ -390,19 +390,18 @@ function Register() {
               <input
                 name="username"
                 placeholder="Choose a handle"
-                className={`${inputStyle} pr-14 ${
-                  usernameError && !otpSent
+                className={`${inputStyle} pr-14 ${usernameError && !otpSent
                     ? "border-red-400 focus:border-red-400"
                     : usernameAvailable && !otpSent
-                    ? "border-green-400 focus:border-green-400"
-                    : ""
-                }`}
+                      ? "border-green-400 focus:border-green-400"
+                      : ""
+                  }`}
                 value={form.username}
                 onChange={handleUsernameChange}
                 disabled={otpSent}
                 required
               />
-              
+
               <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center justify-center">
                 {checkingUsername ? (
                   <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
@@ -413,7 +412,7 @@ function Register() {
                 ) : null}
               </div>
             </div>
-            
+
             {usernameError && !otpSent && (
               <p className="text-xs text-red-500 mt-2 font-semibold ml-1">
                 {usernameError}
@@ -424,8 +423,8 @@ function Register() {
           {/* DATE OF BIRTH */}
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 ml-1">
-               <label className="text-[13px] sm:text-[15px] font-bold text-gray-800 tracking-tight">Date of Birth</label>
-               <FaQuestionCircle className="text-gray-400 text-[9px] sm:text-[10px]" title="Required for account verification" />
+              <label className="text-[13px] sm:text-[15px] font-bold text-gray-800 tracking-tight">Date of Birth</label>
+              <FaQuestionCircle className="text-gray-400 text-[9px] sm:text-[10px]" title="Required for account verification" />
             </div>
             <div className="flex gap-2 sm:gap-3 relative">
               <select name="month" className={selectStyle} onChange={handleChange} disabled={otpSent} required>
@@ -446,30 +445,29 @@ function Register() {
           {/* PASSWORD */}
           <div>
             <label className={labelStyle}>Password</label>
-            <input 
-              name="password" 
-              type="password" 
-              placeholder="Minimum 6 characters" 
-              className={inputStyle} 
-              onChange={handleChange} 
+            <input
+              name="password"
+              type="password"
+              placeholder="Minimum 6 characters"
+              className={inputStyle}
+              onChange={handleChange}
               disabled={otpSent}
-              required 
+              required
             />
           </div>
 
           {/* SUBMIT BUTTONS */}
           <div className="mt-2 sm:mt-4 flex flex-col gap-3 sm:gap-4">
-             <p className="text-[10px] sm:text-[11px] text-gray-500 text-center leading-relaxed px-2 sm:px-4">
+            <p className="text-[10px] sm:text-[11px] text-gray-500 text-center leading-relaxed px-2 sm:px-4">
               By tapping Register, you agree to our <span className="text-gray-900 font-bold hover:underline cursor-pointer">Terms</span> and <span className="text-gray-900 font-bold hover:underline cursor-pointer">Privacy Policy</span>.
             </p>
 
             <button
               disabled={!isFormValid || !otpVerified || loading}
-              className={`w-full py-4 sm:py-4.5 rounded-[18px] sm:rounded-[22px] font-black text-[16px] sm:text-[18px] tracking-wide transition-all duration-300 flex justify-center items-center h-[54px] sm:h-[60px] ${
-                isFormValid && otpVerified && !loading
-                ? "bg-gray-900 text-white hover:bg-black hover:-translate-y-1 active:scale-95 shadow-lg sm:shadow-xl shadow-gray-200" 
-                : "bg-white/80 text-gray-400 cursor-not-allowed border border-white/40 shadow-none"
-              }`}
+              className={`w-full py-4 sm:py-4.5 rounded-[18px] sm:rounded-[22px] font-black text-[16px] sm:text-[18px] tracking-wide transition-all duration-300 flex justify-center items-center h-[54px] sm:h-[60px] ${isFormValid && otpVerified && !loading
+                  ? "bg-gray-900 text-white hover:bg-black hover:-translate-y-1 active:scale-95 shadow-lg sm:shadow-xl shadow-gray-200"
+                  : "bg-white/80 text-gray-400 cursor-not-allowed border border-white/40 shadow-none"
+                }`}
             >
               {loading ? <Loader size="20px" color="#fff" /> : "Register"}
             </button>

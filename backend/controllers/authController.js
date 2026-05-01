@@ -1,15 +1,3 @@
-// ======================================================
-// 🔐 AUTH CONTROLLER - FULL PROFESSIONAL FIX
-// Fixes:
-// ✅ Fast register OTP
-// ✅ Username checker stability
-// ✅ Race conditions prevented
-// ✅ Faster DB queries (Removed Regex)
-// ✅ Better validation
-// ✅ Secure registration (Hashed in Pending State)
-// ✅ Forgot password stability
-// ======================================================
-
 import userModel from "../models/User.js";
 import PendingRegistration from "../models/PendingRegistration.js";
 import bcrypt from "bcrypt";
@@ -123,7 +111,7 @@ export const sendRegisterOTP = async (req, res) => {
       {
         email,
         username,
-        password: securePendingPassword, 
+        password: securePendingPassword,
         name,
         dob,
         otp,
@@ -135,7 +123,15 @@ export const sendRegisterOTP = async (req, res) => {
       }
     );
 
-    await sendOTPEmail(email, otp, "Account Verification");
+    // Fixed the "..." syntax error here
+    const mailResult = await sendOTPEmail(email, otp, "Account Verification");
+
+    if (mailResult?.success === false) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP email",
+      });
+    }
 
     return res.json({
       success: true,
@@ -373,7 +369,7 @@ export const getCurrentUser = async (req, res) => {
   try {
     const user = await userModel.findById(req.user.id).select("-password");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
-    
+
     res.json({ success: true, user });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

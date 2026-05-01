@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 
-
 const pendingRegistrationSchema =
   new mongoose.Schema(
     {
-
       email: {
         type: String,
         required: true,
@@ -14,13 +12,11 @@ const pendingRegistrationSchema =
         index: true,
       },
 
-
       name: {
         type: String,
         required: true,
         trim: true,
       },
-
 
       username: {
         type: String,
@@ -32,24 +28,20 @@ const pendingRegistrationSchema =
         index: true,
       },
 
-
       password: {
         type: String,
         required: true,
       },
-
 
       dob: {
         type: Date,
         required: true,
       },
 
-
       otp: {
         type: String,
         required: true,
       },
-
 
       otpExpires: {
         type: Date,
@@ -61,18 +53,12 @@ const pendingRegistrationSchema =
     }
   );
 
-
 pendingRegistrationSchema.index(
   { createdAt: 1 },
   {
     expireAfterSeconds: 900,
   }
 );
-
-
-pendingRegistrationSchema.index({
-  username: 1,
-});
 
 const PendingRegistration =
   mongoose.models.PendingRegistration ||

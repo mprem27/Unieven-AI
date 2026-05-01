@@ -38,7 +38,7 @@ export const sendOTPEmail =
 
       const contextMessage =
         purpose ===
-        "Account Verification"
+          "Account Verification"
           ? "Welcome to UniEven! Use the OTP below to verify your account."
           : "Use the OTP below to reset your UniEven password securely.";
 
@@ -107,8 +107,10 @@ export const sendOTPEmail =
         error
       );
 
-      throw new Error(
-        "Failed to send OTP email"
-      );
+      console.error("OTP send failed:", error);
+      return {
+        success: false,
+        message: "OTP email service unavailable",
+      };
     }
   };
