@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { login } from "../services/authService";
+import { login as apiLogin } from "../services/authService"; // Renamed to avoid clash
 import Loader from "../components/Loader";
 import { Assets } from "../assets/Assets";
 import { FaPlay, FaCalendarAlt, FaHeart } from "react-icons/fa";
@@ -9,7 +9,8 @@ import { toast } from "react-toastify";
 
 function Login() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  // 🟦 FIX: Extract 'login' from context instead of 'setUser'
+  const { login: contextLogin } = useAuth();
 
   const [form, setForm] = useState({
     identity: "",
@@ -34,26 +35,19 @@ function Login() {
 
     setLoading(true);
     try {
-      // Clean the input: removes hidden spaces and auto-capitalization
       const cleanIdentity = form.identity.toLowerCase().trim();
 
-      const data = await login({
+      const data = await apiLogin({
         identity: cleanIdentity,
-        email: cleanIdentity, // Fallback just in case authService.js expects "email"
+        email: cleanIdentity, 
         password: form.password
       });
 
-      // Update global auth state. 
-      // Because this component is wrapped in <PublicRoute> inside App.jsx,
-      // changing this state will automatically trigger a redirect to "/feed" 
-      // once the state has fully updated.
-      setUser(data.user);
-      
       toast.success("Login successful");
       
-      // ❌ REMOVED: navigate("/feed", { replace: true });
-      // Manual navigation causes a race condition with setUser. 
-      // Let the App.jsx routing handle the redirect automatically.
+      // 🟦 FIX: Use the contextLogin function. 
+      // It handles setting the token in localStorage AND setting the user state.
+      contextLogin(data);
 
     } catch (err) {
       setError(

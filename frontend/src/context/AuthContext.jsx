@@ -44,11 +44,16 @@ export const AuthProvider = ({ children }) => {
 
         if (!isMounted) return;
 
-        if (data?.success && data?.user) {
-          setUserState(data.user);
+        // 🟦 FIX 1: Be flexible with the backend data structure
+        // Checks if the user data is nested inside 'user', or if 'data' IS the user
+        const userData = data?.user || data;
 
-          if (data.user.role) {
-            localStorage.setItem("role", data.user.role);
+        // Verify we actually have a user object with an ID or email
+        if (userData && (userData._id || userData.id || userData.email || userData.username)) {
+          setUserState(userData);
+
+          if (userData.role) {
+            localStorage.setItem("role", userData.role);
           }
         } else {
           clearSession();
@@ -56,10 +61,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error("Auth Error:", err?.response?.data || err.message);
 
-        if (err.response?.status === 401) {
-          toast.error("Session expired. Please login again.");
-        }
-
+        // Remove the hard toast error here so it doesn't spam the user on mount
         if (isMounted) {
           clearSession();
         }
@@ -88,16 +90,23 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = (data) => {
-    if (!data?.token || !data?.user) return;
+    // 🟦 FIX 2: Prevent the login function from crashing if the data shape changes
+    const token = data?.token;
+    const userData = data?.user || data;
 
-    localStorage.setItem("token", data.token);
-
-    if (data.user.role) {
-      localStorage.setItem("role", data.user.role);
+    if (!token || !userData) {
+       console.error("Login failed: Backend did not return a token or user data.", data);
+       return;
     }
 
-    setAuthToken(data.token);
-    setUserState(data.user);
+    localStorage.setItem("token", token);
+
+    if (userData.role) {
+      localStorage.setItem("role", userData.role);
+    }
+
+    setAuthToken(token);
+    setUserState(userData);
   };
 
   const logout = () => {
