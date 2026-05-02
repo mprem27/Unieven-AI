@@ -1,39 +1,20 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+import 'dotenv/config'; // 🔥 This loads your RESEND_API_KEY from the .env file
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    // This prevents errors on some hosting providers (like Render/Heroku)
-    rejectUnauthorized: false,
-  },
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 100,
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 20000,
-});
-
-// Verify connection configuration
-transporter.verify((error) => {
-  if (error) {
-    console.error("❌ Email transporter error:", error.message);
-  } else {
-    console.log("✅ Node.js Email Server Ready (Registration Service)");
-  }
-});
+// Initialize Resend with a fallback to prevent the "Missing API key" crash during startup
+const resend = new Resend(process.env.RESEND_API_KEY || "placeholder_key");
 
 /**
- * Specifically used for User Registration OTPs
+ * Sends OTP email using Resend API (HTTP Port 443)
  */
 export const sendOTPEmail = async (email, otp, purpose = "Account Verification") => {
   try {
+    // Safety check: If the key is still missing, don't try to send the email
+    if (!process.env.RESEND_API_KEY) {
+      console.error(" ERROR: RESEND_API_KEY is not defined in your .env file.");
+      return { success: false, message: "Email configuration missing" };
+    }
+
     const contextMessage =
       purpose === "Account Verification"
         ? "Welcome to UniEven! Use the OTP below to verify your account."
@@ -65,24 +46,30 @@ export const sendOTPEmail = async (email, otp, purpose = "Account Verification")
     </div>
     `;
 
-    const info = await transporter.sendMail({
-      from: `"UniEven Security" <${process.env.EMAIL_USER}>`,
-      to: email.toLowerCase().trim(),
+    // Resend API call
+    const { data, error } = await resend.emails.send({
+      from: "UniEven <onboarding@resend.dev>", 
+      to: [email.toLowerCase().trim()],
       subject: `${otp} is your UniEven verification code`,
       html: htmlTemplate,
     });
 
-    console.log(` Registration OTP sent to: ${email}`);
+    if (error) {
+      console.error(" Resend API Error:", error);
+      return { success: false, message: error.message };
+    }
+
+    console.log(` Email sent successfully to: ${email} (ID: ${data.id})`);
 
     return {
       success: true,
-      messageId: info.messageId,
+      messageId: data.id,
     };
   } catch (error) {
-    console.error(" Registration Email Failed:", error.message);
+    console.error(" Email Service Failure:", error.message);
     return {
       success: false,
-      message: "Email service temporarily unavailable",
+      message: error.message || "Email service temporarily unavailable",
     };
   }
 };

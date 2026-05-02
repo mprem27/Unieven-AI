@@ -9,7 +9,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*") // Allows Node.js and Frontend to communicate
+@CrossOrigin(origins = "*") 
 public class AuthController {
 
     @Autowired
@@ -26,7 +26,8 @@ public class AuthController {
     }
 
     /**
-     * Triggered by Node.js or Frontend to send a reset OTP
+     * Triggered by Node.js. 
+     * Generates OTP in DB and returns it to Node.js to be sent via Resend API.
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
@@ -40,12 +41,18 @@ public class AuthController {
             }
 
             String cleanEmail = email.trim().toLowerCase();
-            System.out.println("Processing forgot-password for: " + cleanEmail);
+            System.out.println("Generating reset OTP for: " + cleanEmail);
 
-            String response = authService.forgotPassword(cleanEmail);
+            // This now returns the actual 6-digit OTP string from the service
+            String otp = authService.forgotPassword(cleanEmail);
 
+            // We return 'otp' to Node.js so Node can act as the "Postman"
             return ResponseEntity.ok(
-                    Map.of("success", true, "message", response)
+                    Map.of(
+                        "success", true, 
+                        "otp", otp, 
+                        "message", "OTP generated successfully"
+                    )
             );
 
         } catch (RuntimeException e) {
@@ -62,7 +69,8 @@ public class AuthController {
     }
 
     /**
-     * Triggered by Node.js to verify the OTP and mark user as VERIFIED in DB
+     * Triggered by Node.js to verify the OTP.
+     * Marks user as VERIFIED in DB if successful.
      */
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> body) {
@@ -83,7 +91,6 @@ public class AuthController {
 
             String response = authService.verifyOTP(cleanEmail, cleanOtp);
 
-            // Important: This returns success: true which Node.js looks for
             return ResponseEntity.ok(
                     Map.of("success", true, "message", response)
             );
