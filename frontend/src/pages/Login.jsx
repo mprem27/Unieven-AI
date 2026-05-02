@@ -5,7 +5,7 @@ import { login } from "../services/authService";
 import Loader from "../components/Loader";
 import { Assets } from "../assets/Assets";
 import { FaPlay, FaCalendarAlt, FaHeart } from "react-icons/fa";
-import { toast } from "react-toastify"; // ✅ Added toast import
+import { toast } from "react-toastify";
 
 function Login() {
   const navigate = useNavigate();
@@ -24,7 +24,6 @@ function Login() {
     e.preventDefault();
     setError("");
 
-    // ✅ REPLACED VALIDATION BLOCK
     if (!form.identity || form.identity.trim() === "") {
       return toast.error("Please enter email or username");
     }
@@ -35,24 +34,26 @@ function Login() {
 
     setLoading(true);
     try {
-      // 🔥 Clean the input: removes hidden spaces and auto-capitalization
+      // Clean the input: removes hidden spaces and auto-capitalization
       const cleanIdentity = form.identity.toLowerCase().trim();
 
       const data = await login({
         identity: cleanIdentity,
-        email: cleanIdentity, // ✅ Fallback just in case authService.js expects "email"
+        email: cleanIdentity, // Fallback just in case authService.js expects "email"
         password: form.password
       });
 
-      // 🟦 STEP 1: REMOVED REDUNDANT TOKEN SAVE (Handled in authService.js)
-      
+      // Update global auth state. 
+      // Because this component is wrapped in <PublicRoute> inside App.jsx,
+      // changing this state will automatically trigger a redirect to "/feed" 
+      // once the state has fully updated.
       setUser(data.user);
       
-      // 🟦 STEP 2: ADD SUCCESS TOAST
       toast.success("Login successful");
       
-      // 🟦 STEP 6: SAFE NAVIGATION
-      navigate("/feed", { replace: true });
+      // ❌ REMOVED: navigate("/feed", { replace: true });
+      // Manual navigation causes a race condition with setUser. 
+      // Let the App.jsx routing handle the redirect automatically.
 
     } catch (err) {
       setError(
@@ -65,7 +66,6 @@ function Login() {
     }
   };
 
-  // 🟦 STEP 5: IMPROVE FORM VALIDATION
   const isFormValid = form.identity.trim().length > 0 && form.password.trim().length >= 6;
 
   return (
@@ -103,7 +103,6 @@ function Login() {
                     } rounded-xl px-4 py-3 sm:py-3.5 text-[14px] sm:text-[15px] font-medium text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all hover:bg-white`}
                   value={form.identity}
                   onChange={(e) => {
-                    // 🟦 STEP 3: CLEAR ERROR ON INPUT CHANGE
                     setError("");
                     setForm({ ...form, identity: e.target.value });
                   }}
@@ -129,7 +128,6 @@ function Login() {
                       } rounded-xl px-4 py-3 sm:py-3.5 text-[14px] sm:text-[15px] font-medium text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all hover:bg-white pr-16`}
                     value={form.password}
                     onChange={(e) => {
-                      // 🟦 STEP 3: CLEAR ERROR ON INPUT CHANGE
                       setError("");
                       setForm({ ...form, password: e.target.value });
                     }}

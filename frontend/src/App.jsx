@@ -24,7 +24,7 @@ import CornerSidebar from "./components/CornerSidebar";
 import Loader from "./components/Loader";
 
 // =====================================================
-// 🚀 LAZY LOADED PAGES (Performance Upgrade)
+//  LAZY LOADED PAGES (Performance Upgrade)
 // =====================================================
 // Auth
 const Login = lazy(() => import("./pages/Login"));
@@ -51,7 +51,7 @@ const CreateReel = lazy(() => import("./pages/CreateReel"));
 const CreateEvent = lazy(() => import("./pages/CreateEvent"));
 
 // =====================================================
-// 🔐 PRIVATE ROUTE
+//  PRIVATE ROUTE
 // =====================================================
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -68,7 +68,7 @@ const PrivateRoute = ({ children }) => {
 };
 
 // =====================================================
-// 🔓 PUBLIC AUTH ROUTE
+//  PUBLIC AUTH ROUTE
 // =====================================================
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -95,7 +95,7 @@ function App() {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  // 🟦 STEP 2: SCROLL RESTORATION
+  //  STEP 2: SCROLL RESTORATION
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
@@ -111,7 +111,7 @@ function App() {
     "/reset-password",
   ];
 
-  // 🟦 STEP 3: SAFER ROUTE MATCHING (Handles URL Params)
+  //  STEP 3: SAFER ROUTE MATCHING (Handles URL Params)
   const isAuthPage = authRoutes.some(route => location.pathname.startsWith(route));
   const isReelsPage = location.pathname.startsWith("/reels");
 
@@ -175,7 +175,7 @@ function App() {
             }
           `}
         >
-          {/* 🟦 LAZY LOAD SUSPENSE WRAPPER */}
+          {/* LAZY LOAD SUSPENSE WRAPPER */}
           <Suspense 
             fallback={
               <div className="h-[80vh] flex items-center justify-center">
