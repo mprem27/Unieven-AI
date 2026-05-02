@@ -15,7 +15,7 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    @GetMapping({"", "/"})
+    @GetMapping
     public ResponseEntity<?> healthCheck() {
         return ResponseEntity.ok(
                 Map.of(
@@ -44,10 +44,14 @@ public class AuthController {
                 );
             }
 
-            email = email.trim().toLowerCase();
+            email =
+                    email.trim()
+                            .toLowerCase();
 
             String response =
-                    authService.forgotPassword(email);
+                    authService.forgotPassword(
+                            email
+                    );
 
             return ResponseEntity.ok(
                     Map.of(
@@ -82,8 +86,11 @@ public class AuthController {
             @RequestBody Map<String, String> body
     ) {
         try {
-            String email = body.get("email");
-            String otp = body.get("otp");
+            String email =
+                    body.get("email");
+
+            String otp =
+                    body.get("otp");
 
             if (
                     email == null ||
@@ -100,8 +107,12 @@ public class AuthController {
                 );
             }
 
-            email = email.trim().toLowerCase();
-            otp = otp.trim();
+            email =
+                    email.trim()
+                            .toLowerCase();
+
+            otp =
+                    otp.trim();
 
             String response =
                     authService.verifyOTP(

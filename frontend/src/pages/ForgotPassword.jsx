@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import Loader from "../components/Loader";
 import { FaChevronLeft, FaEnvelope } from "react-icons/fa";
 import { Assets } from "../assets/Assets";
-import AUTH_API from "../api/authApi"; // ✅ Imported your Axios instance
+import AUTH_API from "../api/authApi";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -20,7 +20,6 @@ function ForgotPassword() {
       return toast.error("Please enter your email");
     }
 
-    // 🟦 STEP 2: EMAIL FORMAT VALIDATION
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
       return toast.error("Please enter a valid email address");
@@ -34,14 +33,11 @@ function ForgotPassword() {
       });
 
       const data = res.data;
-
-      // ✅ SAFE CHECK
       const message = typeof data === "string" ? data : data?.message;
 
       if (message === "OTP sent to email") {
         toast.success("Verification code sent!");
-
-        // 🟦 STEP 3: SAFE NAVIGATION
+        
         navigate("/verify-otp", {
           replace: true, 
           state: { email: cleanEmail },
@@ -62,7 +58,6 @@ function ForgotPassword() {
     }
   };
 
-  // Premium UI Styles
   const inputStyle =
     "w-full bg-white/60 backdrop-blur-md border border-white/40 rounded-[16px] sm:rounded-2xl px-12 py-3.5 sm:py-4 text-[14px] sm:text-[16px] outline-none focus:bg-white focus:border-[#1877f2] focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm";
 
@@ -107,10 +102,7 @@ function ForgotPassword() {
                 placeholder="name@university.edu.in"
                 className={inputStyle}
                 value={email}
-                onChange={(e) =>
-                  // 🟦 STEP 1: CLEAR EMAIL INPUT SPACES LIVE
-                  setEmail(e.target.value.toLowerCase().trimStart())
-                }
+                onChange={(e) => setEmail(e.target.value.toLowerCase().trimStart())}
                 required
               />
             </div>
@@ -118,7 +110,6 @@ function ForgotPassword() {
 
           <button
             type="submit"
-            // 🟦 STEP 4: BETTER BUTTON VALIDATION
             disabled={loading || !email.trim()}
             className={`w-full mt-4 py-4 rounded-[18px] sm:rounded-[20px] font-black text-[15px] sm:text-[16px] tracking-wide transition-all duration-300 flex justify-center items-center h-[54px] sm:h-[60px] ${
               email.trim()
