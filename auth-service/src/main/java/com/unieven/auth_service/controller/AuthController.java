@@ -30,7 +30,9 @@ public class AuthController {
             @RequestBody Map<String, String> body
     ) {
         try {
-            String email = body.get("email");
+
+            String email =
+                    body.get("email");
 
             if (
                     email == null ||
@@ -48,6 +50,11 @@ public class AuthController {
                     email.trim()
                             .toLowerCase();
 
+            System.out.println(
+                    "Forgot password OTP request for: " +
+                    email
+            );
+
             String response =
                     authService.forgotPassword(
                             email
@@ -62,6 +69,11 @@ public class AuthController {
 
         } catch (RuntimeException e) {
 
+            System.out.println(
+                    "Forgot password error: " +
+                    e.getMessage()
+            );
+
             return ResponseEntity.status(400).body(
                     Map.of(
                             "success", false,
@@ -70,6 +82,11 @@ public class AuthController {
             );
 
         } catch (Exception e) {
+
+            System.out.println(
+                    "Internal forgot password error: " +
+                    e.getMessage()
+            );
 
             return ResponseEntity.status(500).body(
                     Map.of(
@@ -86,6 +103,7 @@ public class AuthController {
             @RequestBody Map<String, String> body
     ) {
         try {
+
             String email =
                     body.get("email");
 
@@ -114,6 +132,11 @@ public class AuthController {
             otp =
                     otp.trim();
 
+            System.out.println(
+                    "OTP verification request for: " +
+                    email
+            );
+
             String response =
                     authService.verifyOTP(
                             email,
@@ -129,6 +152,11 @@ public class AuthController {
 
         } catch (RuntimeException e) {
 
+            System.out.println(
+                    "OTP verification error: " +
+                    e.getMessage()
+            );
+
             return ResponseEntity.status(400).body(
                     Map.of(
                             "success", false,
@@ -137,6 +165,11 @@ public class AuthController {
             );
 
         } catch (Exception e) {
+
+            System.out.println(
+                    "Internal OTP verification error: " +
+                    e.getMessage()
+            );
 
             return ResponseEntity.status(500).body(
                     Map.of(

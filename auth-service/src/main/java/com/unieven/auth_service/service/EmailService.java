@@ -24,6 +24,13 @@ public class EmailService {
 
         try {
 
+            System.out.println(
+                    "Sending OTP email from: " +
+                    fromEmail +
+                    " to: " +
+                    toEmail
+            );
+
             SimpleMailMessage message =
                     new SimpleMailMessage();
 
@@ -63,7 +70,9 @@ public class EmailService {
 
             System.out.println(
                     "SMTP Authentication failed for sender: " +
-                    fromEmail
+                    fromEmail +
+                    " | Error: " +
+                    e.getMessage()
             );
 
             return false;
@@ -72,7 +81,9 @@ public class EmailService {
 
             System.out.println(
                     "Mail server error while sending OTP to: " +
-                    toEmail
+                    toEmail +
+                    " | Error: " +
+                    e.getMessage()
             );
 
             return false;
@@ -81,7 +92,9 @@ public class EmailService {
 
             System.out.println(
                     "Unexpected email service error for: " +
-                    toEmail
+                    toEmail +
+                    " | Error: " +
+                    e.getMessage()
             );
 
             return false;
