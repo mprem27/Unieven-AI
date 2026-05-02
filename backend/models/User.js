@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      sparse: true, // Prevent null duplicate crash
+      sparse: true, 
       trim: true,
       lowercase: true,
       minlength: 3,
@@ -58,27 +58,25 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: [
-        "student",
-        "faculty",
-        "admin",
-      ],
+      enum: ["student", "faculty", "admin"],
       default: "student",
     },
 
     // =====================================================
-    // 🔐 OTP SYSTEM
+    // 🔐 OTP SYSTEM (Shared with Spring Boot)
     // =====================================================
     registerOTP: {
       type: String,
       default: null,
     },
 
+    // Spring Boot writes "VERIFIED" or a 6-digit code here
     resetOTP: {
-      type: String,
+      type: String, 
       default: null,
     },
 
+    // Java Date and MongoDB Date are compatible
     otpExpires: {
       type: Date,
       default: null,
@@ -102,24 +100,21 @@ const userSchema = new mongoose.Schema(
     // =====================================================
     followers: [
       {
-        type:
-          mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
 
     following: [
       {
-        type:
-          mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
 
     followRequests: [
       {
-        type:
-          mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
@@ -129,16 +124,14 @@ const userSchema = new mongoose.Schema(
     // =====================================================
     savedPosts: [
       {
-        type:
-          mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "Post",
       },
     ],
 
     savedReels: [
       {
-        type:
-          mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "Reel",
       },
     ],
@@ -146,37 +139,25 @@ const userSchema = new mongoose.Schema(
     // =====================================================
     // 🎓 CAMPUS DETAILS
     // =====================================================
-    studentId: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    department: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    phone: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+    studentId: { type: String, default: "", trim: true },
+    department: { type: String, default: "", trim: true },
+    phone: { type: String, default: "", trim: true },
   },
   {
     timestamps: true,
   }
 );
 
-// =====================================================
-// 🚀 SAFE EXPORT
-// =====================================================
-const userModel =
-  mongoose.models.User ||
-  mongoose.model(
-    "User",
-    userSchema
-  );
+// Prevent sensitive data from being sent to the frontend by default
+userSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.password;
+    delete ret.resetOTP;
+    delete ret.registerOTP;
+    return ret;
+  },
+});
+
+const userModel = mongoose.models.User || mongoose.model("User", userSchema);
 
 export default userModel;

@@ -1,6 +1,5 @@
 import express from "express";
 
-
 import {
   registerUser,
   loginUser,
@@ -18,6 +17,9 @@ import asyncHandler from "../middlewares/asyncHandler.js";
 
 const router = express.Router();
 
+// ======================================================
+// 📝 REGISTRATION (Handled by Node.js)
+// ======================================================
 router.post(
   "/send-register-otp",
   authLimiter,
@@ -32,6 +34,9 @@ router.post(
   asyncHandler(registerUser)
 );
 
+// ======================================================
+// 🔑 LOGIN
+// ======================================================
 router.post(
   "/login",
   authLimiter,
@@ -39,6 +44,9 @@ router.post(
   asyncHandler(loginUser)
 );
 
+// ======================================================
+// 🔄 FORGOT PASSWORD (Bridged to Spring Boot)
+// ======================================================
 router.post(
   "/forgot-password",
   authLimiter,
@@ -60,7 +68,9 @@ router.post(
   asyncHandler(resetPassword)
 );
 
-
+// ======================================================
+// 👤 USER SESSION
+// ======================================================
 router.get(
   "/me",
   authMiddleware,

@@ -3,17 +3,16 @@ import axios from "axios";
 const API = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
-    "https://unieven-ai.onrender.com/api",
-  timeout: 15000,
+    "https://unieven-ai.onrender.com/api", // Node.js Server URL
+  timeout: 30000, // Increased timeout for cross-server calls
   headers: {
     "Content-Type": "application/json",
   },
 });
 
+// Helper to manage tokens
 const saveToken = (token) => {
-  if (token) {
-    localStorage.setItem("token", token);
-  }
+  if (token) localStorage.setItem("token", token);
 };
 
 const clearToken = () => {
@@ -21,235 +20,132 @@ const clearToken = () => {
   localStorage.removeItem("role");
 };
 
-const getToken = () =>
-  localStorage.getItem("token");
+const getToken = () => localStorage.getItem("token");
 
+// Request Interceptor: Attach JWT to every request
 API.interceptors.request.use(
   (config) => {
     const token = getToken();
-
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
     return config;
   },
-  (error) =>
-    Promise.reject(error)
+  (error) => Promise.reject(error)
 );
 
+// Response Interceptor: Handle Global Errors (like 401 Unauthorized)
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 401
-    ) {
+    if (error.response?.status === 401) {
       clearToken();
-
-      if (
-        window.location.pathname !==
-        "/login"
-      ) {
-        window.location.href =
-          "/login";
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
       }
     }
-
     return Promise.reject(error);
   }
 );
 
-const handleError = (
-  error,
-  fallbackMessage
-) => {
-  console.error(
-    "API ERROR:",
-    error?.response?.data ||
-      error.message ||
-      error
-  );
+/**
+ * Enhanced error handler to extract messages from the backend
+ */
+const handleError = (error, fallbackMessage) => {
+  const message =
+    error.response?.data?.message || 
+    error.message || 
+    fallbackMessage;
+
+  console.error("🌐 API ERROR:", message);
 
   throw {
     success: false,
-    message:
-      error?.response?.data
-        ?.message ||
-      error?.message ||
-      fallbackMessage,
+    message: message,
   };
 };
 
-export const login = async (
-  formData
-) => {
+// ======================================================
+// 🔐 AUTH API CALLS
+// ======================================================
+
+export const login = async (formData) => {
   try {
-    const { data } =
-      await API.post(
-        "/auth/login",
-        formData
-      );
-
+    const { data } = await API.post("/auth/login", formData);
     saveToken(data?.token);
-
     return data;
   } catch (error) {
-    if (
-      error.response
-        ?.status === 401 ||
-      error.response
-        ?.status === 404
-    ) {
-      throw {
-        success: false,
-        message:
-          "Invalid email/username or password",
-      };
-    }
-
-    handleError(
-      error,
-      "Login failed"
-    );
+    handleError(error, "Login failed");
   }
 };
 
-export const sendRegisterOtp =
-  async (formData) => {
-    try {
-      const { data } =
-        await API.post(
-          "/auth/send-register-otp",
-          formData
-        );
-
-      return data;
-    } catch (error) {
-      handleError(
-        error,
-        "Failed to send OTP. Please try again."
-      );
-    }
-  };
-
-export const register = async (
-  formData
-) => {
+export const sendRegisterOtp = async (formData) => {
   try {
-    const { data } =
-      await API.post(
-        "/auth/register",
-        formData
-      );
-
-    saveToken(data?.token);
-
+    const { data } = await API.post("/auth/send-register-otp", formData);
     return data;
   } catch (error) {
-    handleError(
-      error,
-      "Registration failed"
-    );
+    handleError(error, "Registration OTP failed");
+  }
+};
+
+export const register = async (formData) => {
+  try {
+    const { data } = await API.post("/auth/register", formData);
+    saveToken(data?.token);
+    return data;
+  } catch (error) {
+    handleError(error, "Registration failed");
   }
 };
 
 export const getMe = async () => {
   try {
-    const { data } =
-      await API.get(
-        "/auth/me"
-      );
-
+    const { data } = await API.get("/auth/me");
     return data;
   } catch (error) {
-    if (
-      error.response
-        ?.status === 401
-    ) {
-      clearToken();
-
-      throw {
-        success: false,
-        message:
-          "Session expired. Please login again.",
-      };
-    }
-
-    handleError(
-      error,
-      "Failed to fetch user"
-    );
+    handleError(error, "Session expired");
   }
 };
 
-export const forgotPassword =
-  async (email) => {
-    try {
-      const { data } =
-        await API.post(
-          "/auth/forgot-password",
-          { email }
-        );
+// ======================================================
+// 🔄 FORGOT PASSWORD API CALLS (Bridged to Spring Boot)
+// ======================================================
 
-      return data;
-    } catch (error) {
-      handleError(
-        error,
-        "Failed to send reset OTP"
-      );
-    }
-  };
-
-export const verifyOtp =
-  async (
-    email,
-    otp
-  ) => {
-    try {
-      const { data } =
-        await API.post(
-          "/auth/verify-otp",
-          {
-            email,
-            otp,
-          }
-        );
-
-      return data;
-    } catch (error) {
-      handleError(
-        error,
-        "OTP verification failed"
-      );
-    }
-  };
-
-export const resetPassword =
-  async (
-    email,
-    newPassword
-  ) => {
-    try {
-      const { data } =
-        await API.post(
-          "/auth/reset-password",
-          {
-            email,
-            newPassword,
-          }
-        );
-
-      return data;
-    } catch (error) {
-      handleError(
-        error,
-        "Password reset failed"
-      );
-    }
-  };
-
-export const logout = () => {
-  clearToken();
+export const forgotPassword = async (email) => {
+  try {
+    const { data } = await API.post("/auth/forgot-password", {
+      email: email.trim().toLowerCase(),
+    });
+    return data;
+  } catch (error) {
+    handleError(error, "Failed to send reset OTP");
+  }
 };
+
+export const verifyOtp = async (email, otp) => {
+  try {
+    const { data } = await API.post("/auth/verify-otp", {
+      email: email.trim().toLowerCase(),
+      otp: otp.trim(),
+    });
+    return data;
+  } catch (error) {
+    handleError(error, "OTP verification failed");
+  }
+};
+
+export const resetPassword = async (email, newPassword) => {
+  try {
+    const { data } = await API.post("/auth/reset-password", {
+      email: email.trim().toLowerCase(),
+      newPassword,
+    });
+    return data;
+  } catch (error) {
+    handleError(error, "Password reset failed");
+  }
+};
+
+export const logout = () => clearToken();
 
 export default API;

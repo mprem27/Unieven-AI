@@ -21,6 +21,9 @@ public class AuthService {
     private static final SecureRandom secureRandom =
             new SecureRandom();
 
+    /**
+     * Generates a secure 6-digit OTP
+     */
     public String generateOTP() {
         int otp =
                 100000 +
@@ -29,20 +32,26 @@ public class AuthService {
         return String.valueOf(otp);
     }
 
+    /**
+     * Handles Forgot Password OTP generation and sending
+     */
     public String forgotPassword(String email) {
 
+        // 1. Check if user exists in the shared MongoDB
         User user =
                 userRepository.findByEmail(email)
                         .orElseThrow(() ->
                                 new RuntimeException(
-                                        "User not found"
+                                        "User not found with this email"
                                 )
                         );
 
+        // 2. Generate and set OTP
         String otp = generateOTP();
 
         user.setResetOTP(otp);
 
+        // 3. Set expiration (Current time + 5 minutes)
         user.setOtpExpires(
                 new Date(
                         System.currentTimeMillis() +
@@ -50,8 +59,10 @@ public class AuthService {
                 )
         );
 
+        // 4. Save to MongoDB so Node.js can see the changes
         userRepository.save(user);
 
+        // 5. Send the email
         boolean emailSent =
                 emailService.sendOtp(
                         email,
@@ -60,13 +71,16 @@ public class AuthService {
 
         if (!emailSent) {
             throw new RuntimeException(
-                    "Failed to send OTP email"
+                    "Failed to send OTP. Please check your email configuration."
             );
         }
 
         return "OTP sent successfully";
     }
 
+    /**
+     * Verifies the OTP and sets the status to VERIFIED for Node.js to finalize
+     */
     public String verifyOTP(
             String email,
             String otp
@@ -80,25 +94,18 @@ public class AuthService {
                                 )
                         );
 
+        // 1. Check if an OTP was even requested
         if (
                 user.getResetOTP() == null ||
-                user.getResetOTP().isEmpty()
+                user.getResetOTP().isEmpty() ||
+                user.getResetOTP().equals("VERIFIED")
         ) {
             throw new RuntimeException(
-                    "No OTP found. Please request again."
+                    "No pending OTP request found. Please request a new one."
             );
         }
 
-        if (
-                !otp.trim().equals(
-                        user.getResetOTP().trim()
-                )
-        ) {
-            throw new RuntimeException(
-                    "Invalid OTP"
-            );
-        }
-
+        // 2. Check Expiration
         if (
                 user.getOtpExpires() == null ||
                 new Date().after(
@@ -106,12 +113,25 @@ public class AuthService {
                 )
         ) {
             throw new RuntimeException(
-                    "OTP expired"
+                    "OTP has expired. Please request a new one."
             );
         }
 
-        user.setResetOTP("VERIFIED");
+        // 3. Compare OTP (Trim to prevent whitespace errors)
+        if (
+                !otp.trim().equals(
+                        user.getResetOTP().trim()
+                )
+        ) {
+            throw new RuntimeException(
+                    "The OTP entered is incorrect."
+            );
+        }
 
+        // 4. Mark as VERIFIED in DB. 
+        // Node.js will look for this exact string in resetPassword controller.
+        user.setResetOTP("VERIFIED");
+        
         userRepository.save(user);
 
         return "OTP verified";

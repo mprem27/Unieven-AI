@@ -3,7 +3,7 @@ export const validateRequest = (type) => {
     try {
       const body = req.body;
 
- 
+      // Helper to check if a field is truly empty
       const isEmpty = (val) =>
         val === undefined ||
         val === null ||
@@ -12,231 +12,102 @@ export const validateRequest = (type) => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const usernameRegex = /^[a-z0-9._]{3,20}$/;
 
-    
+      // 1. Forgot Password Step 1 (Email only)
       if (type === "email") {
         if (isEmpty(body.email)) {
-          return res.status(400).json({
-            success: false,
-            message: "Email is required",
-          });
+          return res.status(400).json({ success: false, message: "Email is required" });
         }
-
         if (!emailRegex.test(String(body.email))) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid email format",
-          });
+          return res.status(400).json({ success: false, message: "Invalid email format" });
         }
-
         body.email = String(body.email).toLowerCase().trim();
       }
 
-    
+      // 2. Login Validation (Email or Username)
       if (type === "auth") {
         const identity = body.identity || body.email;
-
         if (isEmpty(identity) || isEmpty(body.password)) {
-          return res.status(400).json({
-            success: false,
-            message: "Email/Username and password are required",
-          });
+          return res.status(400).json({ success: false, message: "Credentials are required" });
         }
-
-        const stringIdentity = String(identity);
-
+        const stringIdentity = String(identity).toLowerCase().trim();
         if (stringIdentity.includes("@") && !emailRegex.test(stringIdentity)) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid email format",
-          });
+          return res.status(400).json({ success: false, message: "Invalid email format" });
         }
-
-        body.identity = stringIdentity.toLowerCase().trim();
+        body.identity = stringIdentity;
       }
 
- 
+      // 3. Registration Step 1 (Send OTP)
       if (type === "sendRegisterOtp") {
-        // FULL NAME
-        if (isEmpty(body.name)) {
-          return res.status(400).json({
-            success: false,
-            message: "Full name is required",
-          });
+        if (isEmpty(body.name)) return res.status(400).json({ success: false, message: "Full name is required" });
+
+        const username = String(body.username || "");
+        if (isEmpty(username) || !usernameRegex.test(username.toLowerCase().trim())) {
+          return res.status(400).json({ success: false, message: "Username: 3–20 chars (a-z, 0-9, ., _)" });
         }
 
-        // USERNAME
-        const stringUsername = String(body.username || "");
-        if (isEmpty(body.username) || !usernameRegex.test(stringUsername)) {
-          return res.status(400).json({
-            success: false,
-            message: "Username must be 3–20 characters using lowercase letters, numbers, dots, or underscores",
-          });
-        }
-        body.username = stringUsername.toLowerCase().trim();
-
-        // EMAIL
-        if (isEmpty(body.email)) {
-          return res.status(400).json({
-            success: false,
-            message: "Email is required",
-          });
+        if (isEmpty(body.email) || !emailRegex.test(String(body.email).toLowerCase().trim())) {
+          return res.status(400).json({ success: false, message: "Valid email is required" });
         }
 
-        if (!emailRegex.test(String(body.email))) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid email format",
-          });
-        }
-        body.email = String(body.email).toLowerCase().trim();
-
-        // PASSWORD
         if (isEmpty(body.password) || String(body.password).length < 6) {
-          return res.status(400).json({
-            success: false,
-            message: "Password must be at least 6 characters",
-          });
+          return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
         }
 
-        // DOB
-        if (isEmpty(body.dob)) {
-          return res.status(400).json({
-            success: false,
-            message: "Date of birth is required",
-          });
-        }
+        if (isEmpty(body.dob)) return res.status(400).json({ success: false, message: "Date of birth is required" });
+
+        // Apply Sanitization
+        body.username = username.toLowerCase().trim();
+        body.email = String(body.email).toLowerCase().trim();
       }
 
-     
+      // 4. Registration Step 2 (Verify & Create User)
       if (type === "register") {
-        if (isEmpty(body.email)) {
-          return res.status(400).json({
-            success: false,
-            message: "Email is required",
-          });
-        }
-
-        if (!emailRegex.test(String(body.email))) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid email format",
-          });
+        if (isEmpty(body.email) || isEmpty(body.otp)) {
+          return res.status(400).json({ success: false, message: "Email and OTP are required" });
         }
         body.email = String(body.email).toLowerCase().trim();
-
-        if (isEmpty(body.otp)) {
-          return res.status(400).json({
-            success: false,
-            message: "OTP is required",
-          });
-        }
+        body.otp = String(body.otp).trim();
       }
 
-  
+      // 5. Forgot Password Step 2 (Verify OTP via Spring Bridge)
       if (type === "verifyOtp") {
-        if (isEmpty(body.email)) {
-          return res.status(400).json({
-            success: false,
-            message: "Email is required",
-          });
-        }
-
-        if (!emailRegex.test(String(body.email))) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid email format",
-          });
+        if (isEmpty(body.email) || isEmpty(body.otp)) {
+          return res.status(400).json({ success: false, message: "Email and OTP are required" });
         }
         body.email = String(body.email).toLowerCase().trim();
-
-        if (isEmpty(body.otp)) {
-          return res.status(400).json({
-            success: false,
-            message: "OTP is required",
-          });
-        }
+        body.otp = String(body.otp).trim();
       }
 
-   
+      // 6. Forgot Password Step 3 (Final Reset)
       if (type === "resetPassword") {
-        if (isEmpty(body.email)) {
-          return res.status(400).json({
-            success: false,
-            message: "Email is required",
-          });
-        }
-
-        if (!emailRegex.test(String(body.email))) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid email format",
-          });
+        if (isEmpty(body.email)) return res.status(400).json({ success: false, message: "Email is required" });
+        if (isEmpty(body.newPassword) || String(body.newPassword).length < 6) {
+          return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
         }
         body.email = String(body.email).toLowerCase().trim();
-
-        if (isEmpty(body.newPassword) || String(body.newPassword).length < 6) {
-          return res.status(400).json({
-            success: false,
-            message: "New password must be at least 6 characters",
-          });
-        }
       }
 
-   
-      if (type === "event") {
-        if (isEmpty(body.title) || isEmpty(body.date) || isEmpty(body.time)) {
-          return res.status(400).json({
-            success: false,
-            message: "Title, date, and time are required",
-          });
-        }
-      }
-
-
+      // --- Social / Content Validations ---
       if (type === "post") {
         if (!req.file && isEmpty(body.media)) {
-          return res.status(400).json({
-            success: false,
-            message: "Image or video is required",
-          });
+          return res.status(400).json({ success: false, message: "Media (image/video) is required" });
         }
       }
 
- 
-      if (type === "reel") {
+      if (type === "reel" || type === "story") {
         if (!req.file) {
-          return res.status(400).json({
-            success: false,
-            message: "Video file is required",
-          });
+          return res.status(400).json({ success: false, message: "Video/Media file is required" });
         }
       }
 
-      if (type === "story") {
-        if (!req.file) {
-          return res.status(400).json({
-            success: false,
-            message: "Story media is required",
-          });
-        }
-      }
-
-      if (type === "comment") {
-        if (isEmpty(body.text)) {
-          return res.status(400).json({
-            success: false,
-            message: "Comment cannot be empty",
-          });
-        }
+      if (type === "comment" && isEmpty(body.text)) {
+        return res.status(400).json({ success: false, message: "Comment cannot be empty" });
       }
 
       return next();
     } catch (error) {
-      console.error("VALIDATION ERROR:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Validation failed",
-      });
+      console.error("MIDDLEWARE VALIDATION ERROR:", error);
+      return res.status(500).json({ success: false, message: "Internal validation error" });
     }
   };
 };

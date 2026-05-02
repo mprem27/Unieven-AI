@@ -9,7 +9,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Allows Node.js and Frontend to communicate
 public class AuthController {
 
     @Autowired
@@ -20,163 +20,83 @@ public class AuthController {
         return ResponseEntity.ok(
                 Map.of(
                         "success", true,
-                        "message", "Spring OTP Service Running"
+                        "message", "Spring Boot OTP Service is online"
                 )
         );
     }
 
+    /**
+     * Triggered by Node.js or Frontend to send a reset OTP
+     */
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(
-            @RequestBody Map<String, String> body
-    ) {
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
         try {
+            String email = body.get("email");
 
-            String email =
-                    body.get("email");
-
-            if (
-                    email == null ||
-                    email.trim().isEmpty()
-            ) {
+            if (email == null || email.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(
-                        Map.of(
-                                "success", false,
-                                "message", "Email is required"
-                        )
+                        Map.of("success", false, "message", "Email is required")
                 );
             }
 
-            email =
-                    email.trim()
-                            .toLowerCase();
+            String cleanEmail = email.trim().toLowerCase();
+            System.out.println("Processing forgot-password for: " + cleanEmail);
 
-            System.out.println(
-                    "Forgot password OTP request for: " +
-                    email
-            );
-
-            String response =
-                    authService.forgotPassword(
-                            email
-                    );
+            String response = authService.forgotPassword(cleanEmail);
 
             return ResponseEntity.ok(
-                    Map.of(
-                            "success", true,
-                            "message", response
-                    )
+                    Map.of("success", true, "message", response)
             );
 
         } catch (RuntimeException e) {
-
-            System.out.println(
-                    "Forgot password error: " +
-                    e.getMessage()
-            );
-
+            System.err.println("Forgot password business error: " + e.getMessage());
             return ResponseEntity.status(400).body(
-                    Map.of(
-                            "success", false,
-                            "message", e.getMessage()
-                    )
+                    Map.of("success", false, "message", e.getMessage())
             );
-
         } catch (Exception e) {
-
-            System.out.println(
-                    "Internal forgot password error: " +
-                    e.getMessage()
-            );
-
+            System.err.println("Forgot password system error: " + e.getMessage());
             return ResponseEntity.status(500).body(
-                    Map.of(
-                            "success", false,
-                            "message",
-                            "Internal server error"
-                    )
+                    Map.of("success", false, "message", "Internal server error during OTP generation")
             );
         }
     }
 
+    /**
+     * Triggered by Node.js to verify the OTP and mark user as VERIFIED in DB
+     */
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOtp(
-            @RequestBody Map<String, String> body
-    ) {
+    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> body) {
         try {
+            String email = body.get("email");
+            String otp = body.get("otp");
 
-            String email =
-                    body.get("email");
-
-            String otp =
-                    body.get("otp");
-
-            if (
-                    email == null ||
-                    email.trim().isEmpty() ||
-                    otp == null ||
-                    otp.trim().isEmpty()
-            ) {
+            if (email == null || email.trim().isEmpty() || otp == null || otp.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(
-                        Map.of(
-                                "success", false,
-                                "message",
-                                "Email and OTP are required"
-                        )
+                        Map.of("success", false, "message", "Email and OTP are both required")
                 );
             }
 
-            email =
-                    email.trim()
-                            .toLowerCase();
+            String cleanEmail = email.trim().toLowerCase();
+            String cleanOtp = otp.trim();
 
-            otp =
-                    otp.trim();
+            System.out.println("Verifying OTP for: " + cleanEmail);
 
-            System.out.println(
-                    "OTP verification request for: " +
-                    email
-            );
+            String response = authService.verifyOTP(cleanEmail, cleanOtp);
 
-            String response =
-                    authService.verifyOTP(
-                            email,
-                            otp
-                    );
-
+            // Important: This returns success: true which Node.js looks for
             return ResponseEntity.ok(
-                    Map.of(
-                            "success", true,
-                            "message", response
-                    )
+                    Map.of("success", true, "message", response)
             );
 
         } catch (RuntimeException e) {
-
-            System.out.println(
-                    "OTP verification error: " +
-                    e.getMessage()
-            );
-
+            System.err.println("OTP Verification failed: " + e.getMessage());
             return ResponseEntity.status(400).body(
-                    Map.of(
-                            "success", false,
-                            "message", e.getMessage()
-                    )
+                    Map.of("success", false, "message", e.getMessage())
             );
-
         } catch (Exception e) {
-
-            System.out.println(
-                    "Internal OTP verification error: " +
-                    e.getMessage()
-            );
-
+            System.err.println("Internal OTP error: " + e.getMessage());
             return ResponseEntity.status(500).body(
-                    Map.of(
-                            "success", false,
-                            "message",
-                            "Internal server error"
-                    )
+                    Map.of("success", false, "message", "Internal server error during verification")
             );
         }
     }
