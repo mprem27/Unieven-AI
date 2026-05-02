@@ -33,24 +33,25 @@ function ForgotPassword() {
       });
 
       const data = res.data;
-      const message = typeof data === "string" ? data : data?.message;
-
-      if (message === "OTP sent to email") {
-        toast.success("Verification code sent!");
+      
+      // ✅ FIX: Check the 'success' boolean from the backend instead of an exact string match
+      if (data?.success) {
+        // Display the actual success message from the backend in a green toast
+        toast.success(data?.message || "Verification code sent!");
         
         navigate("/verify-otp", {
           replace: true, 
           state: { email: cleanEmail },
         });
       } else {
-        toast.error(message || "Something went wrong");
+        toast.error(data?.message || "Something went wrong");
       }
     } catch (error) {
       console.error("SEND OTP ERROR:", error?.response?.data || error);
 
       toast.error(
         error.response?.data?.message ||
-        error.response?.data ||
+        error.message ||
         "Server error. Please try again later."
       );
     } finally {
