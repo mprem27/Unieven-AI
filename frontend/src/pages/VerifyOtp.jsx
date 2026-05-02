@@ -42,9 +42,10 @@ function VerifyOtp() {
 
       const data = res.data;
 
-      // Handle both string and object responses
-      if (data === "OTP verified" || data?.message === "OTP verified") {
-        toast.success("Email verified successfully!");
+      // ✅ FIX: Check the 'success' boolean from the backend instead of exact string matching
+      if (data?.success) {
+        // Show green toast with the backend message (or fallback)
+        toast.success(data?.message || "Email verified successfully!");
 
         // 🟦 STEP 2: SAFE NAVIGATION
         navigate("/reset-password", {
@@ -52,18 +53,19 @@ function VerifyOtp() {
           state: { email: email.toLowerCase().trim() },
         });
 
-      } else if (data === "Invalid OTP" || data?.message === "Invalid OTP") {
-        toast.error("Incorrect verification code");
-      } else if (data === "OTP expired" || data?.message === "OTP expired") {
-        toast.error("OTP expired. Request again");
       } else {
-        toast.error(data?.message || data || "Verification failed");
+        // Show red toast with specific backend error (e.g., "OTP expired", "Invalid OTP")
+        toast.error(data?.message || "Verification failed");
       }
 
     } catch (error) {
       // 🟦 STEP 6: BETTER ERROR LOGGING
       console.error("VERIFY OTP ERROR:", error?.response?.data || error);
-      toast.error(error.response?.data?.message || "Server error");
+      toast.error(
+        error.response?.data?.message || 
+        error.message || 
+        "Server error"
+      );
     } finally {
       setLoading(false);
     }
@@ -80,12 +82,17 @@ function VerifyOtp() {
     
     setResending(true);
     try {
-      await AUTH_API.post("/auth/forgot-password", {
+      const res = await AUTH_API.post("/auth/forgot-password", {
         email: email.toLowerCase().trim(),
       });
-      toast.success("OTP resent successfully");
-      setTimeLeft(60); // Reset timer
-      setOtp(""); // Clear OTP input
+      
+      if (res.data?.success) {
+        toast.success(res.data?.message || "OTP resent successfully");
+        setTimeLeft(60); // Reset timer
+        setOtp(""); // Clear OTP input
+      } else {
+        toast.error(res.data?.message || "Failed to resend OTP");
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to resend OTP");
     } finally {
