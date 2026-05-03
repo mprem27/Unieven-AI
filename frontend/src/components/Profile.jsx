@@ -243,7 +243,6 @@ function Profile() {
           {/* ================= INSTAGRAM STYLE HEADER ================= */}
           <header className="px-4 py-6 md:py-10 flex flex-col gap-4 md:gap-5 bg-white shrink-0">
             
-            {/* 🔥 FIX: Changed to flex-row for all devices so it stays side-by-side */}
             <div className="flex flex-row items-center gap-6 md:gap-14 w-full">
               <div className="relative shrink-0">
                 <div className={`w-[80px] h-[80px] md:w-[150px] md:h-[150px] rounded-full p-[2px] md:p-[4px] ${
@@ -342,20 +341,29 @@ function Profile() {
           </div>
 
           {/* ================= SCROLLABLE GRID CONTENT ================= */}
-          {/* GRID CONTENT WRAPPER FIX */}
           <div id="profile-grid-section" className="w-full bg-white">
-            {/* GRID SECTION HEIGHT FIX */}
             <div className="grid grid-cols-3 gap-[1px] md:gap-4 mt-1 md:mt-4 md:px-4 pb-28">
               {currentDisplayList.length > 0 ? (
                 currentDisplayList.map((post) => {
                   const isVideo = post.mediaType === "video" || post.type === "video" || post.video || post.feedItemType === "reel";
-                  const mediaSrc = post.mediaUrl || post.media || post.image || post.video;
+                  
+                  // 🔥 FIX: Prioritize video sources first. If post.image had a placeholder, it was hiding the reel video!
+                  const mediaSrc = post.video || post.mediaUrl || post.media || post.image;
                   
                   return (
                     <div key={post._id} onClick={() => setSelectedPost(post)} className="relative aspect-square overflow-hidden cursor-pointer bg-gray-100 group">
                       
                       {isVideo ? (
-                        <video src={mediaSrc} poster="/fallback-post.jpg" className="w-full h-full object-cover" muted playsInline />
+                        // 🔥 FIX: Added autoPlay, loop, and preload so reels are visible in the grid instead of a blank frame
+                        <video 
+                          src={mediaSrc} 
+                          className="w-full h-full object-cover" 
+                          autoPlay 
+                          loop 
+                          muted 
+                          playsInline 
+                          preload="metadata"
+                        />
                       ) : (
                         <img 
                           src={mediaSrc || "/fallback-post.jpg"} 
@@ -425,7 +433,6 @@ function Profile() {
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4">
           <div className="absolute inset-0" onClick={() => setSelectedPost(null)}></div>
           
-          {/* MODAL RESPONSIVE FIX */}
           <div className="bg-white md:rounded-2xl rounded-t-2xl w-full max-w-[95vw] md:max-w-[650px] max-h-[95vh] flex flex-col overflow-hidden relative z-10 animate-in slide-in-from-bottom duration-300">
             
             <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto my-3 md:hidden"></div>
@@ -441,10 +448,11 @@ function Profile() {
             {/* MODAL MEDIA FIX */}
             <div className="w-full bg-[#0a0a0a] aspect-square max-h-[70vh] overflow-hidden shrink-0 relative flex items-center justify-center">
               {selectedPost.type === "video" || selectedPost.mediaType === "video" || selectedPost.feedItemType === "reel" ? (
-                 <video src={selectedPost.mediaUrl || selectedPost.media || selectedPost.video} className="w-full h-full object-contain" autoPlay loop muted controls playsInline />
+                 // 🔥 FIX: Same priority fix for modal view
+                 <video src={selectedPost.video || selectedPost.mediaUrl || selectedPost.media} className="w-full h-full object-contain" autoPlay loop muted controls playsInline />
               ) : (
                  <img 
-                    src={selectedPost.mediaUrl || selectedPost.media || selectedPost.image || "/fallback-post.jpg"} 
+                    src={selectedPost.image || selectedPost.mediaUrl || selectedPost.media || "/fallback-post.jpg"} 
                     onError={(e) => { e.target.src = "https://placehold.co/600x600/eeeeee/999999?text=No+Image" }}
                     className="w-full h-full object-contain" 
                     alt="" 
@@ -473,7 +481,6 @@ function Profile() {
               )}
             </div>
 
-            {/* MODAL CONTENT SCROLL FIX */}
             <div className="p-4 overflow-y-auto max-h-[25vh] md:max-h-[20vh]">
               <p className="text-sm leading-relaxed mb-4">
                 <span className="font-bold mr-2">{selectedPost.user?.username || currentUser.username}</span>

@@ -51,7 +51,10 @@ export const createPost = async (req, res) => {
       bgGradient,
     } = req.body;
 
-    const file = req.file;
+    const file =
+      req.files?.media?.[0] ||
+      req.files?.image?.[0] ||
+      req.files?.file?.[0];
 
     if (!file) {
       return res.status(400).json({
@@ -635,7 +638,7 @@ export const deletePost = async (
           {
             resource_type:
               post.type ===
-              "video"
+                "video"
                 ? "video"
                 : "image",
           }

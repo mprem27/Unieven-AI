@@ -33,7 +33,11 @@ router.post(
   "/create",
   authMiddleware,
   postLimiter,
-  uploadAny.single("media"),
+ uploadAny.fields([
+  { name: "media", maxCount: 1 },
+  { name: "image", maxCount: 1 },
+  { name: "file", maxCount: 1 }
+]),
   validateRequest("post"),
   asyncHandler(createPost)
 );

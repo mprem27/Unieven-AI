@@ -90,7 +90,10 @@ export const validateRequest = (type) => {
       // --- Social / Content Validations ---
       if (type === "post") {
         if (!req.file && isEmpty(body.media)) {
-          return res.status(400).json({ success: false, message: "Media (image/video) is required" });
+          return res.status(400).json({
+            success: false,
+            message: "Media (image/video) is required"
+          });
         }
       }
 

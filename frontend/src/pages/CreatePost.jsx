@@ -7,10 +7,10 @@ import Loader from "../components/Loader";
 import { toast } from "react-toastify";
 import { 
   FaMapMarkerAlt, FaHashtag, FaArrowLeft, FaImages,
-  FaFont, FaUserTag, FaMagic
+  FaFont, FaUserTag, FaMagic, FaLink 
 } from "react-icons/fa";
 
-// 🔥 STEP 1: ADD FONT MAP
+// 🔥 FONT MAP
 const fontMap = {
   classic: "font-sans font-bold",
   typewriter: "font-serif italic",
@@ -25,8 +25,6 @@ function CreatePost() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  
-  // 🔥 STEP 4: ADD previewRef
   const previewRef = useRef(null);
 
   // States
@@ -40,11 +38,12 @@ function CreatePost() {
   const [location, setLocation] = useState("");
   const [tags, setTags] = useState("");
   const [mentions, setMentions] = useState(""); 
+  const [link, setLink] = useState("");
   const [isPublic, setIsPublic] = useState(true); 
   const [activeFilter, setActiveFilter] = useState("none");
-  const [bgGradient, setBgGradient] = useState("from-gray-900 to-black"); // 🔥 STEP 9
+  const [bgGradient, setBgGradient] = useState("from-gray-900 to-black"); 
 
-  // 🔥 STEP 2: CHANGE STATE NAMES
+  // Text Overlay States
   const [overlayText, setOverlayText] = useState("");
   const [textFont, setTextFont] = useState("classic");
   const [textColor, setTextColor] = useState("#ffffff");
@@ -66,18 +65,10 @@ function CreatePost() {
     { label: "Sleek", value: "sleek" }
   ];
 
-  // 🔥 STEP 5: ADD TEXT STYLE OPTIONS
   const styleOptions = [
-    "classic",
-    "highlight",
-    "neon",
-    "outline",
-    "glitch",
-    "3d-pop",
-    "elegant"
+    "classic", "highlight", "neon", "outline", "glitch", "3d-pop", "elegant"
   ];
 
-  // 🔥 STEP 8: FILTER SYSTEM UPGRADE
   const filters = [
     { name: "none", filter: "none" },
     { name: "grayscale", filter: "grayscale(100%)" },
@@ -115,12 +106,12 @@ function CreatePost() {
   }, [preview]);
 
   const processFile = (selectedFile) => {
-    if (selectedFile?.type.startsWith("image/")) {
+    if (selectedFile?.type.startsWith("image/") || selectedFile?.type.startsWith("video/")) {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       setTextPos({ x: 0, y: 0 });
     } else {
-      toast.error("Please select a valid image");
+      toast.error("Please select a valid image or video");
     }
   };
 
@@ -139,36 +130,63 @@ function CreatePost() {
   };
 
   const handleSubmit = async () => {
-    if (!file) return toast.error("Image is required!");
+    if (!file) return toast.error("Media is required!");
+    if (!(file instanceof File || file instanceof Blob)) {
+        return toast.error("Invalid file type. Please re-select the image.");
+    }
+    
     setLoading(true);
+
     try {
       const formData = new FormData();
+      
+      // 🔥 FIX 1: Append file under multiple common field names to ensure Multer catches it
       formData.append("media", file);
-      formData.append("caption", caption);
-      formData.append("isPublic", isPublic);
+      formData.append("image", file);
+      formData.append("file", file);
+      
+      formData.append("caption", caption.trim());
+      formData.append("isPublic", isPublic ? "true" : "false"); 
       
       const filterString = filters.find(f => f.name === activeFilter)?.filter || "none";
       formData.append("filter", filterString);
       formData.append("bgGradient", bgGradient);
       
-      if (location.trim()) formData.append("location", location);
-      if (tags.trim()) formData.append("tags", JSON.stringify(tags.split(",").map(t => t.trim())));
-      if (mentions.trim()) formData.append("mentions", JSON.stringify(mentions.split(",").map(m => m.trim())));
+      if (location.trim()) formData.append("location", location.trim());
       
-      // 🔥 STEP 1 & 3: RENAME FIELDS & NORMALIZE POSITION
+      // 🔥 FIX 2: Ensure valid URL protocol
+      if (link.trim()) {
+        let formattedLink = link.trim();
+        if (!/^https?:\/\//i.test(formattedLink)) {
+          formattedLink = `https://${formattedLink}`;
+        }
+        formData.append("link", formattedLink);
+      }
+      
+      // 🔥 FIX 3: Stringify arrays so FormData doesn't corrupt the backend parser
+      if (tags.trim()) {
+        const cleanTags = tags.split(",").map(t => t.trim().replace(/^#/, '')).filter(Boolean);
+        if (cleanTags.length > 0) formData.append("tags", JSON.stringify(cleanTags));
+      }
+      if (mentions.trim()) {
+        const cleanMentions = mentions.split(",").map(m => m.trim().replace(/^@/, '')).filter(Boolean);
+        if (cleanMentions.length > 0) formData.append("mentions", JSON.stringify(cleanMentions));
+      }
+      
+      // 🔥 TEXT OVERLAY DATA
       if (overlayText.trim()) {
         let normalizedX = 0.5;
         let normalizedY = 0.5;
 
-        if (previewRef.current) {
+        // Safely calculate position
+        if (previewRef.current && previewRef.current.clientWidth > 0 && previewRef.current.clientHeight > 0) {
           const container = previewRef.current;
-          // Constrain coordinates strictly between 0 and 1
           normalizedX = Math.max(0, Math.min(1, (textPos.x + container.clientWidth / 2) / container.clientWidth));
           normalizedY = Math.max(0, Math.min(1, (textPos.y + container.clientHeight / 2) / container.clientHeight));
         }
 
-        formData.append("text", overlayText); // Storing as 'text' matching stories/reels standard
-        formData.append("overlayText", overlayText); // Keeping for legacy support
+        formData.append("text", overlayText.trim()); 
+        formData.append("overlayText", overlayText.trim());
         formData.append("textFont", textFont);
         formData.append("textColor", textColor);
         formData.append("textStyle", textStyle);
@@ -181,8 +199,15 @@ function CreatePost() {
       toast.success("Post Published! 🎉");
       window.dispatchEvent(new Event("profileUpdated")); // Global Sync
       navigate("/profile");
+      
     } catch (err) {
-      toast.error("Upload failed.");
+      console.error("CREATE POST ERROR:", err);
+      // 🔥 Better error handling for network drops
+      if (err.message === "Network Error" || err.code === "ERR_CONNECTION_CLOSED") {
+         toast.error("Network error: Connection to the server was lost. Please check your internet and try again.");
+      } else {
+         toast.error(err?.response?.data?.message || err.message || "Upload failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -218,9 +243,9 @@ function CreatePost() {
                 <FaImages size={60} className="mx-auto text-gray-200 mb-4 sm:mb-6" />
                 <h2 className="text-lg sm:text-2xl font-black text-gray-800 mb-2">Capture the Vibe</h2>
                 <p className="text-[10px] sm:text-xs text-gray-400 mb-6 sm:mb-8 font-bold uppercase tracking-widest leading-relaxed">Drag and drop high-res images here</p>
-                <button onClick={() => fileInputRef.current.click()} className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs tracking-widest active:scale-95 transition-all shadow-lg shadow-blue-200">BROWSE DEVICE</button>
+                <button type="button" onClick={() => fileInputRef.current.click()} className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs tracking-widest active:scale-95 transition-all shadow-lg shadow-blue-200">BROWSE DEVICE</button>
               </div>
-              <input type="file" ref={fileInputRef} onChange={(e) => processFile(e.target.files[0])} accept="image/*" className="hidden" onClick={(e) => (e.target.value = null)} />
+              <input type="file" ref={fileInputRef} onChange={(e) => processFile(e.target.files[0])} accept="image/*,video/*" className="hidden" onClick={(e) => (e.target.value = null)} />
             </div>
           ) : (
             <>
@@ -231,14 +256,13 @@ function CreatePost() {
                 onMouseMove={handlePointerMove} onTouchMove={handlePointerMove} onMouseUp={() => setIsDraggingText(false)} onTouchEnd={() => setIsDraggingText(false)}
               >
                 
-                <img 
-                  src={preview} 
-                  className="w-full h-full object-contain pointer-events-none select-none transition-all duration-500" 
-                  style={{ filter: filters.find(f => f.name === activeFilter)?.filter || "none" }}
-                  alt="Preview" 
-                />
+                {file?.type?.startsWith("video/") ? (
+                  <video src={preview} className="w-full h-full object-contain pointer-events-none select-none transition-all duration-500" style={{ filter: filters.find(f => f.name === activeFilter)?.filter || "none" }} autoPlay loop muted playsInline />
+                ) : (
+                  <img src={preview} className="w-full h-full object-contain pointer-events-none select-none transition-all duration-500" style={{ filter: filters.find(f => f.name === activeFilter)?.filter || "none" }} alt="Preview" />
+                )}
                 
-                {/* 🔥 STEP 7: PREVIEW EXACTLY MATCHES FINAL */}
+                {/* TEXT OVERLAY PREVIEW */}
                 {overlayText && (
                   <div 
                     onMouseDown={handlePointerDown} 
@@ -256,10 +280,11 @@ function CreatePost() {
                   </div>
                 )}
 
+                {/* FILTER SELECTOR */}
                 <div className="absolute bottom-4 left-4 right-4 flex gap-2 overflow-x-auto scrollbar-hide bg-black/40 backdrop-blur-xl p-2 rounded-2xl border border-white/10 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                     <FaMagic className="text-white/50 m-2 shrink-0" />
                     {filters.map(f => (
-                        <button key={f.name} onClick={() => setActiveFilter(f.name)} className={`px-3 py-1 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${activeFilter === f.name ? 'bg-white text-black' : 'text-white/70 hover:bg-white/10'}`}>{f.name}</button>
+                        <button type="button" key={f.name} onClick={() => setActiveFilter(f.name)} className={`px-3 py-1 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${activeFilter === f.name ? 'bg-white text-black' : 'text-white/70 hover:bg-white/10'}`}>{f.name}</button>
                     ))}
                 </div>
               </div>
@@ -275,6 +300,7 @@ function CreatePost() {
                 </div>
 
                 <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 pb-12 flex-1">
+                  
                   {/* CAPTION */}
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Caption</label>
@@ -304,18 +330,16 @@ function CreatePost() {
                       <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
                           {fontOptions.map(f => (
-                            <button key={f.value} onClick={() => setTextFont(f.value)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textFont === f.value ? "bg-white text-black" : "bg-white/10 text-white"}`}>{f.label}</button>
+                            <button type="button" key={f.value} onClick={() => setTextFont(f.value)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textFont === f.value ? "bg-white text-black" : "bg-white/10 text-white"}`}>{f.label}</button>
                           ))}
                         </div>
                         
-                        {/* 🔥 STEP 5: TEXT STYLES */}
                         <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
                           {styleOptions.map(s => (
-                            <button key={s} onClick={() => setTextStyle(s)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textStyle === s ? "bg-blue-500 text-white" : "bg-white/10 text-white"}`}>{s.replace("-", " ")}</button>
+                            <button type="button" key={s} onClick={() => setTextStyle(s)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textStyle === s ? "bg-blue-500 text-white" : "bg-white/10 text-white"}`}>{s.replace("-", " ")}</button>
                           ))}
                         </div>
 
-                        {/* 🔥 STEP 6: TEXT SIZE */}
                         <div className="pt-2 flex items-center gap-3">
                            <span className="text-[9px] text-white/50 font-black uppercase">Size</span>
                            <input type="range" min="16" max="80" value={textSize} onChange={(e) => setTextSize(Number(e.target.value))} className="w-full accent-blue-500" />
@@ -323,7 +347,7 @@ function CreatePost() {
 
                         <div className="flex gap-3 justify-center pt-3 border-t border-white/5 mt-2">
                           {colors.map(c => (
-                            <button key={c} onClick={() => setTextColor(c)} className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-4 transition-transform active:scale-75 ${textColor === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-60 hover:opacity-100"}`} style={{ backgroundColor: c }}></button>
+                            <button type="button" key={c} onClick={() => setTextColor(c)} className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-4 transition-transform active:scale-75 ${textColor === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-60 hover:opacity-100"}`} style={{ backgroundColor: c }}></button>
                           ))}
                         </div>
                       </div>
@@ -335,6 +359,10 @@ function CreatePost() {
                     <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 sm:py-4 rounded-2xl border border-gray-100 focus-within:bg-white transition-all">
                        <FaMapMarkerAlt className="text-gray-900" size={14} />
                        <input placeholder="LOCATION" value={location} onChange={(e) => setLocation(e.target.value)} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-bold uppercase tracking-widest" />
+                    </div>
+                    <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 sm:py-4 rounded-2xl border border-gray-100 focus-within:bg-white transition-all">
+                       <FaLink className="text-gray-900" size={14} />
+                       <input type="url" placeholder="ADD A LINK (https://...)" value={link} onChange={(e) => setLink(e.target.value)} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-bold uppercase tracking-widest" />
                     </div>
                     <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 sm:py-4 rounded-2xl border border-gray-100 focus-within:bg-white transition-all">
                        <FaHashtag className="text-gray-900" size={14} />
