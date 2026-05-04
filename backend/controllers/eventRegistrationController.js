@@ -5,7 +5,10 @@ import QRCode from "qrcode";
 import crypto from "crypto";
 import { Parser } from "json2csv";
 
-// 🔥 IMPORT YOUR NEW EMAIL UTILITY HERE
+// 🔥 CLOUDINARY IMPORT FOR QR IMAGE HOSTING
+import cloudinary from "../configs/cloudinary.js";
+
+// 🔥 EMAIL UTILITY IMPORT
 import { sendEventRegistrationEmail } from "../utils/sendEventEmail.js";
 
 // ==================================================
@@ -107,15 +110,16 @@ export const registerEvent = async (req, res) => {
       qrToken,
     };
 
-    // Prevent Empty String Crash (From our previous fix)
+    // Prevent Empty String Crash
     if (yearOfStudy !== undefined && yearOfStudy !== null && !isNaN(yearOfStudy)) {
       regPayload.yearOfStudy = Number(yearOfStudy);
     }
 
+    // Create the registration in the Database first
     const registration = await eventRegistrationModel.create(regPayload);
 
     // ==========================================
-    // QR CODE DATA
+    // 🔥 GENERATE & UPLOAD QR CODE TO CLOUDINARY
     // ==========================================
     const qrPayload = JSON.stringify({
       registrationId: registration._id,
@@ -124,26 +128,33 @@ export const registerEvent = async (req, res) => {
       qrToken,
     });
 
-    registration.qrCode = await QRCode.toDataURL(qrPayload);
+    // 1. Generate base64 QR Code
+    const qrBase64 = await QRCode.toDataURL(qrPayload);
+
+    // 2. Upload to Cloudinary
+    const uploadRes = await cloudinary.uploader.upload(qrBase64, {
+      folder: "event_qr",
+    });
+
+    // 3. Save secure Cloudinary URL back to the DB record
+    registration.qrCode = uploadRes.secure_url;
     await registration.save();
 
     // ==========================================
-    // 📧 SEND EMAIL TO FORM EMAIL (WITH QR)
+    // 📧 SEND EMAIL TO FORM EMAIL (WITH CLOUDINARY QR)
     // ==========================================
     try {
       await sendEventRegistrationEmail({
-        email: email, // From req.body (form email)
+        email: email, 
         name: req.user.name || "Student",
         eventName: event.title,
         eventDate: event.date,
         location: event.location,
-        qrCodeDataUrl: registration.qrCode, // Embed the generated QR
+        qrCodeDataUrl: registration.qrCode, // ✅ Secure Cloudinary URL embedded
       });
       console.log("Registration email sent successfully to:", email);
     } catch (emailErr) {
       console.error("Failed to send QR email. Registration still saved.", emailErr);
-      // We don't throw an error here because we don't want the database registration 
-      // to fail just because the email API had a temporary glitch.
     }
 
     // ==========================================
