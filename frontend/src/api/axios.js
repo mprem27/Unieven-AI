@@ -1,18 +1,25 @@
 import axios from "axios";
 
+// ======================================================
+//  AXIOS INSTANCE
+// ======================================================
 const API = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
-    "https://unieven-ai.onrender.com/api", // Node.js Server URL
-  timeout: 30000, // Increased timeout for cross-server calls
+    "https://unieven-ai.onrender.com/api",
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Helper to manage tokens
+// ======================================================
+//  TOKEN HELPERS
+// ======================================================
 const saveToken = (token) => {
-  if (token) localStorage.setItem("token", token);
+  if (token) {
+    localStorage.setItem("token", token);
+  }
 };
 
 const clearToken = () => {
@@ -22,57 +29,84 @@ const clearToken = () => {
 
 const getToken = () => localStorage.getItem("token");
 
-// Request Interceptor: Attach JWT to every request
+// ======================================================
+//  REQUEST INTERCEPTOR
+// ======================================================
 API.interceptors.request.use(
   (config) => {
     const token = getToken();
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle Global Errors (like 401 Unauthorized)
+// ======================================================
+//  RESPONSE INTERCEPTOR (IMPROVED 🔥)
+// ======================================================
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // 🔥 NETWORK ERROR (server down / CORS / timeout)
+    if (!error.response) {
+      console.error("🌐 NETWORK ERROR:", error.message);
+      return Promise.reject({
+        success: false,
+        message: "Server not reachable. Try again later.",
+      });
+    }
+
+    const status = error.response.status;
+
+    //  HANDLE 401 (ONLY IF TOKEN EXISTS)
+    if (status === 401 && getToken()) {
+      console.warn("⚠️ Unauthorized → Logging out");
+
       clearToken();
+
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
     }
+
     return Promise.reject(error);
   }
 );
 
-/**
- * Enhanced error handler to extract messages from the backend
- */
+// ======================================================
+//  GLOBAL ERROR HANDLER
+// ======================================================
 const handleError = (error, fallbackMessage) => {
   const message =
-    error.response?.data?.message || 
-    error.message || 
+    error?.response?.data?.message ||
+    error?.message ||
     fallbackMessage;
 
   console.error("🌐 API ERROR:", message);
 
   throw {
     success: false,
-    message: message,
+    message,
   };
 };
 
 // ======================================================
-// 🔐 AUTH API CALLS
+//  AUTH API CALLS
 // ======================================================
 
 export const login = async (formData) => {
   try {
     const { data } = await API.post("/auth/login", formData);
-    saveToken(data?.token);
+
+    // ✅ Save token safely
+    if (data?.token) {
+      saveToken(data.token);
+    }
+
     return data;
   } catch (error) {
     handleError(error, "Login failed");
@@ -91,7 +125,12 @@ export const sendRegisterOtp = async (formData) => {
 export const register = async (formData) => {
   try {
     const { data } = await API.post("/auth/register", formData);
-    saveToken(data?.token);
+
+    //  Save token after register
+    if (data?.token) {
+      saveToken(data.token);
+    }
+
     return data;
   } catch (error) {
     handleError(error, "Registration failed");
@@ -108,7 +147,7 @@ export const getMe = async () => {
 };
 
 // ======================================================
-// 🔄 FORGOT PASSWORD API CALLS (Bridged to Spring Boot)
+//  FORGOT PASSWORD (SPRING BRIDGE)
 // ======================================================
 
 export const forgotPassword = async (email) => {
@@ -146,6 +185,12 @@ export const resetPassword = async (email, newPassword) => {
   }
 };
 
-export const logout = () => clearToken();
+// ======================================================
+//  LOGOUT
+// ======================================================
+export const logout = () => {
+  clearToken();
+  window.location.href = "/login"; // 🔥 ensure redirect
+};
 
 export default API;
