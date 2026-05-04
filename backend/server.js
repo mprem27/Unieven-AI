@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 
 // CONFIGS
 import connectDB from "./configs/mongodb.js";
-import connectCloudinary from "./configs/cloudinary.js";
+import "./configs/cloudinary.js"; 
 
 // ROUTES
 import authRoutes from "./routes/authRoutes.js";
@@ -19,7 +19,7 @@ import eventRegistrationRoutes from "./routes/eventRegistrationRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 
-//  CRON JOBS
+// CRON JOBS
 import "./jobs/reminderJob.js";
 
 // MIDDLEWARES
@@ -31,26 +31,27 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 4000;
 
-// CONNECT DB + CLOUDINARY
+// =====================================================
+//  CONNECT DATABASE
+// =====================================================
 connectDB();
-connectCloudinary();
 
-// ==========================================
-//  GLOBAL MIDDLEWARE
-// ==========================================
+// =====================================================
+//  CORS CONFIG (FIXED)
+// =====================================================
 app.use(
   cors({
     origin: (origin, callback) => {
-      // allow Postman / mobile apps
       if (!origin) return callback(null, true);
 
-      // allow localhost (development)
       if (origin.includes("localhost")) {
         return callback(null, true);
       }
 
-      // allow ALL Vercel deployments (preview + production)
-      if (origin.endsWith(".vercel.app") || origin.endsWith(".onrender.com")) {
+      if (
+        origin.endsWith(".vercel.app") ||
+        origin.endsWith(".onrender.com")
+      ) {
         return callback(null, true);
       }
 
@@ -62,25 +63,31 @@ app.use(
   })
 );
 
-//  Handle preflight requests (FIXED: Now allows all routes, preventing 401s on new endpoints)
-app.options("/", cors());
+//  REMOVE OLD LINE
+// app.options("/", cors());
 
-//  BODY PARSER (Updated limit to handle Base64 QR Codes and Images)
+// =====================================================
+//  BODY PARSER
+// =====================================================
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-//  DEBUG LOGGER (Highly recommended for tracking API flow)
+// =====================================================
+//  DEBUG LOGGER
+// =====================================================
 app.use((req, res, next) => {
   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// RATE LIMIT
+// =====================================================
+//  RATE LIMIT
+// =====================================================
 app.use("/api", apiLimiter);
 
-// ==========================================
-// 🚀 MOUNT ROUTES
-// ==========================================
+// =====================================================
+//  ROUTES
+// =====================================================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
@@ -93,17 +100,21 @@ app.use("/api/event-registration", eventRegistrationRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/search", searchRoutes);
 
-// ROOT ROUTE
+// =====================================================
+//  ROOT ROUTE
+// =====================================================
 app.get("/", (req, res) => {
-  res.send("UniEven API is running...");
+  res.send(" UniEven API is running...");
 });
 
-// ERROR HANDLER
+// =====================================================
+//  ERROR HANDLER
+// =====================================================
 app.use(errorMiddleware);
 
-// ==========================================
-// 🌍 START SERVER
-// ==========================================
+// =====================================================
+//  START SERVER
+// =====================================================
 app.listen(port, () => {
   console.log(` Server running on port ${port}`);
   console.log(` Reminder Cron Job initialized!`);

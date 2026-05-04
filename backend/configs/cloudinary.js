@@ -1,17 +1,16 @@
 import { v2 as cloudinary } from "cloudinary";
+import dotenv from "dotenv";
 
-const connectCloudinary = async () => {
-  try {
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_SECRET_KEY,
-    });
+dotenv.config();
 
-    console.log("Cloudinary Connected");
-  } catch (error) {
-    console.error("Cloudinary Connection Error:", error);
-  }
-};
+// 🔥 configure immediately
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET_KEY,
+});
 
-export default connectCloudinary;
+console.log("Cloudinary Connected");
+
+// ✅ export cloudinary object
+export default cloudinary;
