@@ -7,6 +7,8 @@ import { getFeed, likePost, deletePost, savePost, unsavePost } from "../services
 import { getReels, likeReel, deleteReel, saveReel, unsaveReel } from "../services/reelService";
 import { getStories } from "../services/storyService";
 import { getSuggestedUsers } from "../services/userService";
+// 🔥 FIX 1: Import the event services so we can actually fetch and delete events!
+import { getAllEvents, deleteEvent } from "../services/eventService"; 
 import Suggestions from "../components/Suggestions";
 import { Assets } from "../assets/Assets";
 import Loader from "../components/Loader";
@@ -111,8 +113,9 @@ function Feed() {
   const loadFeedData = async () => {
     try {
       setLoading(true);
-      let [postsRes, reelsRes, storiesRes, usersRes] = await Promise.allSettled([
-        getFeed(), getReels(), getStories(), getSuggestedUsers()
+      // 🔥 FIX 2: Added getAllEvents() to the Promise payload
+      let [postsRes, reelsRes, eventsRes, storiesRes, usersRes] = await Promise.allSettled([
+        getFeed(), getReels(), getAllEvents(), getStories(), getSuggestedUsers()
       ]);
 
       const fetchedPosts = (postsRes.status === "fulfilled" ? (postsRes.value?.posts || postsRes.value?.data || []) : [])
@@ -135,7 +138,24 @@ function Feed() {
           isSaved: r.savedBy?.includes(user?._id) || user?.savedReels?.includes(r._id) || false
         }));
 
-      const sortedFeed = [...fetchedPosts, ...fetchedReels].sort((a, b) => 
+      // 🔥 FIX 3: Map fetched events so they match your Feed's post structure perfectly
+      const fetchedEvents = (eventsRes.status === "fulfilled" ? (eventsRes.value?.events || eventsRes.value?.data || []) : [])
+        .filter((e) => e.createdBy?._id)
+        .map(e => ({
+          ...e,
+          user: e.createdBy || {}, // Map createdBy to user
+          feedItemType: "event",
+          isEvent: true,
+          media: e.image || "/default-event.jpg",
+          caption: e.description || e.title, // Use description as the caption
+          type: "image",
+          isSaved: false,
+          comments: e.comments || [], // Ensure safe array
+          likes: e.likes || [] // Ensure safe array
+        }));
+
+      // Merge Posts, Reels, and Events!
+      const sortedFeed = [...fetchedPosts, ...fetchedReels, ...fetchedEvents].sort((a, b) => 
         new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now())
       );
 
@@ -151,29 +171,22 @@ function Feed() {
         const isEventPost = item.isEvent === true || String(item.isEvent) === "true";
 
         if (isEventPost) {
-          // 🔥 FIX: Hide old/broken events that don't have a date set
           if (!item.date) return false;
-
+          
           try {
-            // 🔥 FIX: Precisely merge date and time to avoid timezone shift errors
-            const datePart = typeof item.date === 'string' && item.date.includes("T") 
-              ? item.date.split("T")[0] 
-              : new Date(item.date).toISOString().split("T")[0];
-              
-            const timePart = item.time || "23:59:59";
-            const eventDateTime = new Date(`${datePart}T${timePart}`);
-
+            // 🔥 FIX 4: Simpler, safer date logic to avoid timezone crashes
+            const expiryDate = new Date(item.date);
+            if (isNaN(expiryDate.getTime())) return false; // Hide if invalid format
+            
             // Add 2 days buffer
-            const expiryDate = new Date(eventDateTime);
             expiryDate.setDate(expiryDate.getDate() + 2);
-
             return now <= expiryDate;
           } catch (e) {
-            return false; // Hide if date is fundamentally unparseable
+            return false; 
           }
         }
 
-        return true; // Keep standard posts and reels
+        return true; 
       });
 
       setPosts(filteredFeed);
@@ -254,7 +267,11 @@ function Feed() {
     } : p));
 
     try {
-      item.feedItemType === "reel" ? await likeReel(id) : await likePost(id);
+      if (item.feedItemType === "reel") {
+        await likeReel(id);
+      } else if (item.feedItemType !== "event") {
+        await likePost(id);
+      }
     } catch { 
       loadFeedData(); 
     }
@@ -306,7 +323,7 @@ function Feed() {
           await saveReel(id);
           toast.success("Reel saved to profile");
         }
-      } else {
+      } else if (item.feedItemType !== "event") {
         if (isCurrentlySaved) {
           await unsavePost(id);
           toast.info("Removed from saved");
@@ -332,8 +349,11 @@ function Feed() {
     setIsDeleting(true);
     
     try {
+      // 🔥 FIX 5: Make sure deleteEvent is called for events
       if (itemToDelete.feedItemType === "reel" || itemToDelete.video) {
         await deleteReel(itemToDelete._id);
+      } else if (itemToDelete.feedItemType === "event" || itemToDelete.isEvent) {
+        await deleteEvent(itemToDelete._id); 
       } else {
         await deletePost(itemToDelete._id);
       }
@@ -432,9 +452,11 @@ function Feed() {
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)}></div>
                           <div className="absolute right-0 top-6 w-44 bg-white border border-gray-200 shadow-xl rounded-xl z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                             <button onClick={() => handleToggleSave(post)} className="w-full px-4 py-3 text-left text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-black transition-colors">
-                               {post.isSaved ? "Unsave" : "Save"}
-                             </button>
+                             {!isEventPost && (
+                               <button onClick={() => handleToggleSave(post)} className="w-full px-4 py-3 text-left text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-black transition-colors">
+                                 {post.isSaved ? "Unsave" : "Save"}
+                               </button>
+                             )}
                              <button onClick={() => { setOpenShare(post); setOpenMenuId(null); }} className="w-full px-4 py-3 text-left text-sm font-bold border-b border-gray-100 hover:bg-gray-50 text-black transition-colors">
                                Share
                              </button>
@@ -534,21 +556,23 @@ function Feed() {
                         alt="share" 
                       />
                     </div>
-                    <button onClick={() => handleToggleSave(post)} className="transition-transform active:scale-125">
-                      {isSaved ? <FaBookmark className="text-black text-[22px]" /> : <FaRegBookmark className="text-gray-800 text-[22px]" />}
-                    </button>
+                    {!isEventPost && (
+                      <button onClick={() => handleToggleSave(post)} className="transition-transform active:scale-125">
+                        {isSaved ? <FaBookmark className="text-black text-[22px]" /> : <FaRegBookmark className="text-gray-800 text-[22px]" />}
+                      </button>
+                    )}
                   </div>
 
                   <div className="px-4 pb-4">
                     <p className="font-bold text-[13px] mb-1.5">{post.likes?.length || 0} likes</p>
                     
                     {/* ACCURATE REEL VIEWS */}
-                    <p className="font-semibold text-[12px] text-gray-600 mb-1 flex items-center gap-1.5">
-                      <FaPlay className="text-[10px]" />
-                      {post.feedItemType === "reel"
-                        ? `${typeof post.views === "number" ? post.views : post.views?.length || 0} views`
-                        : `${post.views?.length || 0} views`}
-                    </p>
+                    {post.feedItemType === "reel" && (
+                      <p className="font-semibold text-[12px] text-gray-600 mb-1 flex items-center gap-1.5">
+                        <FaPlay className="text-[10px]" />
+                        {typeof post.views === "number" ? post.views : post.views?.length || 0} views
+                      </p>
+                    )}
                     
                     {/* Caption */}
                     <div className={`text-[13px] leading-snug ${!isExpanded && isEventPost ? 'line-clamp-2' : ''}`}>
@@ -584,8 +608,8 @@ function Feed() {
                         ) : (
                           <div className="mt-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-top-2">
                              <div className="space-y-2 text-[12px] font-bold text-blue-800 mb-4">
-                                <p className="flex items-center gap-2"><FaCalendarAlt className="text-blue-400" /> {post.date ? new Date(post.date).toDateString() : 'TBA'} • {post.time || 'TBA'}</p>
-                                <p className="flex items-center gap-2"><FaMapMarkerAlt className="text-red-400" /> {post.location || 'Campus Hall'}</p>
+                               <p className="flex items-center gap-2"><FaCalendarAlt className="text-blue-400" /> {post.date ? new Date(post.date).toDateString() : 'TBA'} • {post.time || 'TBA'}</p>
+                               <p className="flex items-center gap-2"><FaMapMarkerAlt className="text-red-400" /> {post.location || 'Campus Hall'}</p>
                              </div>
                              <button 
                                onClick={() => navigate("/events")} 
