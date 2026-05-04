@@ -1,5 +1,5 @@
 import axios from "axios";
-import { sendOTPEmail } from "../utils/sendEmail.js"; // Import your new Resend mailer
+import { sendOTPEmail } from "../utils/sendEmail.js";
 
 // LIVE SPRING BOOT URL (DEPLOYED)
 const SPRING_URL = "https://unieven-ai-1.onrender.com/api/auth";
