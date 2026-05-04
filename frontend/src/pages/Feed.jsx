@@ -4,7 +4,6 @@ import Stories from "../components/Stories";
 import CommentsModal from "../components/CommentsModal";
 import ShareModal from "../components/ShareModal";
 import { getFeed, likePost, deletePost, savePost, unsavePost } from "../services/postService"; 
-// 🔥 FIX 1: IMPORT REEL SAVE SERVICES
 import { getReels, likeReel, deleteReel, saveReel, unsaveReel } from "../services/reelService";
 import { getStories } from "../services/storyService";
 import { getSuggestedUsers } from "../services/userService";
@@ -96,7 +95,6 @@ function Feed() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [mutedVideos, setMutedVideos] = useState({});
-  
   const [suggestionIndex, setSuggestionIndex] = useState(1);
 
   const clickTimeouts = useRef({});
@@ -134,7 +132,6 @@ function Feed() {
           feedItemType: "reel", 
           media: r.video || r.media, 
           type: "video",
-          // 🔥 FIX 4: INITIAL SAVE DETECTION FOR REELS
           isSaved: r.savedBy?.includes(user?._id) || user?.savedReels?.includes(r._id) || false
         }));
 
@@ -151,17 +148,32 @@ function Feed() {
       // 🔧 FRONTEND FILTER (SHOW ONLY VALID EVENTS)
       const now = new Date();
       const filteredFeed = combinedFeed.filter((item) => {
-        if ((item.isEvent === true || item.isEvent === "true") && item.date) {
-          const eventDate = new Date(item.date);
+        const isEventPost = item.isEvent === true || String(item.isEvent) === "true";
 
-          // 🔥 add 2 days buffer
-          const expiryDate = new Date(eventDate);
-          expiryDate.setDate(expiryDate.getDate() + 2);
+        if (isEventPost) {
+          // 🔥 FIX: Hide old/broken events that don't have a date set
+          if (!item.date) return false;
 
-          return now <= expiryDate;
+          try {
+            // 🔥 FIX: Precisely merge date and time to avoid timezone shift errors
+            const datePart = typeof item.date === 'string' && item.date.includes("T") 
+              ? item.date.split("T")[0] 
+              : new Date(item.date).toISOString().split("T")[0];
+              
+            const timePart = item.time || "23:59:59";
+            const eventDateTime = new Date(`${datePart}T${timePart}`);
+
+            // Add 2 days buffer
+            const expiryDate = new Date(eventDateTime);
+            expiryDate.setDate(expiryDate.getDate() + 2);
+
+            return now <= expiryDate;
+          } catch (e) {
+            return false; // Hide if date is fundamentally unparseable
+          }
         }
 
-        return true;
+        return true; // Keep standard posts and reels
       });
 
       setPosts(filteredFeed);
@@ -269,7 +281,6 @@ function Feed() {
     }
   };
 
-  // 🔥 FIX 2: REEL SAVE / UNSAVE LOGIC
   const handleToggleSave = async (item) => {
     if (!user) return toast.error("Please login");
 
@@ -321,7 +332,6 @@ function Feed() {
     setIsDeleting(true);
     
     try {
-      // 🔥 FIX 5: SAFER REEL DELETE CHECK
       if (itemToDelete.feedItemType === "reel" || itemToDelete.video) {
         await deleteReel(itemToDelete._id);
       } else {
@@ -376,7 +386,7 @@ function Feed() {
           {posts.map((post, index) => {
             const isLiked = post.likes?.includes(user?._id);
             const isSaved = post.isSaved;
-            const isEventPost = post.isEvent === true || post.isEvent === "true";
+            const isEventPost = post.isEvent === true || String(post.isEvent) === "true";
             const isExpanded = expandedEvents[post._id];
             const isThisVideoMuted = mutedVideos[post._id] !== false; 
             
@@ -532,7 +542,7 @@ function Feed() {
                   <div className="px-4 pb-4">
                     <p className="font-bold text-[13px] mb-1.5">{post.likes?.length || 0} likes</p>
                     
-                    {/* 🔥 FIX 3: ACCURATE REEL VIEWS */}
+                    {/* ACCURATE REEL VIEWS */}
                     <p className="font-semibold text-[12px] text-gray-600 mb-1 flex items-center gap-1.5">
                       <FaPlay className="text-[10px]" />
                       {post.feedItemType === "reel"
