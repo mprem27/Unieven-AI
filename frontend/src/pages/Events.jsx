@@ -19,7 +19,8 @@ import { getProfileImage } from "../utils/getProfileImage";
 import { 
   FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTimes, FaUsers, 
   FaCheckCircle, FaRegCompass, FaPlus, FaIdCard, FaBuilding, FaPhone, FaClipboardList,
-  FaDownload, FaQrcode, FaCertificate, FaChartBar, FaTrash, FaArrowLeft, FaSearch, FaFilter
+  FaDownload, FaQrcode, FaCertificate, FaChartBar, FaTrash, FaArrowLeft, FaSearch, FaFilter,
+  FaEnvelope, FaGraduationCap, FaUniversity // 🔥 Added new icons
 } from "react-icons/fa";
 
 // FONT MAP
@@ -516,7 +517,17 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
   const [loading, setLoading] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [showRegForm, setShowRegForm] = useState(false);
-  const [regData, setRegData] = useState({ studentId: "", department: "", phone: "" });
+  
+  // 🔥 UPDATED STATE: Added all the new fields required by the backend
+  const [regData, setRegData] = useState({ 
+    studentId: "", 
+    department: "", 
+    phone: "",
+    email: currentUser?.email || "", 
+    collegeName: "",
+    degree: "",
+    yearOfStudy: ""
+  });
   
   const [analytics, setAnalytics] = useState(null);
   const [showAnalyticsDashboard, setShowAnalyticsDashboard] = useState(false);
@@ -557,6 +568,7 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
         await registerForEvent({ eventId: event._id });
         toast.success("RSVP Cancelled");
       } else {
+        // 🔥 Sending all new regData parameters to the backend
         await registerForEvent({ eventId: event._id, ...regData });
         toast.success("Registered Successfully! 🎉");
       }
@@ -644,22 +656,48 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                   <form onSubmit={handleRSVP} className="bg-slate-50 p-5 md:p-6 rounded-[32px] space-y-4 border border-slate-100">
                     <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 text-center">RSVP Details</h4>
                     <div className="space-y-3">
+                      
+                      {/* 🔥 UPDATED FORM: Now includes Email, College, Degree, Year, ID, Dept, Phone */}
                       <div className="relative">
-                        <FaIdCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                        <input required className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="STUDENT ID / ROLL NO" value={regData.studentId} onChange={e => setRegData({...regData, studentId: e.target.value})} />
+                        <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                        <input required type="email" className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="EMAIL ADDRESS" value={regData.email} onChange={e => setRegData({...regData, email: e.target.value})} />
                       </div>
+
                       <div className="relative">
-                        <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                        <input required className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="FACULTY / DEPT" value={regData.department} onChange={e => setRegData({...regData, department: e.target.value})} />
+                        <FaUniversity className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                        <input className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="COLLEGE / UNIVERSITY (Optional)" value={regData.collegeName} onChange={e => setRegData({...regData, collegeName: e.target.value})} />
                       </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="relative">
+                          <FaGraduationCap className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                          <input className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="DEGREE (e.g. B.Tech)" value={regData.degree} onChange={e => setRegData({...regData, degree: e.target.value})} />
+                        </div>
+                        <div className="relative">
+                          <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                          <input type="number" min="1" max="6" className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="YEAR (e.g. 3)" value={regData.yearOfStudy} onChange={e => setRegData({...regData, yearOfStudy: e.target.value})} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="relative">
+                          <FaIdCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                          <input required className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="STUDENT ID" value={regData.studentId} onChange={e => setRegData({...regData, studentId: e.target.value})} />
+                        </div>
+                        <div className="relative">
+                          <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                          <input required className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="DEPT" value={regData.department} onChange={e => setRegData({...regData, department: e.target.value})} />
+                        </div>
+                      </div>
+
                       <div className="relative">
                         <FaPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                         <input required type="tel" className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="CONTACT NUMBER" value={regData.phone} onChange={e => setRegData({...regData, phone: e.target.value})} />
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 pt-2">
                        <button type="button" onClick={() => setShowRegForm(false)} className="px-6 py-4 bg-white rounded-2xl font-black text-[10px] uppercase text-slate-400 transition-all hover:bg-slate-100">Back</button>
-                       <button type="submit" disabled={loading} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100 active:scale-95 transition-all">Confirm</button>
+                       <button type="submit" disabled={loading} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100 active:scale-95 transition-all">Confirm RSVP</button>
                     </div>
                   </form>
                 ) : (

@@ -27,18 +27,18 @@ const router = express.Router();
  */
 
 // =====================================================
-//  REGISTER / UNREGISTER EVENT
+// 📝 REGISTER / UNREGISTER EVENT
 // =====================================================
 router.post(
   "/register",
   authMiddleware,
   apiLimiter,
-  validateRequest("eventRegistration"),
+  validateRequest("eventRegistration"), // ⚠️ Make sure to add the new fields (email, degree, etc.) to this validation schema!
   asyncHandler(registerEvent)
 );
 
 // =====================================================
-//  GET USER REGISTERED EVENTS
+// 📅 GET USER REGISTERED EVENTS
 // =====================================================
 router.get(
   "/my-events",
@@ -47,52 +47,53 @@ router.get(
 );
 
 // =====================================================
-//  GET EVENT PARTICIPANTS
+// 👥 GET EVENT PARTICIPANTS
 // =====================================================
+// Removed checkRole so Student Organizers can view participants of their own events.
+// The controller handles the specific authorization check.
 router.get(
   "/participants/:eventId",
   authMiddleware,
-  checkRole("faculty", "admin"),
   asyncHandler(getEventParticipants)
 );
 
 // =====================================================
-//  MANUAL ATTENDANCE MARKING
+// ✅ MANUAL ATTENDANCE MARKING
 // =====================================================
+// Removed checkRole so Student Organizers can mark attendance for their events.
 router.put(
   "/attendance/:registrationId",
   authMiddleware,
-  checkRole("faculty", "admin"),
   asyncHandler(markAttendance)
 );
 
 // =====================================================
-//  VERIFY QR CODE ATTENDANCE
+// 📱 VERIFY QR CODE ATTENDANCE
 // =====================================================
+// Removed checkRole so Student Organizers can scan QR codes at their events.
 router.post(
   "/verify-qr",
   authMiddleware,
-  checkRole("faculty", "admin"),
   asyncHandler(verifyEventQR)
 );
 
 // =====================================================
-//  EVENT ANALYTICS
+// 📊 EVENT ANALYTICS
 // =====================================================
+// Removed checkRole so Student Organizers can view their event stats.
 router.get(
   "/analytics/:eventId",
   authMiddleware,
-  checkRole("faculty", "admin"),
   asyncHandler(getEventAnalytics)
 );
 
 // =====================================================
-//  EXPORT PARTICIPANTS CSV
+// 📥 EXPORT PARTICIPANTS CSV
 // =====================================================
+// Removed checkRole so Student Organizers can download their attendee list.
 router.get(
   "/export/:eventId",
   authMiddleware,
-  checkRole("faculty", "admin"),
   asyncHandler(exportParticipantsCSV)
 );
 

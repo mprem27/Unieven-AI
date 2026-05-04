@@ -5,12 +5,12 @@ import 'dotenv/config';
  * Sends OTP email using Brevo API (HTTP Port 443)
  * Works everywhere: Local Laptop and Render Server.
  */
-export const sendOTPEmail = async (email, otp, purpose = "Account Verification", username = "Student") => {
+export const sendOTPEmail = async (email, otp, purpose = "Account Verification", username = "Student", collegeName = "") => {
   try {
     const apiKey = process.env.BREVO_API_KEY;
 
     if (!apiKey) {
-      console.error(" ERROR: BREVO_API_KEY is missing in .env or Render settings.");
+      console.error("❌ ERROR: BREVO_API_KEY is missing in .env or Render settings.");
       return { success: false, message: "Email configuration missing" };
     }
 
@@ -22,21 +22,30 @@ export const sendOTPEmail = async (email, otp, purpose = "Account Verification",
       ? `Welcome to UniEven! ${otp} is your verification code` 
       : `${otp} is your UniEven password reset code`;
 
-    // 2. Dynamic Context Paragraph
-    const contextHtml = isRegistration 
-      ? `<p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
-          Welcome to <strong>UniEven</strong>—the premium network designed exclusively for students to connect, create, and share campus experiences. 
+    // 2. Dynamic Context Paragraph with College Integration
+    let contextHtml = "";
+    
+    if (isRegistration) {
+      const collegeText = collegeName ? ` at <strong>${collegeName}</strong>` : "";
+      contextHtml = `
+        <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px; text-align: left;">
+          Welcome to the <strong>UniEven</strong> network${collegeText}! You are joining a premium platform designed exclusively for students to connect, create, and share their campus experiences. 
           <br><br>
           To complete your registration and unlock your new profile, please verify your email address using the secure code below.
-         </p>`
-      : `<p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+        </p>
+      `;
+    } else {
+      contextHtml = `
+        <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px; text-align: left;">
           We received a request to reset the password associated with this email address.
-         </p>
-         <div style="background-color: #ffffff; padding: 16px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 25px; text-align: left;">
+        </p>
+        <div style="background-color: #ffffff; padding: 16px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 25px; text-align: left;">
           <p style="margin: 0; color: #334155; font-size: 14px; line-height: 1.5;">
             <strong>What to do next:</strong> Copy the 6-digit code below and paste it back into the UniEven application to verify your identity and create a new password.
           </p>
-         </div>`;
+        </div>
+      `;
+    }
 
     // 3. Dynamic Security Warning
     const securityWarningHtml = isRegistration
@@ -113,16 +122,16 @@ export const sendOTPEmail = async (email, otp, purpose = "Account Verification",
       }
     );
 
-    console.log(` Email sent successfully to: ${email} for ${purpose}`);
+    console.log(`✅ Email sent successfully to: ${email} for ${purpose}`);
     return { success: true, messageId: response.data.messageId };
 
   } catch (error) {
     if (error.response?.status === 502 || error.message.includes("502")) {
-       console.error(" Brevo API Error: 502 Bad Gateway.");
+       console.error("❌ Brevo API Error: 502 Bad Gateway.");
        return { success: false, message: "Email service temporarily unavailable." };
     }
     const errorDetail = error.response?.data?.message || error.message;
-    console.error(" Brevo API Error:", errorDetail);
+    console.error("❌ Brevo API Error:", errorDetail);
     return { success: false, message: errorDetail };
   }
 };
