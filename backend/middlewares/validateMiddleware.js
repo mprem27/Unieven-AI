@@ -88,23 +88,42 @@ export const validateRequest = (type) => {
       }
 
       // --- Social / Content Validations ---
+
       if (type === "post") {
-        if (!req.file && isEmpty(body.media)) {
+        const file =
+          req.file ||
+          req.files?.media?.[0] ||
+          req.files?.image?.[0] ||
+          req.files?.file?.[0];
+
+        if (!file) {
           return res.status(400).json({
             success: false,
-            message: "Media (image/video) is required"
+            message: "Media (image/video) is required",
           });
         }
       }
 
       if (type === "reel" || type === "story") {
-        if (!req.file) {
-          return res.status(400).json({ success: false, message: "Video/Media file is required" });
+        const file =
+          req.file ||
+          req.files?.media?.[0] ||
+          req.files?.video?.[0] ||
+          req.files?.file?.[0];
+
+        if (!file) {
+          return res.status(400).json({
+            success: false,
+            message: "Video/Media file is required",
+          });
         }
       }
 
       if (type === "comment" && isEmpty(body.text)) {
-        return res.status(400).json({ success: false, message: "Comment cannot be empty" });
+        return res.status(400).json({
+          success: false,
+          message: "Comment cannot be empty",
+        });
       }
 
       return next();

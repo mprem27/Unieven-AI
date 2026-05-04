@@ -1,4 +1,5 @@
 import express from "express";
+
 import {
   createPost,
   getFeedPosts,
@@ -19,69 +20,69 @@ import { validateRequest } from "../middlewares/validateMiddleware.js";
 import { commentLimiter, postLimiter } from "../middlewares/rateLimiter.js";
 import asyncHandler from "../middlewares/asyncHandler.js";
 import optionalAuth from "../middlewares/optionalAuth.js";
+import multerErrorHandler from "../middlewares/multerErrorHandler.js"; // ✅ FIXED
 
 const router = express.Router();
 
-/**
- * 📸 POST ROUTES (FEED SYSTEM)
- */
-
-// -----------------------------
-// ➕ CREATE POST
-// -----------------------------
+// =============================
+// 📝 CREATE POST
+// =============================
 router.post(
   "/create",
   authMiddleware,
   postLimiter,
- uploadAny.fields([
-  { name: "media", maxCount: 1 },
-  { name: "image", maxCount: 1 },
-  { name: "file", maxCount: 1 }
-]),
+
+  uploadAny.fields([
+    { name: "media", maxCount: 1 },
+    { name: "image", maxCount: 1 },
+    { name: "file", maxCount: 1 },
+  ]),
+
+  multerErrorHandler, // ✅ important
+
   validateRequest("post"),
   asyncHandler(createPost)
 );
 
-// -----------------------------
+// =============================
 // 📰 FEED
-// -----------------------------
+// =============================
 router.get(
   "/feed",
-  optionalAuth, // 🔥 allows guest + logged user
+  optionalAuth,
   asyncHandler(getFeedPosts)
 );
 
-// -----------------------------
+// =============================
 // 🔍 SINGLE POST
-// -----------------------------
+// =============================
 router.get(
   "/:id",
   optionalAuth,
   asyncHandler(getSinglePost)
 );
 
-// -----------------------------
+// =============================
 // 🗑 DELETE POST
-// -----------------------------
+// =============================
 router.delete(
   "/:id",
   authMiddleware,
   asyncHandler(deletePost)
 );
 
-
 // =============================
-// ❤️ SOCIAL ACTIONS
+// ❤️ LIKE POST
 // =============================
-
-// LIKE / UNLIKE
 router.post(
   "/like/:id",
   authMiddleware,
   asyncHandler(likePost)
 );
 
-// COMMENT
+// =============================
+// 💬 COMMENT
+// =============================
 router.post(
   "/comment/:id",
   authMiddleware,
@@ -90,35 +91,40 @@ router.post(
   asyncHandler(addComment)
 );
 
-// DELETE COMMENT
+// =============================
+// ❌ DELETE COMMENT
+// =============================
 router.delete(
   "/comment/:commentId",
   authMiddleware,
   asyncHandler(deleteComment)
 );
 
+// =============================
+// ❤️ LIKE COMMENT
+// =============================
 router.post(
   "/comment/like/:commentId",
   authMiddleware,
-  likeComment
+  asyncHandler(likeComment)
 );
 
-
 // =============================
-// 🔖 SAVE SYSTEM
+// 🔖 SAVE POST
 // =============================
-
-// SAVE
 router.post(
   "/save/:id",
   authMiddleware,
   asyncHandler(savePost)
 );
 
-// UNSAVE
+// =============================
+// 🔓 UNSAVE POST
+// =============================
 router.delete(
   "/unsave/:id",
   authMiddleware,
   asyncHandler(unsavePost)
 );
+
 export default router;

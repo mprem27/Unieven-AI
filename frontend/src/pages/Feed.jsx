@@ -147,19 +147,31 @@ function Feed() {
       const shuffledOlderPosts = shuffleArray(olderPosts);
       
       const combinedFeed = [...recentPosts, ...shuffledOlderPosts];
-      setPosts(combinedFeed);
       
-      // // 🔥 STEP 4: VERIFY REEL IDS (Debug Logging)
-      // console.log("Fetched Reels:", fetchedReels);
-      // console.log("Saved Reels Source:", user?.savedReels);
-      // console.log("Combined Feed:", combinedFeed);
+      // 🔧 FRONTEND FILTER (SHOW ONLY VALID EVENTS)
+      const now = new Date();
+      const filteredFeed = combinedFeed.filter((item) => {
+        if ((item.isEvent === true || item.isEvent === "true") && item.date) {
+          const eventDate = new Date(item.date);
+
+          // 🔥 add 2 days buffer
+          const expiryDate = new Date(eventDate);
+          expiryDate.setDate(expiryDate.getDate() + 2);
+
+          return now <= expiryDate;
+        }
+
+        return true;
+      });
+
+      setPosts(filteredFeed);
       
-      if (combinedFeed.length > 0) {
-        setSuggestionIndex(Math.min(combinedFeed.length - 1, Math.floor(Math.random() * 3) + 1));
+      if (filteredFeed.length > 0) {
+        setSuggestionIndex(Math.min(filteredFeed.length - 1, Math.floor(Math.random() * 3) + 1));
       }
 
       const initialMuteState = {};
-      combinedFeed.forEach(post => {
+      filteredFeed.forEach(post => {
         if (post.type === "video" || post.feedItemType === "reel") {
           initialMuteState[post._id] = false; 
         }
