@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const eventRegistrationSchema = new mongoose.Schema(
   {
     // =====================================================
-    // 👤 USER
+    //  USER
     // =====================================================
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -12,7 +12,7 @@ const eventRegistrationSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // 🎉 EVENT
+    //  EVENT
     // =====================================================
     event: {
       type: mongoose.Schema.Types.ObjectId,
@@ -21,7 +21,7 @@ const eventRegistrationSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // 🎓 STUDENT DETAILS
+    //  STUDENT DETAILS
     // =====================================================
     studentId: {
       type: String,
@@ -49,7 +49,7 @@ const eventRegistrationSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // 🔥 Extended Student Info
+    //  Extended Student Info
     degree: {
       type: String,
       trim: true,
@@ -68,7 +68,7 @@ const eventRegistrationSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // 📌 REGISTRATION STATUS
+    //  REGISTRATION STATUS
     // =====================================================
     status: {
       type: String,
@@ -77,7 +77,7 @@ const eventRegistrationSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // 🔥 QR SYSTEM
+    //  QR SYSTEM
     // =====================================================
     qrCode: {
       type: String,
@@ -92,7 +92,7 @@ const eventRegistrationSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // ✅ ATTENDANCE
+    //  ATTENDANCE
     // =====================================================
     attendanceTime: {
       type: Date,
@@ -122,7 +122,7 @@ const eventRegistrationSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // 🏆 CERTIFICATE
+    //  CERTIFICATE
     // =====================================================
     certificateIssued: {
       type: Boolean,
@@ -140,7 +140,7 @@ const eventRegistrationSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // 📝 NOTES
+    //  NOTES
     // =====================================================
     notes: {
       type: String,
@@ -154,23 +154,24 @@ const eventRegistrationSchema = new mongoose.Schema(
 );
 
 // =====================================================
-// 🤖 AUTO-FILL LOGIC (PRE-SAVE HOOK)
+//  AUTO-FILL LOGIC (PRE-SAVE HOOK)
 // =====================================================
-eventRegistrationSchema.pre("save", function (next) {
-  // If the user has an email and college name is not already manually forced
+eventRegistrationSchema.pre("save", async function () {
   if (this.email && (!this.collegeName || this.collegeName.trim() === "")) {
     const emailDomain = this.email.split("@")[1];
-    
-    // Check if it's a VTU/Vel Tech email
-    if (emailDomain && (emailDomain.includes("veltech") || emailDomain.includes("vtu"))) {
-      this.collegeName = "Vel Tech Rangarajan Dr.Sagunthala R&D Institute of Science and Technology";
+
+    if (
+      emailDomain &&
+      (emailDomain.includes("veltech") || emailDomain.includes("vtu"))
+    ) {
+      this.collegeName =
+        "Vel Tech Rangarajan Dr.Sagunthala R&D Institute of Science and Technology";
     }
   }
-  next();
 });
 
 // =====================================================
-// 🔥 INDEXES
+//  INDEXES
 // =====================================================
 
 // Prevent duplicate registration per event
