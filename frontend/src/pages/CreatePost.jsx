@@ -10,7 +10,7 @@ import {
   FaFont, FaUserTag, FaMagic, FaLink 
 } from "react-icons/fa";
 
-// 🔥 FONT MAP
+// 🔥 UPGRADED FONT MAP
 const fontMap = {
   classic: "font-sans font-bold",
   typewriter: "font-serif italic",
@@ -19,6 +19,10 @@ const fontMap = {
   cursive: "font-[cursive]",
   marker: "font-[fantasy] tracking-wide",
   sleek: "font-sans font-light tracking-[0.3em] uppercase",
+  block: "font-sans font-black uppercase tracking-tighter",
+  elegant: "font-serif font-light tracking-wide",
+  playful: "font-[Comic_Sans_MS,cursive] font-bold",
+  neon: "font-sans font-thin tracking-[0.4em] uppercase"
 };
 
 function CreatePost() {
@@ -55,18 +59,31 @@ function CreatePost() {
   const [isDraggingText, setIsDraggingText] = useState(false);
   const dragRef = useRef({ startX: 0, startY: 0 });
 
+  // 🔥 EXPANDED FONT OPTIONS
   const fontOptions = [
     { label: "Classic", value: "classic" },
+    { label: "Block", value: "block" },
+    { label: "Sleek", value: "sleek" },
     { label: "Typewriter", value: "typewriter" },
-    { label: "Modern", value: "modern" },
     { label: "Impact", value: "impact" },
+    { label: "Modern", value: "modern" },
     { label: "Cursive", value: "cursive" },
     { label: "Marker", value: "marker" },
-    { label: "Sleek", value: "sleek" }
+    { label: "Elegant", value: "elegant" },
+    { label: "Playful", value: "playful" }
   ];
 
+  // 🔥 EXPANDED TEXT STYLE OPTIONS
   const styleOptions = [
-    "classic", "highlight", "neon", "outline", "glitch", "3d-pop", "elegant"
+    "classic", "highlight", "glass", "neon", "outline", "glitch", "cyberpunk", "fire", "hard-shadow", "3d-pop", "elegant"
+  ];
+
+  // 🔥 EXPANDED COLOR PALETTE
+  const colors = [
+    "#ffffff", "#f8fafc", "#94a3b8", "#000000", // Neutrals
+    "#ef4444", "#f97316", "#f59e0b", "#eab308", // Warms
+    "#22c55e", "#10b981", "#14b8a6", "#06b6d4", // Greens/Teals
+    "#3b82f6", "#6366f1", "#8b5cf6", "#d946ef"  // Cools/Purples
   ];
 
   const filters = [
@@ -77,23 +94,29 @@ function CreatePost() {
     { name: "warm", filter: "sepia(30%) saturate(140%)" }
   ];
 
-  const colors = ["#ffffff", "#000000", "#3b82f6", "#ef4444", "#22c55e", "#eab308"];
-
-  // Helper for dynamic text styles
+  // 🔥 UPGRADED ADVANCED TEXT STYLES
   const getTextStyle = () => {
     switch (textStyle) {
       case "highlight":
-        return { background: "rgba(0,0,0,0.45)", padding: "4px 16px", borderRadius: "14px", color: textColor === "#ffffff" ? "#fff" : textColor };
+        return { background: "rgba(0,0,0,0.6)", padding: "4px 16px", borderRadius: "14px", color: textColor === "#000000" ? "#fff" : textColor };
+      case "glass":
+        return { background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.3)", padding: "8px 24px", borderRadius: "16px", color: textColor, boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)" };
       case "neon":
-        return { textShadow: `0 0 8px ${textColor}, 0 0 16px ${textColor}`, color: "#fff" };
+        return { textShadow: `0 0 5px #fff, 0 0 10px #fff, 0 0 20px ${textColor}, 0 0 30px ${textColor}`, color: "#fff" };
       case "outline":
-        return { WebkitTextStroke: "1.5px black", color: textColor };
+        return { WebkitTextStroke: "1.5px black", color: textColor, textShadow: "none" };
       case "glitch":
-        return { textShadow: "2px 0 red, -2px 0 cyan", color: textColor };
+        return { textShadow: "3px 0 red, -3px 0 cyan", color: textColor };
+      case "cyberpunk":
+        return { textShadow: "2px 2px 0px #ff00ff, -2px -2px 0px #00ffff", color: textColor };
+      case "fire":
+        return { textShadow: "0 -2px 4px #ff0, 0 -6px 8px #f90, 0 -10px 12px #f00", color: textColor === "#ffffff" ? "#fff" : textColor };
+      case "hard-shadow":
+        return { textShadow: `4px 4px 0px ${textColor === "#000000" ? "#ffffff" : "#000000"}`, color: textColor };
       case "3d-pop":
-        return { textShadow: "3px 3px 0 rgba(0,0,0,0.5), 6px 6px 0 rgba(0,0,0,0.3)", color: textColor };
+        return { textShadow: "1px 1px 0 #999, 2px 2px 0 #888, 3px 3px 0 #777, 4px 4px 0 rgba(0,0,0,0.5)", color: textColor };
       case "elegant":
-        return { letterSpacing: "2px", textShadow: "0px 2px 4px rgba(0,0,0,0.3)", color: textColor };
+        return { letterSpacing: "4px", textShadow: "0px 4px 8px rgba(0,0,0,0.4)", color: textColor };
       default:
         return { textShadow: "0 2px 10px rgba(0,0,0,0.8)", color: textColor };
     }
@@ -140,7 +163,6 @@ function CreatePost() {
     try {
       const formData = new FormData();
       
-      // 🔥 FIX 1: Append file under multiple common field names to ensure Multer catches it
       formData.append("media", file);
       formData.append("image", file);
       formData.append("file", file);
@@ -154,7 +176,6 @@ function CreatePost() {
       
       if (location.trim()) formData.append("location", location.trim());
       
-      // 🔥 FIX 2: Ensure valid URL protocol
       if (link.trim()) {
         let formattedLink = link.trim();
         if (!/^https?:\/\//i.test(formattedLink)) {
@@ -163,7 +184,6 @@ function CreatePost() {
         formData.append("link", formattedLink);
       }
       
-      // 🔥 FIX 3: Stringify arrays so FormData doesn't corrupt the backend parser
       if (tags.trim()) {
         const cleanTags = tags.split(",").map(t => t.trim().replace(/^#/, '')).filter(Boolean);
         if (cleanTags.length > 0) formData.append("tags", JSON.stringify(cleanTags));
@@ -173,12 +193,10 @@ function CreatePost() {
         if (cleanMentions.length > 0) formData.append("mentions", JSON.stringify(cleanMentions));
       }
       
-      // 🔥 TEXT OVERLAY DATA
       if (overlayText.trim()) {
         let normalizedX = 0.5;
         let normalizedY = 0.5;
 
-        // Safely calculate position
         if (previewRef.current && previewRef.current.clientWidth > 0 && previewRef.current.clientHeight > 0) {
           const container = previewRef.current;
           normalizedX = Math.max(0, Math.min(1, (textPos.x + container.clientWidth / 2) / container.clientWidth));
@@ -197,12 +215,11 @@ function CreatePost() {
 
       await createPost(formData);
       toast.success("Post Published! 🎉");
-      window.dispatchEvent(new Event("profileUpdated")); // Global Sync
+      window.dispatchEvent(new Event("profileUpdated")); 
       navigate("/profile");
       
     } catch (err) {
       console.error("CREATE POST ERROR:", err);
-      // 🔥 Better error handling for network drops
       if (err.message === "Network Error" || err.code === "ERR_CONNECTION_CLOSED") {
          toast.error("Network error: Connection to the server was lost. Please check your internet and try again.");
       } else {
@@ -321,35 +338,47 @@ function CreatePost() {
                   {/* TEXT OVERLAY STUDIO */}
                   <div className="bg-neutral-900 p-5 sm:p-6 rounded-[32px] sm:rounded-[36px] space-y-4 sm:space-y-5">
                     <label className="text-[9px] font-black text-white/50 uppercase tracking-[0.2em]">Typography Studio</label>
-                    <div className="flex items-center gap-3 bg-white/10 px-4 py-3 sm:py-4 rounded-2xl border border-white/10">
+                    <div className="flex items-center gap-3 bg-white/10 px-4 py-3 sm:py-4 rounded-2xl border border-white/10 focus-within:border-blue-500 transition-colors">
                        <FaFont className="text-white shrink-0" size={14} />
-                       <input placeholder="TYPE ON IMAGE..." value={overlayText} onChange={(e) => setOverlayText(e.target.value)} maxLength={40} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-black tracking-widest text-white" />
+                       <input placeholder="TYPE ON IMAGE..." value={overlayText} onChange={(e) => setOverlayText(e.target.value)} maxLength={50} className="bg-transparent outline-none text-[10px] sm:text-xs w-full font-black tracking-widest text-white" />
                     </div>
                     
                     {overlayText && (
                       <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
+                        
+                        {/* FONT FAMILY */}
+                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 pb-2">
                           {fontOptions.map(f => (
-                            <button type="button" key={f.value} onClick={() => setTextFont(f.value)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textFont === f.value ? "bg-white text-black" : "bg-white/10 text-white"}`}>{f.label}</button>
+                            <button type="button" key={f.value} onClick={() => setTextFont(f.value)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textFont === f.value ? "bg-white text-black shadow-lg" : "bg-white/10 text-white hover:bg-white/20"}`}>{f.label}</button>
                           ))}
                         </div>
                         
-                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
+                        {/* TEXT STYLES */}
+                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 pb-2">
                           {styleOptions.map(s => (
-                            <button type="button" key={s} onClick={() => setTextStyle(s)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textStyle === s ? "bg-blue-500 text-white" : "bg-white/10 text-white"}`}>{s.replace("-", " ")}</button>
+                            <button type="button" key={s} onClick={() => setTextStyle(s)} className={`px-4 py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase transition-all shrink-0 ${textStyle === s ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30" : "bg-white/10 text-white hover:bg-white/20"}`}>{s.replace("-", " ")}</button>
                           ))}
                         </div>
 
+                        {/* TEXT SIZE */}
                         <div className="pt-2 flex items-center gap-3">
                            <span className="text-[9px] text-white/50 font-black uppercase">Size</span>
-                           <input type="range" min="16" max="80" value={textSize} onChange={(e) => setTextSize(Number(e.target.value))} className="w-full accent-blue-500" />
+                           <input type="range" min="16" max="80" value={textSize} onChange={(e) => setTextSize(Number(e.target.value))} className="w-full accent-blue-500 cursor-pointer" />
                         </div>
 
-                        <div className="flex gap-3 justify-center pt-3 border-t border-white/5 mt-2">
+                        {/* TEXT COLORS */}
+                        <div className="flex gap-3 overflow-x-auto scrollbar-hide pt-3 border-t border-white/10 mt-2 pb-2 px-1">
                           {colors.map(c => (
-                            <button type="button" key={c} onClick={() => setTextColor(c)} className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-4 transition-transform active:scale-75 ${textColor === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-60 hover:opacity-100"}`} style={{ backgroundColor: c }}></button>
+                            <button 
+                              type="button" 
+                              key={c} 
+                              onClick={() => setTextColor(c)} 
+                              className={`w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full border-[3px] transition-transform active:scale-75 ${textColor === c ? "border-white scale-110 shadow-lg shadow-white/20" : "border-transparent opacity-60 hover:opacity-100"}`} 
+                              style={{ backgroundColor: c }}
+                            />
                           ))}
                         </div>
+
                       </div>
                     )}
                   </div>

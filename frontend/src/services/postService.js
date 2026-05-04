@@ -1,51 +1,50 @@
 import API from "../api/axios";
 
 /**
- * 📰 GET FEED POSTS (USED IN FEED PAGE)
+ * 📰 GET FEED POSTS
  */
 export const getFeed = async () => {
   try {
-    const { data } = await API.get("/posts/feed");
-    return data;
+    const res = await API.get("/posts/feed");
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch feed" };
+    console.error("Get Feed Error:", error);
+    throw error?.response?.data || { message: "Failed to fetch feed" };
   }
 };
 
 /**
- * 📰 FETCH FEED (USED IN PROFILE PAGE)
- * 👉 SAME AS getFeed (alias to fix your error)
+ * 📰 FETCH FEED (Alias)
  */
-export const fetchFeed = async () => {
-  try {
-    const { data } = await API.get("/posts/feed");
-    return data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch feed" };
-  }
-};
+export const fetchFeed = getFeed;
 
 /**
  * 📄 GET SINGLE POST
  */
 export const getPostById = async (id) => {
   try {
-    const { data } = await API.get(`/posts/${id}`);
-    return data;
+    const res = await API.get(`/posts/${id}`);
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to fetch post" };
+    console.error("Get Post Error:", error);
+    throw error?.response?.data || { message: "Failed to fetch post" };
   }
 };
 
 /**
- * 📸 CREATE POST
+ * 📸 CREATE POST (IMPORTANT FIX)
  */
 export const createPost = async (formData) => {
   try {
-    const { data } = await API.post("/posts/create", formData);
-    return data;
+    const res = await API.post("/posts/create", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to create post" };
+    console.error("Create Post Error:", error);
+    throw error?.response?.data || { message: "Failed to create post" };
   }
 };
 
@@ -54,10 +53,11 @@ export const createPost = async (formData) => {
  */
 export const deletePost = async (id) => {
   try {
-    const { data } = await API.delete(`/posts/${id}`);
-    return data;
+    const res = await API.delete(`/posts/${id}`);
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to delete post" };
+    console.error("Delete Post Error:", error);
+    throw error?.response?.data || { message: "Failed to delete post" };
   }
 };
 
@@ -66,34 +66,44 @@ export const deletePost = async (id) => {
  */
 export const likePost = async (id) => {
   try {
-    const { data } = await API.post(`/posts/like/${id}`);
-    return data;
+    const res = await API.post(`/posts/like/${id}`);
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to like post" };
+    console.error("Like Post Error:", error);
+    throw error?.response?.data || { message: "Failed to like post" };
   }
 };
 
 /**
- * 💬 ADD COMMENT (POST ONLY - OLD)
+ * 💬 ADD COMMENT (POST)
  */
 export const addComment = async (id, text) => {
   try {
-    const { data } = await API.post(`/posts/comment/${id}`, { text });
-    return data;
+    const res = await API.post(`/posts/comment/${id}`, { text });
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to add comment" };
+    console.error("Add Comment Error:", error);
+    throw error?.response?.data || { message: "Failed to add comment" };
   }
 };
 
 /**
- * 🌍 UNIVERSAL COMMENT (POST / REEL / STORY)
+ * 🌍 UNIVERSAL COMMENT (FIXED 🔥)
  */
 export const addUniversalComment = async (type, id, text) => {
   try {
-    const { data } = await API.post(`/comments/${type}/${id}`, { text });
-    return data;
+    if (!type || !id || !text) {
+      throw new Error("Missing required fields");
+    }
+
+    const res = await API.post(`/comments/${type}/${id}`, {
+      text: text.trim(),
+    });
+
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to add comment" };
+    console.error("Universal Comment Error:", error);
+    throw error?.response?.data || { message: "Failed to add comment" };
   }
 };
 
@@ -102,10 +112,11 @@ export const addUniversalComment = async (type, id, text) => {
  */
 export const likeComment = async (commentId) => {
   try {
-    const { data } = await API.post(`/comments/like/${commentId}`);
-    return data;
+    const res = await API.post(`/comments/like/${commentId}`);
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to like comment" };
+    console.error("Like Comment Error:", error);
+    throw error?.response?.data || { message: "Failed to like comment" };
   }
 };
 
@@ -114,10 +125,11 @@ export const likeComment = async (commentId) => {
  */
 export const deleteComment = async (commentId) => {
   try {
-    const { data } = await API.delete(`/comments/${commentId}`);
-    return data;
+    const res = await API.delete(`/comments/${commentId}`);
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to delete comment" };
+    console.error("Delete Comment Error:", error);
+    throw error?.response?.data || { message: "Failed to delete comment" };
   }
 };
 
@@ -126,10 +138,11 @@ export const deleteComment = async (commentId) => {
  */
 export const savePost = async (id) => {
   try {
-    const { data } = await API.post(`/posts/save/${id}`);
-    return data;
+    const res = await API.post(`/posts/save/${id}`);
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to save post" };
+    console.error("Save Post Error:", error);
+    throw error?.response?.data || { message: "Failed to save post" };
   }
 };
 
@@ -138,9 +151,10 @@ export const savePost = async (id) => {
  */
 export const unsavePost = async (id) => {
   try {
-    const { data } = await API.delete(`/posts/unsave/${id}`);
-    return data;
+    const res = await API.delete(`/posts/unsave/${id}`);
+    return res.data;
   } catch (error) {
-    throw error.response?.data || { message: "Failed to unsave post" };
+    console.error("Unsave Post Error:", error);
+    throw error?.response?.data || { message: "Failed to unsave post" };
   }
 };
