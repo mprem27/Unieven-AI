@@ -87,8 +87,24 @@ export const validateRequest = (type) => {
         body.email = String(body.email).toLowerCase().trim();
       }
 
-      // --- Social / Content Validations ---
+      // 🔥 NEW: 7. Event Registration Validation
+      if (type === "eventRegistration") {
+        if (isEmpty(body.studentId) || isEmpty(body.department) || isEmpty(body.phone) || isEmpty(body.email)) {
+          return res.status(400).json({ success: false, message: "Student ID, Email, Department, and Phone are required" });
+        }
+        if (!emailRegex.test(String(body.email).toLowerCase().trim())) {
+          return res.status(400).json({ success: false, message: "Invalid email format" });
+        }
+        
+        // This is the specific fix for the 500 Error crash:
+        if (isEmpty(body.yearOfStudy)) {
+          delete body.yearOfStudy; // Remove the empty string entirely so Mongoose ignores it
+        } else if (!isNaN(body.yearOfStudy)) {
+          body.yearOfStudy = Number(body.yearOfStudy); // Ensure it's a valid Number
+        }
+      }
 
+      // --- Social / Content Validations ---
       if (type === "post") {
         const file =
           req.file ||

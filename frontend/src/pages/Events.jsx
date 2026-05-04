@@ -20,7 +20,7 @@ import {
   FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTimes, FaUsers, 
   FaCheckCircle, FaRegCompass, FaPlus, FaIdCard, FaBuilding, FaPhone, FaClipboardList,
   FaDownload, FaQrcode, FaCertificate, FaChartBar, FaTrash, FaArrowLeft, FaSearch, FaFilter,
-  FaEnvelope, FaGraduationCap, FaUniversity // 🔥 Added new icons
+  FaEnvelope, FaGraduationCap, FaUniversity
 } from "react-icons/fa";
 
 // FONT MAP
@@ -52,7 +52,9 @@ const getTextStyle = (post) => {
   }
 };
 
-// Event expiry helper
+// ==========================================
+// TIME & DATE HELPERS
+// ==========================================
 export const isEventExpired = (event) => {
   if (!event?.date) return false;
   try {
@@ -66,7 +68,6 @@ export const isEventExpired = (event) => {
   }
 };
 
-// 3-Day Cleanup Helper (Strictly calculates time difference)
 export const isEventOlderThan3Days = (event) => {
   if (!event?.date) return false;
   try {
@@ -84,11 +85,45 @@ export const isEventOlderThan3Days = (event) => {
   }
 };
 
+// 🔥 NEW: Check if event is > 1 hour away (locks unregister)
+export const canUnregister = (event) => {
+  if (!event?.date) return false;
+  try {
+    const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
+    const datePart = dateStr.split("T")[0];
+    
+    // Normalize time to handle potential PM/AM or use 24h
+    let timePart = event.time || "23:59";
+    if (timePart.toLowerCase().includes('pm') || timePart.toLowerCase().includes('am')) {
+      const [time, modifier] = timePart.split(' ');
+      let [hours, minutes] = time.split(':');
+      if (hours === '12') hours = '00';
+      if (modifier.toLowerCase() === 'pm') hours = parseInt(hours, 10) + 12;
+      timePart = `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+
+    const eventDateTime = new Date(`${datePart}T${timePart}`);
+    
+    if (isNaN(eventDateTime.getTime())) return false; 
+
+    const now = new Date();
+    const diffInMs = eventDateTime.getTime() - now.getTime();
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+
+    return diffInHours >= 1; // Can ONLY unregister if >= 1 hour away
+  } catch (e) {
+    return false;
+  }
+};
+
 export const getEventStatus = (event) => {
   if (isEventExpired(event) || event.status === "completed") return "Completed";
   return "Upcoming";
 };
 
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 function Events() {
   const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState("discover"); 
@@ -297,7 +332,7 @@ const EventCard = ({ event, onClick, isPast }) => {
 };
 
 // =====================================================
-// NEW FULL-PAGE ANALYTICS DASHBOARD
+// FULL-PAGE ANALYTICS DASHBOARD
 // =====================================================
 const EventAnalyticsDashboard = ({ event, analytics, participants, onClose, onOpenScanner }) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -518,7 +553,6 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
   const [participants, setParticipants] = useState([]);
   const [showRegForm, setShowRegForm] = useState(false);
   
-  // 🔥 UPDATED STATE: Added all the new fields required by the backend
   const [regData, setRegData] = useState({ 
     studentId: "", 
     department: "", 
@@ -540,6 +574,7 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
   const myReg = myRegistrations.find(t => t.event._id === event._id);
   
   const isPast = isEventExpired(event) || event.status === "completed"; 
+  const isUnregisterAllowed = canUnregister(event); // 🔥 Determines if < 1 hr remaining
 
   useEffect(() => {
     if (isCreator) {
@@ -568,7 +603,6 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
         await registerForEvent({ eventId: event._id });
         toast.success("RSVP Cancelled");
       } else {
-        // 🔥 Sending all new regData parameters to the backend
         await registerForEvent({ eventId: event._id, ...regData });
         toast.success("Registered Successfully! 🎉");
       }
@@ -585,7 +619,6 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
     ? Math.round((participants.filter(p => p.status === "attended").length / participants.length) * 100) 
     : 0;
 
-  // Base style for admin control buttons
   const adminBtnClass = "group flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-indigo-100 hover:shadow-md transition-all duration-300 text-slate-600 gap-2 shadow-sm active:scale-95 hover:-translate-y-0.5";
 
   return (
@@ -648,8 +681,15 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                     >
                       <FaQrcode size={14} /> View My QR Pass
                     </button>
-                    {!isPast && (
+                    
+                    {/* 🔥 UPDATED: Only show Withdraw button if Event is > 1 hour away */}
+                    {!isPast && isUnregisterAllowed && (
                       <button onClick={handleRSVP} disabled={loading} className="w-full text-red-400 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors">Withdraw My Registration</button>
+                    )}
+                    
+                    {/* 🔥 UPDATED: Show locked message if within 1 hour */}
+                    {!isPast && !isUnregisterAllowed && myReg.status !== 'attended' && (
+                      <p className="w-full text-center text-slate-400 font-black text-[9px] uppercase tracking-widest mt-2">Withdrawal locked (Event starts &lt; 1 hr)</p>
                     )}
                   </div>
                 ) : showRegForm ? (
@@ -657,7 +697,6 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                     <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 text-center">RSVP Details</h4>
                     <div className="space-y-3">
                       
-                      {/* 🔥 UPDATED FORM: Now includes Email, College, Degree, Year, ID, Dept, Phone */}
                       <div className="relative">
                         <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                         <input required type="email" className="w-full bg-white rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-xs font-bold outline-none border border-transparent focus:border-indigo-500 transition-all" placeholder="EMAIL ADDRESS" value={regData.email} onChange={e => setRegData({...regData, email: e.target.value})} />
