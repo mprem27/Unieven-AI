@@ -85,14 +85,12 @@ export const isEventOlderThan3Days = (event) => {
   }
 };
 
-// 🔥 NEW: Check if event is > 1 hour away (locks unregister)
 export const canUnregister = (event) => {
   if (!event?.date) return false;
   try {
     const dateStr = typeof event.date === 'string' ? event.date : new Date(event.date).toISOString();
     const datePart = dateStr.split("T")[0];
     
-    // Normalize time to handle potential PM/AM or use 24h
     let timePart = event.time || "23:59";
     if (timePart.toLowerCase().includes('pm') || timePart.toLowerCase().includes('am')) {
       const [time, modifier] = timePart.split(' ');
@@ -110,7 +108,7 @@ export const canUnregister = (event) => {
     const diffInMs = eventDateTime.getTime() - now.getTime();
     const diffInHours = diffInMs / (1000 * 60 * 60);
 
-    return diffInHours >= 1; // Can ONLY unregister if >= 1 hour away
+    return diffInHours >= 1; 
   } catch (e) {
     return false;
   }
@@ -160,18 +158,15 @@ function Events() {
     (e) => e && !isEventExpired(e) && e.status !== "completed"
   );
 
-  // PUBLIC FEED: Hides events 3 days after completion
   const pastEvents = events
     .filter((e) => e && (isEventExpired(e) || e.status === "completed") && !isEventOlderThan3Days(e))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 6);
 
-  // USER TABS: Active Events
   const activeRegistrations = myRegistrations.filter(
     (reg) => reg?.event && !isEventExpired(reg.event) && reg.event.status !== "completed"
   );
   
-  // USER TABS: History (Keeps all past events permanently)
   const pastRegistrations = myRegistrations.filter(
     (reg) => reg?.event && (isEventExpired(reg.event) || reg.event.status === "completed")
   ).sort((a, b) => new Date(b.event.date) - new Date(a.event.date));
@@ -905,9 +900,9 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                   onScan={async (result) => {
                     if (result?.[0]?.rawValue) {
                       try {
-                        const res = await verifyEventQR(
-                          result[0].rawValue
-                        );
+                        const res = await verifyEventQR({
+                          qrData: result[0].rawValue,
+                        });
 
                         toast.success(res.message);
 
@@ -932,7 +927,6 @@ const EventModal = ({ event, currentUser, myRegistrations, onClose, onRefresh, p
                         toast.error(
                           err.message || "Invalid QR Code"
                         );
-                        setShowQRScanner(false);
                       }
                     }
                   }}

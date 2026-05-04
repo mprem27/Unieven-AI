@@ -19,6 +19,9 @@ import eventRegistrationRoutes from "./routes/eventRegistrationRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 
+//  CRON JOBS
+import "./jobs/reminderJob.js";
+
 // MIDDLEWARES
 import errorMiddleware from "./middlewares/errorMiddleware.js";
 import { apiLimiter } from "./middlewares/rateLimiter.js";
@@ -32,40 +35,52 @@ const port = process.env.PORT || 4000;
 connectDB();
 connectCloudinary();
 
+// ==========================================
+//  GLOBAL MIDDLEWARE
+// ==========================================
 app.use(
   cors({
     origin: (origin, callback) => {
       // allow Postman / mobile apps
       if (!origin) return callback(null, true);
 
-      //  allow localhost (development)
+      // allow localhost (development)
       if (origin.includes("localhost")) {
         return callback(null, true);
       }
 
-      //  allow ALL Vercel deployments (preview + production)
-      if (origin.endsWith(".vercel.app")) {
+      // allow ALL Vercel deployments (preview + production)
+      if (origin.endsWith(".vercel.app") || origin.endsWith(".onrender.com")) {
         return callback(null, true);
       }
 
       console.log(" CORS Blocked:", origin);
       return callback(new Error("Not allowed by CORS"));
     },
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
 
-//  Handle preflight requests (VERY IMPORTANT)
+//  Handle preflight requests (FIXED: Now allows all routes, preventing 401s on new endpoints)
 app.options("/", cors());
 
-// BODY PARSER
-app.use(express.json());
+//  BODY PARSER (Updated limit to handle Base64 QR Codes and Images)
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+//  DEBUG LOGGER (Highly recommended for tracking API flow)
+app.use((req, res, next) => {
+  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 // RATE LIMIT
 app.use("/api", apiLimiter);
 
-// ROUTES
+// ==========================================
+// 🚀 MOUNT ROUTES
+// ==========================================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
@@ -86,7 +101,10 @@ app.get("/", (req, res) => {
 // ERROR HANDLER
 app.use(errorMiddleware);
 
-// START SERVER
+// ==========================================
+// 🌍 START SERVER
+// ==========================================
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(` Server running on port ${port}`);
+  console.log(` Reminder Cron Job initialized!`);
 });

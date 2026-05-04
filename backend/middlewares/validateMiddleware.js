@@ -89,21 +89,41 @@ export const validateRequest = (type) => {
 
       // 🔥 NEW: 7. Event Registration Validation
       if (type === "eventRegistration") {
-        if (isEmpty(body.studentId) || isEmpty(body.department) || isEmpty(body.phone) || isEmpty(body.email)) {
-          return res.status(400).json({ success: false, message: "Student ID, Email, Department, and Phone are required" });
+
+        // ✅ Only validate FULL fields if registering (not unregistering)
+        if (!body.eventId) {
+          return res.status(400).json({
+            success: false,
+            message: "Event ID is required",
+          });
         }
-        if (!emailRegex.test(String(body.email).toLowerCase().trim())) {
-          return res.status(400).json({ success: false, message: "Invalid email format" });
+
+        // 👉 If ONLY eventId is sent → UNREGISTER → skip validation
+        const isUnregister =
+          Object.keys(body).length === 1 && body.eventId;
+
+        if (!isUnregister) {
+          if (
+            isEmpty(body.studentId) ||
+            isEmpty(body.department) ||
+            isEmpty(body.phone) ||
+            isEmpty(body.email)
+          ) {
+            return res.status(400).json({
+              success: false,
+              message:
+                "Student ID, Email, Department, and Phone are required",
+            });
+          }
         }
-        
-        // This is the specific fix for the 500 Error crash:
+
+        // ✅ fix yearOfStudy
         if (isEmpty(body.yearOfStudy)) {
-          delete body.yearOfStudy; // Remove the empty string entirely so Mongoose ignores it
+          delete body.yearOfStudy;
         } else if (!isNaN(body.yearOfStudy)) {
-          body.yearOfStudy = Number(body.yearOfStudy); // Ensure it's a valid Number
+          body.yearOfStudy = Number(body.yearOfStudy);
         }
       }
-
       // --- Social / Content Validations ---
       if (type === "post") {
         const file =
