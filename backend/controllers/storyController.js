@@ -42,8 +42,19 @@ export const uploadStory = async (req, res) => {
       filter,
     } = req.body;
 
-    // MULTIPLE FILES SUPPORT
-    const files = req.files || (req.file ? [req.file] : []);
+    // 🔥 STEP 3: DEBUG LOG (TEMP)
+    console.log("STORY FILE:", req.file);
+
+    // 🔥 STEP 1: FIX FILE ARRAY ASSIGNMENT
+    const files = req.file ? [req.file] : [];
+
+    // 🔥 STEP 2: ADD BUFFER SAFETY CHECK (CRITICAL)
+    if (files.length > 0 && !files[0].buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "File buffer missing",
+      });
+    }
 
     // TEXT-ONLY STORY SUPPORT
     if (files.length === 0 && !text) {

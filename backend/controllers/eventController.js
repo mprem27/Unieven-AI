@@ -419,11 +419,9 @@ export const deleteEvent = async (req, res) => {
         console.log("Cloudinary delete error:", err.message);
       }
     }
-
     await EventRegistration.deleteMany({
       event: event._id,
     });
-
     await eventModel.findByIdAndDelete(event._id);
 
     res.json({
