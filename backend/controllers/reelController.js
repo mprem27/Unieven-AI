@@ -2,7 +2,7 @@ import reelModel from "../models/Reel.js";
 import commentModel from "../models/Comment.js";
 import userModel from "../models/User.js";
 import cloudinary from "../configs/cloudinary.js";
-import fs from "fs";
+import { uploadFromBuffer } from "../utils/uploadToCloudinary.js";
 
 // =============================
 // SAFE FONT/STYLES
@@ -57,15 +57,10 @@ export const createReel = async (req, res) => {
       });
     }
 
-    const upload = await cloudinary.uploader.upload(videoFile.path, {
-      resource_type: "video",
-      folder: "unieven_reels",
-    });
-
-    // Remove local temp file
-    if (videoFile.path && fs.existsSync(videoFile.path)) {
-      fs.unlinkSync(videoFile.path);
-    }
+    const upload = await uploadFromBuffer(
+      videoFile.buffer,
+      "unieven_reels"
+    );
 
     const safeTextX = Math.max(0, Math.min(1, Number(textX) || 0.5));
     const safeTextY = Math.max(0, Math.min(1, Number(textY) || 0.5));

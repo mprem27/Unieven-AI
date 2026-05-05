@@ -2,7 +2,7 @@ import postModel from "../models/Post.js";
 import userModel from "../models/User.js";
 import commentModel from "../models/Comment.js";
 import cloudinary from "../configs/cloudinary.js";
-import fs from "fs";
+import { uploadFromBuffer } from "../utils/uploadToCloudinary.js"; // 🔥 STEP 1
 
 // =============================
 // FONT SAFETY MAP
@@ -38,8 +38,8 @@ export const createPost = async (req, res) => {
       isEvent,
       location,
       tags,
-      date,        // 🔥 ADDED DATE
-      time,        // 🔥 ADDED TIME
+      date,        
+      time,        
 
       // 🔥 TEXT OVERLAY SYSTEM
       overlayText,
@@ -56,7 +56,8 @@ export const createPost = async (req, res) => {
     const file =
       req.files?.media?.[0] ||
       req.files?.image?.[0] ||
-      req.files?.file?.[0];
+      req.files?.file?.[0] ||
+      req.file;
 
     if (!file) {
       return res.status(400).json({
@@ -65,26 +66,17 @@ export const createPost = async (req, res) => {
       });
     }
 
+    // 🔥 STEP 3: NEW BUFFER UPLOAD LOGIC
     let upload;
 
     try {
-      upload = await cloudinary.uploader.upload(file.path, {
-        resource_type: "auto",
-      });
+      upload = await uploadFromBuffer(file.buffer, "unieven_posts");
     } catch (err) {
-      if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
-      }
-
+      console.error("Cloudinary Buffer Upload Error:", err);
       return res.status(500).json({
         success: false,
         message: "Media upload failed",
       });
-    }
-
-    // Delete local temp file
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
     }
 
     // Parse tags safely
