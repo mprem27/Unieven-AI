@@ -3,6 +3,27 @@ import storyArchiveModel from "../models/StoryArchive.js";
 import followModel from "../models/Follow.js";
 import { v2 as cloudinary } from "cloudinary";
 
+// 🔥 ADDED IMPORT
+import streamifier from "streamifier";
+
+// 🔥 ADDED FUNCTION FOR BUFFER UPLOADS
+const uploadFromBuffer = (buffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "unieven_stories",
+        resource_type: "auto",
+      },
+      (error, result) => {
+        if (result) resolve(result);
+        else reject(error);
+      }
+    );
+
+    streamifier.createReadStream(buffer).pipe(stream);
+  });
+};
+
 // 1. UPLOAD STORY (MULTIPLE FILES + TEXT SUPPORT)
 export const uploadStory = async (req, res) => {
   try {
@@ -61,13 +82,8 @@ export const uploadStory = async (req, res) => {
 
     // MULTIPLE MEDIA STORIES
     for (const file of files) {
-      const upload = await cloudinary.uploader.upload(
-        file.path,
-        {
-          resource_type: "auto",
-          folder: "unieven_stories",
-        }
-      );
+      // 🔥 REPLACED FILE.PATH WITH BUFFER UPLOAD
+      const upload = await uploadFromBuffer(file.buffer);
 
       const story = await storyModel.create({
         user: req.user.id,

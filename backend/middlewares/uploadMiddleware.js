@@ -1,41 +1,23 @@
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 
 // =============================
-// 📂 CREATE UPLOAD FOLDER
+// 📦 MEMORY STORAGE (FIX FOR RENDER)
 // =============================
-const uploadDir = "uploads/";
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Keeps the file in memory as a Buffer instead of writing to disk.
+const storage = multer.memoryStorage();
 
 // =============================
-// 📦 STORAGE CONFIG
-// =============================
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-
-  filename: function (req, file, cb) {
-    const uniqueName =
-      Date.now() + "-" + Math.round(Math.random() * 1e9);
-
-    cb(null, uniqueName + path.extname(file.originalname));
-  },
-});
-
-// =============================
-// 🔥 UNIVERSAL FILE FILTER (FIX)
+// 🔥 UNIVERSAL FILE FILTER
 // =============================
 const fileFilter = (req, file, cb) => {
   const allowedImage = /jpeg|jpg|png|webp/;
   const allowedVideo = /mp4|mov|mkv/;
 
+  // Get extension with dot (e.g., '.png')
   const ext = path.extname(file.originalname).toLowerCase();
 
+  // Validate both extension and mimetype to prevent spoofing
   const isImage =
     allowedImage.test(ext) &&
     allowedImage.test(file.mimetype);
@@ -70,12 +52,12 @@ export const uploadVideo = multer({
 });
 
 // =============================
-// 📤 MIXED UPLOAD (FIXED)
+// 📤 MIXED UPLOAD (FOR STORIES / POSTS)
 // =============================
 export const uploadAny = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter, // 🔥 IMPORTANT FIX
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  fileFilter,
 });
 
 // =============================
