@@ -1,7 +1,7 @@
 import storyModel from "../models/Story.js";
 import storyArchiveModel from "../models/StoryArchive.js";
 import followModel from "../models/Follow.js";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../configs/cloudinary.js";
 
 // 🔥 ADDED IMPORT
 import streamifier from "streamifier";

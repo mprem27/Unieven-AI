@@ -1,7 +1,7 @@
 import reelModel from "../models/Reel.js";
 import commentModel from "../models/Comment.js";
 import userModel from "../models/User.js";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../configs/cloudinary.js";
 import fs from "fs";
 
 // =============================

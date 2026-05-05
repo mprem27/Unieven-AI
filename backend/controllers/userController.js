@@ -2,7 +2,7 @@ import userModel from "../models/User.js";
 import postModel from "../models/Post.js";
 import reelModel from "../models/Reel.js";
 import followModel from "../models/Follow.js";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../configs/cloudinary.js";
 
 // =====================================================
 //  GET USER PROFILE

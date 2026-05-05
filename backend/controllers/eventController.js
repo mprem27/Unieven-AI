@@ -1,7 +1,7 @@
 import eventModel from "../models/Event.js";
 import EventRegistration from "../models/EventRegistration.js";
 import userModel from "../models/User.js";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../configs/cloudinary.js";
 import fs from "fs";
 import QRCode from "qrcode";
 import crypto from "crypto";

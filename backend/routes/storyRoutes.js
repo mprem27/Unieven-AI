@@ -28,7 +28,6 @@ router.post(
   "/upload",
   authMiddleware,
   uploadAny.single("media"),
-  validateRequest("story"),
   asyncHandler(uploadStory)
 );
 
