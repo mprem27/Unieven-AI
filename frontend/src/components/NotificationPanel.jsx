@@ -36,6 +36,13 @@ function NotificationPanel({ isOpen, onClose }) {
   // 🔥 STEP 1: INSTANT READ STATE & GLOBAL BADGE UPDATE
   useEffect(() => {
     if (isOpen) {
+      // ✅ FIX 4: AUTO CLEAR BADGE WHEN PANEL OPENS
+      window.dispatchEvent(
+        new CustomEvent("notificationsUpdated", {
+          detail: { unreadCount: 0 },
+        })
+      );
+
       fetchNotifications();
       
       markAsRead()
@@ -46,8 +53,12 @@ function NotificationPanel({ isOpen, onClose }) {
               read: true,
             }))
           );
-          // Instantly sync the badge everywhere in the app
-          window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+          // ✅ FIX 1: SEND UPDATED COUNT GLOBALLY
+          window.dispatchEvent(
+            new CustomEvent("notificationsUpdated", {
+              detail: { unreadCount: 0 },
+            })
+          );
         })
         .catch(() => null);
 
@@ -104,7 +115,12 @@ function NotificationPanel({ isOpen, onClose }) {
     try {
       await acceptFollowRequest(id);
       await fetchNotifications();
-      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      // ✅ FIX 3: DELETE / ACCEPT / REJECT ALSO UPDATE COUNT
+      window.dispatchEvent(
+        new CustomEvent("notificationsUpdated", {
+          detail: { refresh: true },
+        })
+      );
     } catch (error) {
       console.log(error);
     }
@@ -114,7 +130,12 @@ function NotificationPanel({ isOpen, onClose }) {
     try {
       await rejectFollowRequest(id);
       await fetchNotifications();
-      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      // ✅ FIX 3: DELETE / ACCEPT / REJECT ALSO UPDATE COUNT
+      window.dispatchEvent(
+        new CustomEvent("notificationsUpdated", {
+          detail: { refresh: true },
+        })
+      );
     } catch (error) {
       console.log(error);
     }
@@ -124,7 +145,12 @@ function NotificationPanel({ isOpen, onClose }) {
     try {
       setNotifications((prev) => prev.filter((n) => n._id !== id));
       await deleteNotification(id);
-      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      // ✅ FIX 3: DELETE / ACCEPT / REJECT ALSO UPDATE COUNT
+      window.dispatchEvent(
+        new CustomEvent("notificationsUpdated", {
+          detail: { refresh: true },
+        })
+      );
     } catch (error) {
       console.log(error);
     }

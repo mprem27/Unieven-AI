@@ -7,7 +7,6 @@ import { getFeed, likePost, deletePost, savePost, unsavePost } from "../services
 import { getReels, likeReel, deleteReel, saveReel, unsaveReel } from "../services/reelService";
 import { getStories } from "../services/storyService";
 import { getSuggestedUsers } from "../services/userService";
-// 🔥 FIX 1: Import the event services so we can actually fetch and delete events!
 import { getAllEvents, deleteEvent } from "../services/eventService"; 
 import Suggestions from "../components/Suggestions";
 import { Assets } from "../assets/Assets";
@@ -113,7 +112,6 @@ function Feed() {
   const loadFeedData = async () => {
     try {
       setLoading(true);
-      // 🔥 FIX 2: Added getAllEvents() to the Promise payload
       let [postsRes, reelsRes, eventsRes, storiesRes, usersRes] = await Promise.allSettled([
         getFeed(), getReels(), getAllEvents(), getStories(), getSuggestedUsers()
       ]);
@@ -138,25 +136,25 @@ function Feed() {
           isSaved: r.savedBy?.includes(user?._id) || user?.savedReels?.includes(r._id) || false
         }));
 
-      // 🔥 FIX 3: Map fetched events so they match your Feed's post structure perfectly
+      // 🔥 FIX 2: Map fetched events and enforce date existence
       const fetchedEvents = (eventsRes.status === "fulfilled" ? (eventsRes.value?.events || eventsRes.value?.data || []) : [])
-        .filter((e) => e.createdBy?._id)
+        .filter((e) => e.createdBy?._id && (e.date || e.eventDate))
         .map(e => ({
           ...e,
-          user: e.createdBy || {}, // Map createdBy to user
+          user: e.createdBy || {}, 
           feedItemType: "event",
           isEvent: true,
           media: e.image || "/default-event.jpg",
-          caption: e.description || e.title, // Use description as the caption
+          caption: e.description || e.title, 
           type: "image",
           isSaved: false,
-          comments: e.comments || [], // Ensure safe array
-          likes: e.likes || [] // Ensure safe array
+          comments: e.comments || [], 
+          likes: e.likes || [] 
         }));
 
-      // Merge Posts, Reels, and Events!
+      // 🔥 FIX 5: Better event order sorting using proper dates
       const sortedFeed = [...fetchedPosts, ...fetchedReels, ...fetchedEvents].sort((a, b) => 
-        new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now())
+        new Date(b.createdAt || b.date || Date.now()) - new Date(a.createdAt || a.date || Date.now())
       );
 
       const recentPosts = sortedFeed.slice(0, 2);
@@ -171,19 +169,15 @@ function Feed() {
         const isEventPost = item.isEvent === true || String(item.isEvent) === "true";
 
         if (isEventPost) {
-          if (!item.date) return false;
+          // 🔥 FIX 1: Robust Expiry Logic
+          const eventDate = new Date(item.date || item.eventDate || item.createdAt);
           
-          try {
-            // 🔥 FIX 4: Simpler, safer date logic to avoid timezone crashes
-            const expiryDate = new Date(item.date);
-            if (isNaN(expiryDate.getTime())) return false; // Hide if invalid format
-            
-            // Add 2 days buffer
-            expiryDate.setDate(expiryDate.getDate() + 2);
-            return now <= expiryDate;
-          } catch (e) {
-            return false; 
-          }
+          if (isNaN(eventDate.getTime())) return false;
+          
+          // Only show event for 24 hours after event date
+          const expiryTime = new Date(eventDate.getTime() + 24 * 60 * 60 * 1000);
+          
+          return now <= expiryTime;
         }
 
         return true; 
@@ -349,7 +343,6 @@ function Feed() {
     setIsDeleting(true);
     
     try {
-      // 🔥 FIX 5: Make sure deleteEvent is called for events
       if (itemToDelete.feedItemType === "reel" || itemToDelete.video) {
         await deleteReel(itemToDelete._id);
       } else if (itemToDelete.feedItemType === "event" || itemToDelete.isEvent) {
@@ -357,7 +350,9 @@ function Feed() {
       } else {
         await deletePost(itemToDelete._id);
       }
-      setPosts((prev) => prev.filter((p) => p._id !== itemToDelete._id));
+      
+      // 🔥 FIX 3: FORCE REFRESH FROM SERVER TO SYNC PROPERLY
+      await loadFeedData();
       
       const typeName = itemToDelete.feedItemType === "reel" ? "Reel" : (itemToDelete.isEvent ? "Event" : "Post");
       toast.success(`${typeName} deleted successfully!`);
@@ -399,7 +394,8 @@ function Feed() {
             <Suggestions 
               users={suggestedUsers} 
               currentUser={user} 
-              onRefreshSuggestions={loadFeedData} 
+              // 🔥 FIX 4: Remove 1st item without reloading whole feed
+              onRefreshSuggestions={() => setSuggestedUsers((prev) => prev.slice(1))} 
             />
           )}
 
@@ -608,8 +604,8 @@ function Feed() {
                         ) : (
                           <div className="mt-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-top-2">
                              <div className="space-y-2 text-[12px] font-bold text-blue-800 mb-4">
-                               <p className="flex items-center gap-2"><FaCalendarAlt className="text-blue-400" /> {post.date ? new Date(post.date).toDateString() : 'TBA'} • {post.time || 'TBA'}</p>
-                               <p className="flex items-center gap-2"><FaMapMarkerAlt className="text-red-400" /> {post.location || 'Campus Hall'}</p>
+                                <p className="flex items-center gap-2"><FaCalendarAlt className="text-blue-400" /> {post.date ? new Date(post.date).toDateString() : 'TBA'} • {post.time || 'TBA'}</p>
+                                <p className="flex items-center gap-2"><FaMapMarkerAlt className="text-red-400" /> {post.location || 'Campus Hall'}</p>
                              </div>
                              <button 
                                onClick={() => navigate("/events")} 
@@ -639,7 +635,8 @@ function Feed() {
                     <Suggestions 
                       users={suggestedUsers} 
                       currentUser={user} 
-                      onRefreshSuggestions={loadFeedData} 
+                      // 🔥 FIX 4: Soft-shift instead of hard-reload
+                      onRefreshSuggestions={() => setSuggestedUsers((prev) => prev.slice(1))} 
                     />
                   </div>
                 )}
