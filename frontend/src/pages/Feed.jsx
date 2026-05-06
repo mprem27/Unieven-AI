@@ -338,20 +338,26 @@ function Feed() {
     }
   };
 
+  // 🔥 STRICT FEED ITEM DELETE FIX
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     setIsDeleting(true);
     
     try {
-      if (itemToDelete.feedItemType === "reel" || itemToDelete.video) {
+      // 1. If it's explicitly mapped as a reel
+      if (itemToDelete.feedItemType === "reel") {
         await deleteReel(itemToDelete._id);
-      } else if (itemToDelete.feedItemType === "event" || itemToDelete.isEvent) {
+      } 
+      // 2. If it's explicitly mapped from the dedicated Event collection
+      else if (itemToDelete.feedItemType === "event") {
         await deleteEvent(itemToDelete._id); 
-      } else {
+      } 
+      // 3. If it's a Post (even if it's a post with isEvent: true)
+      else {
         await deletePost(itemToDelete._id);
       }
       
-      // 🔥 FIX 3: FORCE REFRESH FROM SERVER TO SYNC PROPERLY
+      // FORCE REFRESH FROM SERVER TO SYNC PROPERLY
       await loadFeedData();
       
       const typeName = itemToDelete.feedItemType === "reel" ? "Reel" : (itemToDelete.isEvent ? "Event" : "Post");
@@ -360,6 +366,7 @@ function Feed() {
       window.dispatchEvent(new Event("profileUpdated"));
     } catch (error) {
       toast.error("Failed to delete item.");
+      console.error("Delete Error:", error);
     } finally {
       setIsDeleting(false);
       setItemToDelete(null); 
