@@ -1,7 +1,7 @@
 import express from "express";
 
 // ============================================
-// EVENT CONTROLLERS
+// UNIFIED EVENT CONTROLLER
 // ============================================
 import {
   createEvent,
@@ -9,20 +9,11 @@ import {
   getSingleEvent,
   deleteEvent,
   registerForEvent,
-} from "../controllers/eventController.js";
-
-// ============================================
-// EVENT REGISTRATION CONTROLLERS
-// ============================================
-import {
-  registerEvent,
-  getUserEvents,
-  markAttendance,
-  verifyEventQR,
+  verifyAttendanceQR,
   getEventParticipants,
   getEventAnalytics,
   exportParticipantsCSV,
-} from "../controllers/eventRegistrationController.js";
+} from "../controllers/eventController.js";
 
 // ============================================
 // MIDDLEWARES
@@ -58,58 +49,20 @@ router.get(
 );
 
 // =====================================================
-// 🔍 GET SINGLE EVENT
-// =====================================================
-router.get(
-  "/:id",
-  optionalAuth,
-  asyncHandler(getSingleEvent)
-);
-
-// =====================================================
-// 🎟 REGISTER / UNREGISTER EVENT
-// =====================================================
-router.post(
-  "/register",
-  authMiddleware,
-  validateRequest("eventRegistration"),
-  asyncHandler(registerEvent)
-);
-
-// =====================================================
-// 👤 USER REGISTERED EVENTS
-// =====================================================
-router.get(
-  "/my-events",
-  authMiddleware,
-  asyncHandler(getUserEvents)
-);
-
-// =====================================================
-// 📝 MANUAL ATTENDANCE MARKING (FACULTY)
-// =====================================================
-router.post(
-  "/attendance/:registrationId",
-  authMiddleware,
-  checkRole("faculty", "admin"),
-  asyncHandler(markAttendance)
-);
-
-// =====================================================
 // 📷 QR ATTENDANCE VERIFICATION
 // =====================================================
 router.post(
   "/verify-qr",
   authMiddleware,
   checkRole("faculty", "admin"),
-  asyncHandler(verifyEventQR)
+  asyncHandler(verifyAttendanceQR)
 );
 
 // =====================================================
 // 👥 EVENT PARTICIPANTS
 // =====================================================
 router.get(
-  "/participants/:eventId",
+  "/participants/:id", // 🔥 FIXED: Controller expects req.params.id
   authMiddleware,
   checkRole("faculty", "admin"),
   asyncHandler(getEventParticipants)
@@ -119,7 +72,7 @@ router.get(
 // 📊 EVENT ANALYTICS
 // =====================================================
 router.get(
-  "/analytics/:eventId",
+  "/analytics/:id", // 🔥 FIXED: Controller expects req.params.id
   authMiddleware,
   checkRole("faculty", "admin"),
   asyncHandler(getEventAnalytics)
@@ -129,10 +82,29 @@ router.get(
 // 📁 EXPORT PARTICIPANTS CSV
 // =====================================================
 router.get(
-  "/export/:eventId",
+  "/export/:id", // 🔥 FIXED: Controller expects req.params.id
   authMiddleware,
   checkRole("faculty", "admin"),
   asyncHandler(exportParticipantsCSV)
+);
+
+// =====================================================
+// 🎟 REGISTER FOR EVENT
+// =====================================================
+router.post(
+  "/:id/register", // 🔥 FIXED: Controller expects req.params.id to find the event
+  authMiddleware,
+  validateRequest("eventRegistration"),
+  asyncHandler(registerForEvent)
+);
+
+// =====================================================
+// 🔍 GET SINGLE EVENT
+// =====================================================
+router.get(
+  "/:id",
+  optionalAuth,
+  asyncHandler(getSingleEvent)
 );
 
 // =====================================================

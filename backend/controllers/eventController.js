@@ -235,76 +235,89 @@ export const registerForEvent = async (req, res) => {
 };
 
 // ============================================
-// VERIFY QR ATTENDANCE (CRASH-PROOF VERSION)
+// VERIFY QR ATTENDANCE
 // ============================================
 export const verifyAttendanceQR = async (req, res) => {
   try {
+    console.log("REQ BODY:", req.body);
+    console.log("REQ USER:", req.user);
+
     const { qrData } = req.body;
-    
-    // 1. Check if data exists
+
+    // ✅ Check QR data
     if (!qrData) {
       return res.status(400).json({
         success: false,
-        message: "No QR data received by the server",
+        message: "No QR data received",
       });
     }
 
-    // 2. Safely parse the QR Data (handles both strings and objects)
-    let parsed;
+    // ✅ Parse QR safely
+    let parsedData;
+
     try {
-      parsed = typeof qrData === "string" ? JSON.parse(qrData) : qrData;
-    } catch (parseError) {
+      parsedData =
+        typeof qrData === "string"
+          ? JSON.parse(qrData)
+          : qrData;
+    } catch (err) {
       return res.status(400).json({
         success: false,
-        message: "Invalid QR Code format. Please scan a valid UniEven pass.",
+        message: "Invalid QR format",
       });
     }
 
-    // 3. Verify the parsed data has the required fields
-    if (!parsed.registrationId || !parsed.qrToken) {
-       return res.status(400).json({
+    // ✅ Validate fields
+    const { registrationId, qrToken } = parsedData;
+
+    if (!registrationId || !qrToken) {
+      return res.status(400).json({
         success: false,
-        message: "Unrecognized QR Code. Missing registration data.",
+        message: "Invalid QR ticket",
       });
     }
 
-    // 4. Find the registration
+    // ✅ Find registration
     const registration = await EventRegistration.findOne({
-      _id: parsed.registrationId,
-      qrToken: parsed.qrToken,
+      _id: registrationId,
+      qrToken,
     }).populate("user", "username email image");
 
     if (!registration) {
       return res.status(404).json({
         success: false,
-        message: "Invalid or expired QR Ticket",
+        message: "QR Ticket not found",
       });
     }
 
+    // ✅ Already attended
     if (registration.status === "attended") {
       return res.status(400).json({
         success: false,
-        message: "Student has already been marked as attended!",
+        message: "Attendance already marked",
       });
     }
 
-    // 5. Update Status
+    // ✅ Update attendance
     registration.status = "attended";
     registration.attendanceTime = new Date();
-    registration.attendanceMarkedBy = req.user.id; 
+
+    // 🔥 SAFE CHECK
+    registration.attendanceMarkedBy = req.user?.id || null;
+
     registration.checkInMethod = "qr";
 
     await registration.save();
 
     res.json({
       success: true,
-      message: "Attendance marked successfully!",
+      message: "Attendance marked successfully",
       participant: registration,
     });
+
   } catch (error) {
-    // 🔥 THIS WILL TELL YOU EXACTLY WHAT WENT WRONG IN YOUR TERMINAL
-    console.error("QR VERIFY CRASH:", error); 
-    
+    console.error("QR VERIFY ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message || "QR verification failed",
