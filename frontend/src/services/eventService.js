@@ -170,18 +170,49 @@ export const markAttendance = async (registrationId) => {
 // =====================================================
 // 📷 VERIFY EVENT QR
 // =====================================================
+// =====================================================
+// 📷 VERIFY EVENT QR
+// =====================================================
 export const verifyEventQR = async (qrData) => {
   try {
+
+    console.log("SCANNED QR DATA:", qrData);
+
+    // ✅ Validate before sending
+    if (!qrData) {
+      throw {
+        success: false,
+        message: "QR data is empty",
+      };
+    }
+
+    // ✅ If scanner returns object → stringify safely
+    let formattedQRData = qrData;
+
+    if (typeof qrData === "object") {
+      formattedQRData = JSON.stringify(qrData);
+    }
+
+    console.log("FORMATTED QR:", formattedQRData);
+
+    // ✅ Send request
     const { data } = await API.post(
       "/event-registration/verify-qr",
       {
-        qrData,
+        qrData: formattedQRData,
       }
     );
 
+    console.log("QR VERIFY SUCCESS:", data);
+
     return data;
+
   } catch (error) {
-    console.error("QR VERIFY ERROR:", error);
+
+    console.error(
+      "QR VERIFY ERROR:",
+      error.response?.data || error.message
+    );
 
     throw (
       error.response?.data || {
@@ -191,7 +222,6 @@ export const verifyEventQR = async (qrData) => {
     );
   }
 };
-
 // =====================================================
 // 📊 GET EVENT ANALYTICS
 // =====================================================

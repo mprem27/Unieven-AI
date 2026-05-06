@@ -239,41 +239,52 @@ export const registerForEvent = async (req, res) => {
 // ============================================
 export const verifyAttendanceQR = async (req, res) => {
   try {
-    console.log("REQ BODY:", req.body);
-    console.log("REQ USER:", req.user);
+
+    console.log("================================");
+    console.log("VERIFY QR API HIT");
+    console.log("BODY:", req.body);
+    console.log("USER:", req.user);
+    console.log("================================");
 
     const { qrData } = req.body;
 
-    // ✅ Check QR data
+    // ✅ Check qrData
     if (!qrData) {
       return res.status(400).json({
         success: false,
-        message: "No QR data received",
+        message: "QR data missing",
       });
     }
 
-    // ✅ Parse QR safely
     let parsedData;
 
+    // ✅ Parse safely
     try {
+
       parsedData =
         typeof qrData === "string"
           ? JSON.parse(qrData)
           : qrData;
-    } catch (err) {
+
+    } catch (parseError) {
+
+      console.log("QR JSON PARSE ERROR:", parseError);
+
       return res.status(400).json({
         success: false,
         message: "Invalid QR format",
       });
     }
 
-    // ✅ Validate fields
+    console.log("PARSED DATA:", parsedData);
+
     const { registrationId, qrToken } = parsedData;
 
+    // ✅ Validate fields
     if (!registrationId || !qrToken) {
       return res.status(400).json({
         success: false,
-        message: "Invalid QR ticket",
+        message: "Invalid QR code data",
       });
     }
 
@@ -286,7 +297,7 @@ export const verifyAttendanceQR = async (req, res) => {
     if (!registration) {
       return res.status(404).json({
         success: false,
-        message: "QR Ticket not found",
+        message: "Registration not found",
       });
     }
 
@@ -298,27 +309,29 @@ export const verifyAttendanceQR = async (req, res) => {
       });
     }
 
-    // ✅ Update attendance
+    // ✅ Mark attendance
     registration.status = "attended";
     registration.attendanceTime = new Date();
 
-    // 🔥 SAFE CHECK
-    registration.attendanceMarkedBy = req.user?.id || null;
+    // ✅ Prevent crash
+    registration.attendanceMarkedBy =
+      req.user?._id || null;
 
     registration.checkInMethod = "qr";
 
     await registration.save();
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Attendance marked successfully",
       participant: registration,
     });
 
   } catch (error) {
-    console.error("QR VERIFY ERROR:", error);
 
-    res.status(500).json({
+    console.log("QR VERIFY SERVER ERROR:", error);
+
+    return res.status(500).json({
       success: false,
       message: error.message || "QR verification failed",
     });

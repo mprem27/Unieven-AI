@@ -54,9 +54,9 @@ router.get(
 router.post(
   "/verify-qr",
   authMiddleware,
-  checkRole("faculty", "admin"),
-  asyncHandler(verifyAttendanceQR)
+  verifyAttendanceQR
 );
+
 
 // =====================================================
 // 👥 EVENT PARTICIPANTS
