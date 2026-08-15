@@ -50,7 +50,6 @@ const storySchema = new mongoose.Schema(
     // =====================================================
     // 🔤 TEXT FONT
     // =====================================================
-    
     textFont: {
       type: String,
       enum: [
@@ -98,7 +97,6 @@ const storySchema = new mongoose.Schema(
     // =====================================================
     // 📍 TEXT POSITION
     // =====================================================
-    // Normalized values between 0 and 1
     textX: {
       type: Number,
       default: 0.5,
@@ -187,7 +185,9 @@ const storySchema = new mongoose.Schema(
 // =====================================================
 // 🔄 NORMALIZE OLD / FRONTEND FONT VALUES
 // =====================================================
-storySchema.pre("validate", function (next) {
+
+
+storySchema.pre("validate", function () {
   const fontMap = {
     "font-sans": "classic",
     "font-mono": "typewriter",
@@ -199,10 +199,12 @@ storySchema.pre("validate", function (next) {
     serif: "cursive",
   };
 
+  // Convert old frontend value
   if (this.textFont && fontMap[this.textFont]) {
     this.textFont = fontMap[this.textFont];
   }
 
+  // Allowed database values
   const allowedFonts = [
     "classic",
     "typewriter",
@@ -213,24 +215,23 @@ storySchema.pre("validate", function (next) {
     "sleek",
   ];
 
+  // Fallback for empty/unknown values
   if (!this.textFont || !allowedFonts.includes(this.textFont)) {
     this.textFont = "classic";
   }
-
-  next();
 });
 
 // =====================================================
 // ⏰ TTL INDEX
 // =====================================================
-
+// MongoDB automatically removes expired stories.
 storySchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
 );
 
 // =====================================================
-// ⚡ FAST USER STORY QUERY
+// ⚡ FAST USER QUERY
 // =====================================================
 storySchema.index({
   user: 1,
