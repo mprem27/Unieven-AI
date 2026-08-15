@@ -1,41 +1,56 @@
-
 import mongoose from "mongoose";
 
 const storySchema = new mongoose.Schema(
   {
+    // =====================================================
+    // 👤 USER
+    // =====================================================
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
 
-    // MEDIA OPTIONAL FOR TEXT STORIES
+    // =====================================================
+    // 📸 MEDIA
+    // =====================================================
     media: {
       type: String,
       default: "",
     },
 
-    // SUPPORT IMAGE + VIDEO + TEXT STORIES
+    // =====================================================
+    // 📱 STORY TYPE
+    // =====================================================
     type: {
       type: String,
       enum: ["image", "video", "text"],
       default: "image",
     },
 
-    // STORY TEXT CONTENT
+    // =====================================================
+    // 📝 STORY TEXT
+    // =====================================================
     text: {
       type: String,
       default: "",
       maxlength: 250,
+      trim: true,
     },
 
-    // SAFE STYLE SYSTEM
+    // =====================================================
+    // 🎨 TEXT COLOR
+    // =====================================================
     textColor: {
       type: String,
       default: "white",
+      trim: true,
     },
 
-    // STORE FONT KEY ONLY (NOT RAW TAILWIND CLASSES)
+    // =====================================================
+    // 🔤 TEXT FONT
+    // =====================================================
+    
     textFont: {
       type: String,
       enum: [
@@ -48,8 +63,12 @@ const storySchema = new mongoose.Schema(
         "sleek",
       ],
       default: "classic",
+      trim: true,
     },
 
+    // =====================================================
+    // 🎭 TEXT STYLE
+    // =====================================================
     textStyle: {
       type: String,
       enum: [
@@ -63,8 +82,12 @@ const storySchema = new mongoose.Schema(
         "elegant",
       ],
       default: "classic",
+      trim: true,
     },
 
+    // =====================================================
+    // 📏 TEXT SIZE
+    // =====================================================
     textSize: {
       type: Number,
       default: 36,
@@ -72,7 +95,10 @@ const storySchema = new mongoose.Schema(
       max: 100,
     },
 
-    // NORMALIZED POSITION (0 to 1)
+    // =====================================================
+    // 📍 TEXT POSITION
+    // =====================================================
+    // Normalized values between 0 and 1
     textX: {
       type: Number,
       default: 0.5,
@@ -87,23 +113,36 @@ const storySchema = new mongoose.Schema(
       max: 1,
     },
 
-    // TEXT STORY BACKGROUND
+    // =====================================================
+    // 🌈 TEXT STORY BACKGROUND
+    // =====================================================
     bgGradient: {
       type: String,
       default: "",
+      trim: true,
     },
 
-    // IMAGE/VIDEO FILTER
+    // =====================================================
+    // 🖼️ IMAGE / VIDEO FILTER
+    // =====================================================
     filter: {
       type: String,
       default: "",
+      trim: true,
     },
 
+    // =====================================================
+    // 🔗 LINK
+    // =====================================================
     link: {
       type: String,
       default: "",
+      trim: true,
     },
 
+    // =====================================================
+    // 👥 TAGGED USERS
+    // =====================================================
     tags: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -111,6 +150,9 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
+    // =====================================================
+    // 👁️ STORY VIEWS
+    // =====================================================
     views: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -118,7 +160,9 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
-    // COMMENTS SUPPORT
+    // =====================================================
+    // 💬 COMMENTS
+    // =====================================================
     comments: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -126,7 +170,9 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
-    // AUTO EXPIRE AFTER 24H
+    // =====================================================
+    // ⏰ AUTO EXPIRY
+    // =====================================================
     expiresAt: {
       type: Date,
       default: () =>
@@ -138,15 +184,62 @@ const storySchema = new mongoose.Schema(
   }
 );
 
-// TTL INDEX
+// =====================================================
+// 🔄 NORMALIZE OLD / FRONTEND FONT VALUES
+// =====================================================
+storySchema.pre("validate", function (next) {
+  const fontMap = {
+    "font-sans": "classic",
+    "font-mono": "typewriter",
+    "font-serif": "cursive",
+
+    // Additional possible old values
+    sans: "classic",
+    mono: "typewriter",
+    serif: "cursive",
+  };
+
+  if (this.textFont && fontMap[this.textFont]) {
+    this.textFont = fontMap[this.textFont];
+  }
+
+  const allowedFonts = [
+    "classic",
+    "typewriter",
+    "modern",
+    "impact",
+    "cursive",
+    "marker",
+    "sleek",
+  ];
+
+  if (!this.textFont || !allowedFonts.includes(this.textFont)) {
+    this.textFont = "classic";
+  }
+
+  next();
+});
+
+// =====================================================
+// ⏰ TTL INDEX
+// =====================================================
+
 storySchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
 );
 
-// FAST USER QUERY
-storySchema.index({ user: 1, createdAt: -1 });
+// =====================================================
+// ⚡ FAST USER STORY QUERY
+// =====================================================
+storySchema.index({
+  user: 1,
+  createdAt: -1,
+});
 
+// =====================================================
+// 📦 MODEL
+// =====================================================
 const storyModel =
   mongoose.models.Story ||
   mongoose.model("Story", storySchema);
