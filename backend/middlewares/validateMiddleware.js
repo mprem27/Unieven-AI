@@ -69,13 +69,26 @@ export const validateRequest = (type) => {
         body.otp = String(body.otp).trim();
       }
 
-      // 5. Forgot Password Step 2 (Verify OTP via Spring Bridge)
+
+      // 5. Forgot Password Step 2 (Verify OTP handled by Node.js)
       if (type === "verifyOtp") {
         if (isEmpty(body.email) || isEmpty(body.otp)) {
-          return res.status(400).json({ success: false, message: "Email and OTP are required" });
+          return res.status(400).json({
+            success: false,
+            message: "Email and OTP are required",
+          });
         }
+
         body.email = String(body.email).toLowerCase().trim();
         body.otp = String(body.otp).trim();
+
+        // OTP must be exactly 6 digits
+        if (!/^\d{6}$/.test(body.otp)) {
+          return res.status(400).json({
+            success: false,
+            message: "OTP must be exactly 6 digits",
+          });
+        }
       }
 
       // 6. Forgot Password Step 3 (Final Reset)

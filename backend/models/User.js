@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      sparse: true, 
+      sparse: true,
       trim: true,
       lowercase: true,
       minlength: 3,
@@ -72,7 +72,7 @@ const userSchema = new mongoose.Schema(
 
     // Spring Boot writes "VERIFIED" or a 6-digit code here
     resetOTP: {
-      type: String, 
+      type: String,
       default: null,
     },
 

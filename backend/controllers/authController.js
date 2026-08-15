@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import validator from "validator";
 import { sendOTPEmail } from "../utils/sendEmail.js";
-import { sendOtp, verifyOtp } from "../services/otpService.js";
+// import { sendOtp, verifyOtp } from "../services/otpService.js";
 
 // ======================================================
 // 🔐 TOKEN GENERATION
@@ -130,22 +130,69 @@ export const loginUser = async (req, res) => {
 };
 
 // ======================================================
-// 🔑 FORGOT PASSWORD (Calls Spring Boot via Service)
+//             FORGOT PASSWORD
 // ======================================================
 export const forgotPassword = async (req, res) => {
   try {
     const email = req.body.email?.toLowerCase().trim();
-    if (!email) return res.status(400).json({ success: false, message: "Email is required" });
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
 
     const user = await userModel.findOne({ email });
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Call Spring Boot service
-    const result = await sendOtp(email);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
-    res.json({ success: true, message: result.message });
+    // Generate 6-digit OTP
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    // Store OTP in User document
+    user.resetOTP = otp;
+    user.otpExpires = Date.now() + 5 * 60 * 1000;
+
+    await user.save();
+
+    // Send OTP through Brevo
+    const mailResult = await sendOTPEmail(
+      email,
+      otp,
+      "Password Reset"
+    );
+
+    if (!mailResult?.success) {
+      user.resetOTP = null;
+      user.otpExpires = null;
+      await user.save();
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP email",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "OTP sent successfully to your email",
+    });
+
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Forgot Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -155,24 +202,72 @@ export const forgotPassword = async (req, res) => {
 export const verifyOtpController = async (req, res) => {
   try {
     const email = req.body.email?.toLowerCase().trim();
-    const { otp } = req.body;
+    const otp = req.body.otp?.trim();
 
-    if (!email || !otp) return res.status(400).json({ success: false, message: "Email and OTP required" });
-
-    // Call Spring Boot service
-    const response = await verifyOtp(email, otp);
-
-    // If Spring Boot returns success, the DB field resetOTP is already "VERIFIED"
-    if (response.success) {
-      return res.json({ success: true, message: "OTP verified successfully" });
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP required",
+      });
     }
 
-    return res.status(400).json({ success: false, message: "Verification failed" });
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check whether OTP exists
+    if (!user.resetOTP) {
+      return res.status(400).json({
+        success: false,
+        message: "No OTP request found",
+      });
+    }
+
+    // Check OTP expiry
+    if (!user.otpExpires || user.otpExpires < Date.now()) {
+      user.resetOTP = null;
+      user.otpExpires = null;
+      await user.save();
+
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired",
+      });
+    }
+
+    // Check OTP
+    if (user.resetOTP !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    // OTP verified
+    user.resetOTP = "VERIFIED";
+    user.otpExpires = null;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "OTP verified successfully",
+    });
+
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
+    console.error("OTP Verification Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
 // ======================================================
 // 🔁 RESET PASSWORD (Node.js Logic + Spring DB Update)
 // ======================================================
@@ -181,26 +276,51 @@ export const resetPassword = async (req, res) => {
     const email = req.body.email?.toLowerCase().trim();
     const { newPassword } = req.body;
 
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
     if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
     }
 
     const user = await userModel.findOne({ email });
 
-    // This check works because Spring Boot set resetOTP to "VERIFIED" in the DB
+    // Node.js OTP verification must happen before password reset
     if (!user || user.resetOTP !== "VERIFIED") {
-      return res.status(400).json({ success: false, message: "Please verify OTP correctly first" });
+      return res.status(400).json({
+        success: false,
+        message: "Please verify OTP correctly first",
+      });
     }
 
+    // Hash the new password
     user.password = await bcrypt.hash(newPassword, 10);
-    user.resetOTP = null; // Clear the verification status
+
+    // Clear OTP verification state
+    user.resetOTP = null;
     user.otpExpires = null;
 
     await user.save();
 
-    res.json({ success: true, message: "Password updated successfully. You can now login." });
+    return res.json({
+      success: true,
+      message: "Password updated successfully. You can now login.",
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Reset Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
