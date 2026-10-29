@@ -1,0 +1,32 @@
+# Optional MongoDB Community on operator-owned finite storage.
+# Add to compose.production.yaml, never publish 27017 to the Internet.
+services:
+  mongo:
+    image: mongo:8.0
+    env_file: .private/mongo.env
+    volumes:
+      - mongo-data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/10-campus.js:ro
+    networks: [private]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "const a=db.getSiblingDB('admin');if(!a.auth(process.env.MONGO_INITDB_ROOT_USERNAME,process.env.MONGO_INITDB_ROOT_PASSWORD))quit(1);if(!a.runCommand({ping:1}).ok)quit(1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  academic:
+    depends_on:
+      mongo:
+        condition: service_healthy
+  campus:
+    depends_on:
+      mongo:
+        condition: service_healthy
+volumes:
+  mongo-data:

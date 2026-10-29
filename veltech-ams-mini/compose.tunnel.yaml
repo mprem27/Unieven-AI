@@ -1,0 +1,41 @@
+# Optional free HTTPS edge for your own/college Docker host.
+# Merge with compose.yaml, never with compose.production.yaml or dev-mail.
+# docker compose --env-file .env.tunnel -f compose.yaml -f compose.tunnel.yaml up -d --build
+services:
+  academic:
+    environment:
+      WEB_CONCURRENCY: "1"
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+  campus:
+    environment:
+      NODE_ENV: production
+      CAMPUS_COOKIE_SECURE: "true"
+      CAMPUS_PUBLIC_URL: ${CAMPUS_PUBLIC_URL:?Set your public HTTPS origin in .env.tunnel}
+      CAMPUS_ORIGINS: ${CAMPUS_PUBLIC_URL:?Set your public HTTPS origin in .env.tunnel}
+      CAMPUS_TRUST_PROXY: 172.30.241.2/32
+      CAMPUS_RATE_LIMIT_STORE: mongo
+    networks: [default, tunnel-edge]
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.2
+    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/cloudflare_tunnel_token"]
+    secrets: [cloudflare_tunnel_token]
+    networks:
+      tunnel-edge:
+        ipv4_address: 172.30.241.2
+    depends_on:
+      campus:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+secrets:
+  cloudflare_tunnel_token:
+    file: .private/cloudflare-tunnel-token
+networks:
+  tunnel-edge:
+    ipam:
+      config:
+        - subnet: 172.30.241.0/24

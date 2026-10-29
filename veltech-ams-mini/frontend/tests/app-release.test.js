@@ -1,0 +1,5 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {androidInstallation,androidReleaseState} from '../src/lib/app-release.js';
+test('web launch query alone never claims the APK is installed',()=>{assert.equal(androidInstallation({search:'?androidPackage=in.velstudents.veltechams&androidVersionCode=20000'}).installed,false);assert.equal(androidInstallation({referrer:'android-app://in.other.app',packageId:'in.velstudents.veltechams'}).installed,false);});
+test('Android launcher version distinguishes up-to-date, newer and unknown states',()=>{const installation=androidInstallation({referrer:'android-app://in.velstudents.veltechams',search:'?androidPackage=in.velstudents.veltechams&androidVersionCode=18',packageId:'in.velstudents.veltechams'});assert.equal(installation.versionCode,18);assert.equal(androidReleaseState({available:true,versionCode:20000},installation),'Update available');assert.equal(androidReleaseState({available:true,versionCode:18},installation),'Installed · up to date');assert.equal(androidReleaseState({available:true}, {...installation,versionCode:null}),'Installed · version unknown');});

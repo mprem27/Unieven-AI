@@ -1,0 +1,10 @@
+/* Keep the same recoloured hybrid intact: no rotating or separating its emblem. */
+.app-launch{background:#fafbfe}
+.app-launch-mark .hybrid-logo-mark,.welcome-logo.logo-assembly .hybrid-logo-mark{width:100%;height:100%;display:block;object-fit:contain;pointer-events:none;filter:none;transform-origin:center;animation:college-mark-arrive 650ms cubic-bezier(.2,.7,.2,1) both}
+.app-launch>strong{color:#27356a;animation:college-name-arrive 260ms ease-out 280ms both}
+.login-welcome .welcome-atmosphere{background:radial-gradient(ellipse at 50% 48%,#27356a33,transparent 66%)}
+@keyframes college-mark-arrive{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes college-name-arrive{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.app-launch[data-motion=reduced] .hybrid-logo-mark,.app-launch[data-motion=reduced]>strong{animation:none}
+@media(prefers-reduced-motion:reduce){.hybrid-logo-mark{animation:none!important;transform:none!important;opacity:1!important}}
+:root[data-motion=reduced] .hybrid-logo-mark{animation:none!important;transform:none!important;opacity:1!important}

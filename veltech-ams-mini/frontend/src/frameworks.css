@@ -1,0 +1,4 @@
+/* Tailwind utilities only: preserve the application component styles. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "./**/*.{js,jsx}";

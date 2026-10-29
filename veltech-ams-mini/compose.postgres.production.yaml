@@ -1,0 +1,28 @@
+# Merge with compose.production.yaml only. Both stores remain on the private network.
+services:
+  postgres:
+    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0
+    env_file: .private/postgres.env
+    volumes: [campus-postgres:/var/lib/postgresql/data]
+    networks: [private]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: {driver: json-file, options: {max-size: 10m, max-file: '3'}}
+  ferretdb:
+    image: ghcr.io/ferretdb/ferretdb:2.7.0
+    env_file: .private/ferretdb.env
+    environment: {FERRETDB_TELEMETRY: disable}
+    depends_on: {postgres: {condition: service_healthy}}
+    networks: [private]
+    restart: unless-stopped
+    logging: {driver: json-file, options: {max-size: 10m, max-file: '3'}}
+  academic:
+    depends_on: {ferretdb: {condition: service_healthy}}
+  campus:
+    depends_on: {ferretdb: {condition: service_healthy}}
+volumes:
+  campus-postgres:

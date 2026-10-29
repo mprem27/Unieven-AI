@@ -1,0 +1,12 @@
+import {canAccessAcademics,hasAdminPermission} from '../../../shared/admin-access.mjs';
+import {Link} from 'react-router-dom';
+import {BookOpen,CalendarDays,CalendarRange,FileText,Ticket,MessageSquare,Users,BriefcaseBusiness,ClipboardList,UserRound,Bell,Settings,ChevronRight} from 'lucide-react';
+import {useCampus} from '../context/CampusContext';
+import {PageHeader} from '../components/UI';
+import {studentMenu} from '../lib/student-navigation';
+const icons={academics:BookOpen,attendance:CalendarDays,timetable:CalendarRange,schedules:FileText,events:Ticket,community:MessageSquare,connections:Users,placements:BriefcaseBusiness,forms:ClipboardList,profile:UserRound,notifications:Bell,settings:Settings};
+export default function More(){
+ const {data}=useCampus(),profile=data.profile,faculty=profile.accountRole==='faculty',coordinator=profile.campusRole==='department_coordinator';
+ const workspaces=[...(faculty || profile.hasEventAssignment?[['event-operations','Event operations']]:[]),...(faculty?[['messages','Messages & email']]:[]),...(profile.campusRole && profile.campusRole!=='student'?[['management','Management']]:[]),...(canAccessAcademics(profile)?[['academic-admin','Academic administration']]:[]),...(faculty || coordinator || canAccessAcademics(profile)?[['campus-documents/manage','Campus documents']]:[]),...(faculty || coordinator || hasAdminPermission(profile,'examinations')?[['faculty-exams','Publish examinations']]:[]),...(coordinator || hasAdminPermission(profile,'calendar')?[['academic-calendar','Academic calendar']]:[]),...(hasAdminPermission(profile,'support')?[['app-feedback/manage','App feedback']]:[])];
+ return <div className="clarity-more"><PageHeader title="More" description="Everything else, in one place."/>{studentMenu.map(group=><section key={group.label} className="clarity-menu-group"><h2>{group.label}</h2><div className="panel clarity-link-list">{group.items.map(([id,label,detail])=>{const Icon=icons[id];return <Link to={'/'+id} key={id}><span className="clarity-link-icon"><Icon size={21}/></span><span><strong>{label}</strong><small>{detail}</small></span><ChevronRight size={18}/></Link>;})}</div></section>)}{workspaces.length?<section className="clarity-menu-group"><h2>Staff workspace</h2><div className="panel clarity-link-list">{workspaces.map(([id,label])=><Link to={'/'+id} key={id}><span className="clarity-link-icon"><ClipboardList size={21}/></span><span><strong>{label}</strong><small>Your assigned campus tasks</small></span><ChevronRight size={18}/></Link>)}</div></section>:null}</div>;
+}

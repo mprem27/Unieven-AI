@@ -1,0 +1,22 @@
+/* Same hybrid silhouette; the university emblem has its own readable entrance. */
+.app-launch-mark{width:min(300px,74vw);height:min(300px,74vw)}
+.app-launch-part.part-centre{animation:hybrid-frame 430ms cubic-bezier(.2,.7,.2,1) 1500ms both;transform-origin:52% 56%}
+.app-launch-part.part-emblem{animation:university-emblem 680ms cubic-bezier(.2,.7,.2,1) 1760ms both;transform-origin:52% 57%}
+.app-launch>strong{animation-delay:2300ms}
+.welcome-mark{width:224px;height:224px;margin-bottom:22px}
+.welcome-logo.logo-assembly{width:224px;height:224px}
+.login-welcome .welcome-atmosphere{background:radial-gradient(ellipse at 50% 48%,#0ea5e922,transparent 66%)}
+.academic-source-key{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0 22px}
+.academic-source-key>div{padding:16px;border:1px solid var(--border,#dce4ee);border-radius:14px;background:var(--surface,#f5f8fb);min-width:0}
+.academic-source-key dt{font-size:13px;line-height:1.6;font-weight:700;color:var(--text,#173553)}
+.academic-source-key dd{margin:7px 0 0;font-size:12px;line-height:1.8;color:var(--muted,#607388);overflow-wrap:anywhere}
+.login-alternatives{flex-wrap:wrap;gap:8px 20px}
+.login-apk-download{display:inline-flex;align-items:center;gap:7px;min-height:44px;line-height:1.5;font-size:13px;font-weight:650;text-decoration:none;color:#165a96}
+.android-install-page .android-install-brand{flex-wrap:wrap;gap:14px}
+.android-install-page .android-install-brand>a:first-child{min-width:0}
+@keyframes hybrid-frame{from{opacity:0;transform:translateZ(-25px) scale(.82)}to{opacity:1;transform:none}}
+@keyframes university-emblem{0%{opacity:0;transform:perspective(500px) rotateY(-48deg) scale(.74)}36%{opacity:1;transform:perspective(500px) rotateY(5deg) scale(1.12)}72%{transform:perspective(500px) rotateY(-2deg) scale(1.035)}100%{opacity:1;transform:none;filter:none}}
+@media(max-width:760px){.academic-source-key{grid-template-columns:1fr;gap:9px}.academic-source-key>div{padding:13px 15px}.academic-source-key dd{margin-top:4px}.source-sync-status .sync-status-line{flex-wrap:wrap;gap:8px}.source-sync-status .sync-status-line>span{flex-basis:100%;margin-left:24px;line-height:1.7}.login-alternatives{gap:5px 18px}.login-apk-download{font-size:12px}}
+@media(max-height:740px){.welcome-mark,.welcome-logo.logo-assembly{width:190px;height:190px}.welcome-mark{margin-bottom:16px}.welcome-content{padding-top:22px}}
+@media(prefers-reduced-motion:reduce){.app-launch-part.part-centre,.app-launch-part.part-emblem{animation:none!important;transform:none!important;opacity:1!important;filter:none!important}}
+:root[data-motion=reduced] .app-launch-part.part-centre,:root[data-motion=reduced] .app-launch-part.part-emblem{animation:none!important;transform:none!important;opacity:1!important;filter:none!important}

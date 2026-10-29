@@ -1,0 +1,8 @@
+import {Clock3,ArrowRight,MapPin,CalendarDays} from 'lucide-react';
+import {useCampus} from '../context/CampusContext';
+import {scheduleAt,minutesUntil} from '../lib/schedule';
+import {SectionTitle,Badge} from './UI';
+export default function NextClass({navigate}){
+ const {data,today,time,mode}=useCampus(),s=scheduleAt(data.classes,today,time),next=s.current || s.next,wait=next?minutesUntil(next.startTime,time):null;
+ return <section className="panel next-class-panel"><SectionTitle title={s.current?'Happening now':'Up next'} action="Timetable" onAction={()=>navigate('timetable')}/><div className="next-class-clock"><Clock3 size={16}/>{time} IST <span>{mode==='demo'?'Fictional demo timetable':'Your device clock'}</span></div>{next?<><div className="next-class-card"><Badge status={s.current?'in-progress':'upcoming'}>{s.current?'Class in progress':wait===0?'Starting now':`In ${wait} min`}</Badge><h2>{next.subjectName || next.name}</h2><strong>{next.startTime} — {next.endTime}</strong><p><MapPin size={14}/>{next.room || 'Room not provided'}</p><small>{next.facultyName || next.faculty || 'Faculty not provided'}</small></div>{s.current && s.next?<p className="following-class">Then {s.next.subjectName || s.next.name} at {s.next.startTime}</p>:null}</>:<div className="next-class-empty"><CalendarDays size={29}/><h3>{data.classes.length?'Your scheduled day is complete':'No scheduled class today'}</h3><p>{s.unknown.length?'Some classes have no source time. Check the timetable.':'Your next scheduled class appears when its day begins.'}</p></div>}<button className="text-button" onClick={()=>navigate('timetable')}>Plan your day<ArrowRight size={14}/></button></section>;
+}

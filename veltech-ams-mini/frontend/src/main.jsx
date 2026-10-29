@@ -1,0 +1,27 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import 'bootstrap/dist/css/bootstrap-grid.min.css';
+import 'bootstrap/dist/css/bootstrap-utilities.min.css';
+import './frameworks.css';
+import './styles.css';
+import './premium.css';
+import './release-v14.css';
+import './release-v15.css';
+import './release-v16.css';
+import './release-v17-mobile.css';
+import './veltech-brand-v18.css';
+import './login-welcome.css';
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/inter/800.css';
+import './mobile-campus-v22.css';
+import './mobile-campus-v23.css';
+import './mobile-campus-v232.css';
+import './mobile-campus-v233-college.css';
+import './student-clarity.css';
+ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(registration=>{const available=()=>{if(registration.waiting)window.dispatchEvent(new CustomEvent('campus-update-available',{detail:registration.waiting}));};available();registration.addEventListener('updatefound',()=>{const worker=registration.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)available();});});void registration.update().catch(()=>{});}).catch(()=>{}));

@@ -1,0 +1,18 @@
+# Faster student workspace and consistent publishing — 2.1.0
+
+User authorizes an upgrade of the combined 2.0.0 ZIP. Retain existing student design; no extra home sections. Only existing reminders may grow modestly. Preserve existing attendance/results/social/events/admin functions and Windows Docker setup.
+
+## Student behavior
+- Initial app reload must not wait behind a generic Opening your saved workspace screen or replay post-login welcome. Reuse a bounded saved read-only workspace for the previously verified student; validate the server session in background, revoke immediately on definitive401/account change. No admin mutation authority comes from local data. Offline is read-only; cannot promise fresh live data without network.
+- Encrypt saved private records in IndexedDB with owner binding and bounded expiry, exclude credentials/tokens/CSRF and sensitive family/government identifiers. Clear private cache on logout/account change. Offline logout must stay logged out on refresh and reconcile server logout when online. Keep existing explicit passphrase library supported.
+- Background GET revalidation keeps successful rows visible. Initial vs refreshing indicators differ; never unmount/reset current tab, scroll, filters, entered text on a routine poll/sync. Share same-owner concurrent reads, skip offline/hidden polling, use bounded timeouts, backoff after failures and refresh on reconnect/focus.
+- Exams appear only in the current reminder section. A new publication shows for24h, then only reappears72h before the exam (escalates24h/today/start); expired exams hidden. Schedule notices show for24h after publication and again near validFrom. No duplicate exam sessions even when schedules/legacy rows overlap. Group compact reminders with headings; no new hero/card elsewhere.
+- Documents retain real AMS fields/source and safe authenticated files; improve supported parser layouts using bounded fixtures, never invent unavailable data. Authorized staff can also upload audience-scoped PDF/Excel/image documents. Students see their matched publications and can download/store own files for offline use. Private files never public URLs.
+
+## Publishing behavior
+- Imported exam rows show stable human row numbers in review (including pagination and corrections), independent of source file serials. Validate/dedupe exact sessions server-side and student reminders/list; conflicting definitions cannot silently pick a grade/seat/room.
+- Central known department/club choices throughout staff publishing. Canonical normalization resolves case/punctuation/known aliases; ambiguous/unknown manual names produce explicit suggestions, never broadens scope. Controlled catalog management by admin. Preserve legacy labels and faculty scope, official AMS identity remains immutable.
+- Event creator becomes a clear university workflow with details, time/venue, audience, registration, poster and publishing summary; persist and enforce supported options, no decorative inert fields. Existing paid/free/provider behavior retained. Add end time, format/meeting URL and college-specific agenda/contact/attendance details only with server schema/validation/student display. Save/edit must preserve these values and role ceilings.
+
+## Delivery
+Upgrade version2.1.0 consistently in source/export/Android packaging metadata. Full source ZIP + setup/upgrade/offline guide + rendered screenshots/video preview; new isolated GitHub delivery branch, main preserved. No actual university mutations/email sends/deployment. Automated tests plus actual service/browser checks, including reload offline, reconnection, logout isolation, imports/dedup and canonical publishing. Android source/PWA retained; no signed APK claims.

@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {scheduleAt,homeFacts} from '../src/lib/schedule.js';
+const rows=[{id:'a',date:'2026-10-15',startTime:'13:45',endTime:'14:35'},{id:'b',date:'2026-10-15',startTime:'14:50',endTime:'15:40'},{id:'c',date:'2026-10-16',startTime:'12:00',endTime:'13:00'}];
+test('next class changes at real period boundaries and ignores another date',()=>{assert.equal(scheduleAt(rows,'2026-10-15','12:00').next.id,'a');assert.equal(scheduleAt(rows,'2026-10-15','13:45').current.id,'a');assert.equal(scheduleAt(rows,'2026-10-15','14:35').next.id,'b');assert.equal(scheduleAt(rows,'2026-10-15','14:50').current.id,'b');assert.equal(scheduleAt(rows,'2026-10-15','15:40').next,null);});
+test('unknown or invalid times cannot create a guessed next class',()=>{const s=scheduleAt([{startTime:'bad',endTime:'12:00'}],'2026-10-15','10:00');assert.equal(s.next,null);assert.equal(s.unknown.length,1);});
+test('home facts are limited to ten basic identity and course fields',()=>{const facts=homeFacts({name:'Student',portalPrincipal:'STU01',phone:'private',fatherName:'private'});assert.equal(facts.length,10);assert.ok(!JSON.stringify(facts).includes('private'));});

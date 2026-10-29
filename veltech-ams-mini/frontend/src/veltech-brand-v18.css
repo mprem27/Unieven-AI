@@ -1,0 +1,228 @@
+/* Vel Tech page accents: university blue, deep navy and cool silver. */
+.campus-events-page .veltech-event-hero {
+ display:grid;
+ grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);
+ gap:0;
+ min-height:310px;
+ background:#102c50;
+ border:1px solid #264c77;
+ border-radius:20px;
+ box-shadow:0 12px 28px #163b6214;
+}
+.campus-events-page .veltech-event-hero .veltech-event-copy {
+ padding:34px 36px;
+ background:linear-gradient(135deg,#102c50,#164c80);
+}
+.campus-events-page .veltech-event-hero .v14-eyebrow {
+ color:#78b4f2;
+ font-size:10px;
+ letter-spacing:.13em;
+ line-height:1.6;
+}
+.campus-events-page .veltech-event-hero h2 {
+ color:#fff;
+ font-size:clamp(30px,3vw,43px);
+ font-weight:700;
+ line-height:1.13;
+ margin:15px 0;
+}
+.campus-events-page .veltech-event-hero h2 em {color:#7ab5f3}
+.campus-events-page .veltech-event-hero p {
+ max-width:320px;
+ color:#d9e7f5;
+ font-size:12px;
+ line-height:1.85;
+ margin-bottom:22px;
+}
+.campus-events-page .veltech-event-hero .v14-inline-arrow {
+ color:#fff;
+ font-size:12px;
+ font-weight:600;
+ text-align:left;
+ line-height:1.65;
+ gap:10px;
+}
+.campus-events-page .veltech-event-hero .v14-inline-arrow svg {color:#7ab5f3;flex-shrink:0}
+.campus-events-page .veltech-event-photo {position:relative;overflow:hidden;min-height:310px}
+.campus-events-page .veltech-event-photo::after {
+ content:'';
+ position:absolute;
+ inset:0;
+ background:linear-gradient(180deg,#102c500a 40%,#071c36c9 100%);
+ pointer-events:none;
+}
+.campus-events-page .veltech-event-photo>.veltech-campus-photo {
+ position:absolute;
+ inset:0;
+ width:100%;
+ height:100%;
+ object-fit:cover;
+ object-position:center;
+}
+.campus-events-page .veltech-event-photo .college-event-brand {
+ position:absolute;
+ top:18px;
+ right:18px;
+ z-index:1;
+ display:flex;
+ flex-direction:row;
+ align-items:center;
+ gap:10px;
+ min-height:0;
+ max-width:calc(100% - 36px);
+ padding:9px 14px 9px 9px;
+ border:1px solid #ffffffb3;
+ border-radius:13px;
+ background:#fffffff2;
+ color:#143e6c;
+ letter-spacing:0;
+ box-shadow:0 3px 14px #09214017;
+}
+.campus-events-page .veltech-event-photo .college-event-brand img {
+ width:47px;
+ height:47px;
+ margin:0;
+ border-radius:9px;
+ padding:3px;
+ box-shadow:none;
+ flex-shrink:0;
+}
+.campus-events-page .veltech-event-photo .college-event-brand strong {
+ display:block;
+ font-size:17px;
+ font-weight:800;
+ letter-spacing:.08em;
+ white-space:nowrap;
+}
+.campus-events-page .veltech-event-photo .college-event-brand span {
+ display:block;
+ margin-top:3px;
+ font-size:9px;
+ letter-spacing:.02em;
+ line-height:1.6;
+}
+.campus-events-page .veltech-photo-caption {
+ position:absolute;
+ z-index:1;
+ left:21px;
+ right:16px;
+ bottom:18px;
+ color:#fff;
+ font-size:10px;
+ letter-spacing:.02em;
+ line-height:1.6;
+}
+.campus-events-page .v14-event-category {background:#113d68ed;color:#fff;border:1px solid #ffffff5c}
+.campus-events-page .v14-filter-button.active {background:#e3edfb;border-color:#92b6df;color:#174c82}
+.campus-events-page .v14-main-tabs button.active {color:#164f8b;border-bottom-color:#164f8b}
+.campus-events-page .v14-event-card h3,.campus-events-page .v14-event-card-bottom strong {color:#183f67}
+.campus-events-page .v14-event-date {color:#3e6892}
+.campus-events-page .v14-count {background:#e2edfb;color:#174c82}
+.settings-v15 .settings-nav-symbol {background:#e4edf8;color:#2c5b8d}
+.settings-v15 .settings-v15-nav>a.active {background:#edf3fb;border-color:#abc4e2;box-shadow:0 4px 15px #173b3310}
+.settings-v15 .settings-v15-nav>a.active .settings-nav-symbol {background:#1c538b;color:#fff}
+.settings-v15 .project-about {padding:25px 30px 30px;overflow:hidden}
+.settings-v15 .project-about .about-campus-image {height:205px;border-radius:13px;margin-bottom:24px}
+.settings-v15 .project-about .about-campus-image::after {content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 20%,#09274fbd)}
+.settings-v15 .project-about .about-campus-image img {object-position:center 42%}
+.settings-v15 .project-about .about-campus-image>span {z-index:1;bottom:20px;left:24px;font-size:25px;letter-spacing:.14em}
+.settings-v15 .project-about>img {width:58px;height:58px;margin-bottom:12px}
+.settings-v15 .veltech-about-eyebrow {display:block;font-size:9px;font-weight:700;letter-spacing:.15em;color:#1e538a;margin-bottom:10px}
+.settings-v15 .project-about h2 {font-size:25px;letter-spacing:-.035em;color:#153e6d;margin-bottom:7px}
+.settings-v15 .project-about .veltech-app-intro {max-width:520px;font-size:13px;line-height:1.85;color:#526783;margin:18px auto 22px}
+.settings-v15 .veltech-college-intro {max-width:520px;margin:auto;padding:19px;background:#edf3fb;border:1px solid #d2e1f3;border-radius:12px}
+.settings-v15 .veltech-college-intro>strong {display:block;font-size:16px;color:#164877}
+.settings-v15 .veltech-college-intro>p {font-size:12px;line-height:1.8;margin:7px auto;color:#435f7c;max-width:370px}
+.settings-v15 .veltech-college-intro>span {font-size:11px;color:#5c7390}
+.settings-v15 .project-about dl {max-width:520px;margin:20px auto}
+.settings-v15 .project-about dl>div {font-size:11px;line-height:1.7;align-items:baseline}
+.settings-v15 .project-about dd {text-align:right}
+.settings-v15 .veltech-official-links {display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.settings-v15 .veltech-official-links>.button {min-height:44px;white-space:normal;justify-content:center;line-height:1.6;font-size:11px}
+.settings-v15 .veltech-official-links>.button svg {flex-shrink:0}
+.settings-v15 .veltech-official-links>.button.primary {background:#164f8b;border-color:#164f8b;color:#fff}
+.settings-v15 .veltech-official-links>.button.primary:hover {background:#103d70;border-color:#103d70}
+.settings-v15 .project-about .about-student-credit {font-size:10px;margin:24px 0 0;color:#75869b;letter-spacing:.06em}
+.portal-login-layout .portal-login-intro {background:linear-gradient(140deg,#102d52,#164c80);padding-top:55px;padding-bottom:45px}
+.portal-login-layout .portal-login-intro::before {background:#428ad526;animation:none}
+.portal-login-layout .portal-login-intro .eyebrow {color:#76b3f3;line-height:1.7}
+.portal-login-layout .portal-login-intro h1 {font-size:clamp(35px,3.5vw,51px);line-height:1.13}
+.portal-login-layout .portal-login-intro>.brand>span>span {color:#85b9f0}
+.portal-login-layout .portal-login-intro p {color:#d5e4f4}
+.portal-login-layout .portal-login-intro>small {color:#c7d7ea;line-height:1.85;max-width:410px;margin-top:32px}
+.portal-login-layout .portal-login-points p {font-size:12px;line-height:1.7;align-items:flex-start;gap:11px}
+.portal-login-layout .portal-login-points p svg {color:#76b3f3;flex-shrink:0;margin-top:1px}
+.portal-login-layout .veltech-college-link {position:relative;display:inline-flex;gap:9px;background:#74b2f2;border:1px solid #74b2f2;color:#173453;margin-top:29px;min-height:43px;font-size:11px;white-space:normal;justify-content:center;line-height:1.7}
+.portal-login-layout .veltech-college-link:hover {background:#8ac3ff;border-color:#8ac3ff}
+.portal-login-layout .veltech-college-link svg {flex-shrink:0}
+.portal-login-layout .portal-login-form .eyebrow,.portal-login-layout .portal-login-form .text-button {color:#1a5793}
+.portal-login-layout .portal-login-form .button.primary {background:#195691;border-color:#195691;color:#fff}
+.portal-login-layout .portal-login-form .button.primary:hover {background:#113f70;border-color:#113f70}
+.portal-login-layout .portal-login-form .button.primary:disabled {background:#4876a1;border-color:#4876a1;opacity:.7}
+.portal-login-layout .login-form-content>small {font-size:11px;line-height:1.8}
+[data-theme=dark] .settings-v15 .settings-v15-nav>a.active {background:#1b3555;border-color:#41658e}
+[data-theme=dark] .settings-v15 .settings-nav-symbol {background:#233c59;color:#a8c8ed}
+[data-theme=dark] .settings-v15 .settings-v15-nav>a.active .settings-nav-symbol {background:#326da8;color:#fff}
+[data-theme=dark] .settings-v15 .project-about h2 {color:#c8dffd}
+[data-theme=dark] .settings-v15 .project-about .veltech-app-intro {color:#b1c4de}
+[data-theme=dark] .settings-v15 .veltech-about-eyebrow {color:#71aae6}
+[data-theme=dark] .settings-v15 .veltech-college-intro {background:#19314e;border-color:#304e71}
+[data-theme=dark] .settings-v15 .veltech-college-intro>strong {color:#c4ddfa}
+[data-theme=dark] .settings-v15 .veltech-college-intro>p,[data-theme=dark] .settings-v15 .veltech-college-intro>span {color:#b5c9e0}
+[data-theme=dark] .campus-events-page .v14-filter-button.active {background:#204775;border-color:#648eb9;color:#dfedff}
+[data-theme=dark] .campus-events-page .v14-main-tabs button.active {color:#a9ceff;border-bottom-color:#80b7ff}
+[data-theme=dark] .campus-events-page .v14-event-card h3,[data-theme=dark] .campus-events-page .v14-event-card-bottom strong {color:#d0e3fc}
+[data-theme=dark] .campus-events-page .v14-event-date {color:#aec8e8}
+[data-theme=dark] .portal-login-layout {background:#101f34;color:#e8eef9}
+[data-theme=dark] .portal-login-layout .portal-login-form .eyebrow,[data-theme=dark] .portal-login-layout .portal-login-form .text-button {color:#a8cefa}
+@media(max-width:960px) {
+ .portal-login-layout .portal-login-intro {padding:35px}
+ .portal-login-layout .portal-login-intro>.brand {margin-bottom:30px}
+ .portal-login-layout .portal-login-intro h1 {font-size:36px}
+}
+@media(max-width:760px) {
+ /* Keep a fresh confirmation visible while the More menu stays accessible. */
+ .app:has(>.sidebar.open)>.toast {top:calc(12px + env(safe-area-inset-top));bottom:auto;max-height:72px;overflow:auto;line-height:1.6}
+ .app:has(>.sidebar.open):has(>.toast)>.sidebar.open {max-height:calc(100dvh - 184px - env(safe-area-inset-top))}
+ .campus-events-page .veltech-event-hero {grid-template-columns:minmax(0,1fr);min-height:0;border-radius:16px}
+ .campus-events-page .veltech-event-hero .veltech-event-copy {padding:26px 24px}
+ .campus-events-page .veltech-event-hero h2 {font-size:33px}
+ .campus-events-page .veltech-event-hero p {max-width:430px;font-size:12px;margin-bottom:18px}
+ .campus-events-page .veltech-event-photo {height:180px;min-height:0}
+ .campus-events-page .veltech-event-photo>.veltech-campus-photo {object-position:center 45%}
+ .campus-events-page .veltech-event-photo .college-event-brand {top:14px;right:14px;padding:7px 11px 7px 7px;gap:8px;max-width:calc(100% - 28px)}
+ .campus-events-page .veltech-event-photo .college-event-brand img {width:42px;height:42px;border-radius:8px}
+ .campus-events-page .veltech-event-photo .college-event-brand strong {font-size:16px}
+ .campus-events-page .veltech-event-photo .college-event-brand span {font-size:9px}
+ .campus-events-page .veltech-photo-caption {left:18px;bottom:14px;font-size:9px}
+ .settings-v15 .project-about {padding:18px}
+ .settings-v15 .project-about .about-campus-image {height:180px;margin-bottom:22px}
+ .settings-v15 .project-about h2 {font-size:23px}
+ .settings-v15 .project-about dl>div {gap:14px}
+ .settings-v15 .project-about dt {flex-shrink:0}
+ .settings-v15 .veltech-official-links>.button {width:100%;font-size:12px}
+ .portal-login-layout .portal-login-intro {padding:30px 24px}
+ .portal-login-layout .portal-login-intro h1 {font-size:34px}
+ .portal-login-layout .portal-login-intro>.brand {margin-bottom:29px}
+ .portal-login-layout .portal-login-intro>small {font-size:10px;margin-top:23px}
+ .portal-login-layout .veltech-college-link {margin-top:24px}
+}
+@media(max-width:380px) {
+ .campus-events-page .veltech-event-hero .veltech-event-copy {padding:23px 19px}
+ .campus-events-page .veltech-event-hero h2 {font-size:29px}
+ .campus-events-page .veltech-event-hero .v14-eyebrow {font-size:9px;letter-spacing:.09em}
+ .campus-events-page .veltech-event-photo {height:160px}
+ .settings-v15 .project-about {padding:15px}
+ .settings-v15 .project-about h2 {font-size:21px}
+ .settings-v15 .project-about .about-campus-image {height:150px}
+ .settings-v15 .veltech-college-intro {padding:16px 12px}
+ .settings-v15 .project-about dl>div {display:block}
+ .settings-v15 .project-about dd {text-align:left;margin-top:4px}
+ .portal-login-layout .portal-login-intro,.portal-login-layout .portal-login-form {padding:27px 20px}
+ .portal-login-layout .portal-login-intro h1 {font-size:31px}
+}
+/* Student, faculty and administrator entry points share the campus palette. */
+.sign-in-areas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 24px;max-width:100%}.sign-in-areas a{padding:11px 8px;text-align:center;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border,#d2deeb);border-radius:10px;color:#48617e;font-size:12px;text-decoration:none;background:var(--surface,#fff)}.sign-in-areas a[aria-current=page]{color:#fff;background:#134c84;border-color:#134c84}.staff-login-copy h1{font-size:43px}.staff-login .identity-form-panel{padding:0;border:0;box-shadow:none;background:transparent;max-width:410px}.staff-login .identity-form-brand,.staff-login .identity-security{display:none}.staff-login .identity-heading h1{font-size:27px}.batch-rule-note{font-size:12px;line-height:1.7;color:var(--muted);margin:12px 0}.batch-rule-note a{color:var(--indigo,#0a66c2)}.batch-rules-panel{padding:24px}.batch-rules-panel .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.batch-rules-panel .form-grid>.full-width{grid-column:1/-1}.batch-rule-confirm{display:flex;gap:10px;align-items:flex-start;line-height:1.7;font-size:12px}.batch-rule-confirm input{margin-top:5px;flex:none}.batch-rule-entry{padding:18px 0;border-top:1px solid var(--border);display:flex;gap:14px;align-items:center;justify-content:space-between}.batch-rule-entry>div{min-width:0}.batch-rule-entry p,.batch-rule-entry a{overflow-wrap:anywhere;font-size:12px;line-height:1.7}.batch-rule-entry small{display:block;margin-top:5px;color:var(--muted)}
+@media(max-width:600px){.staff-login-copy h1{font-size:31px}.batch-rules-panel{padding:17px}.batch-rules-panel .form-grid{grid-template-columns:minmax(0,1fr)}.batch-rule-entry{align-items:flex-start}.sign-in-areas{gap:6px}.sign-in-areas a{font-size:11px}}
+
+:root[data-theme='dark'] .sign-in-areas a:not([aria-current=page]){color:#b9cae2}

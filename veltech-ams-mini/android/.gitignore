@@ -1,0 +1,14 @@
+node_modules/
+config.local.json
+generated/
+.generated-*/
+private/
+out/
+*.keystore
+*.jks
+*.p12
+*.pem
+*.apk
+*.aab
+local.properties
+.gradle/

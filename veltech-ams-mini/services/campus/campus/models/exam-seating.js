@@ -1,0 +1,7 @@
+import mongoose from 'mongoose';
+const {Schema}=mongoose;
+const releaseSchema=new Schema({exam:{type:Schema.Types.ObjectId,ref:'CampusFacultyExamination',required:true,index:true},uploadedBy:{type:Schema.Types.ObjectId,ref:'User',required:true},filename:String,key:{type:String,required:true},mime:String,size:Number,state:{type:String,enum:['draft','publishing','published','withdrawn'],default:'draft'},revision:{type:Number,default:0},rowCount:{type:Number,default:0},instructions:{type:String,default:'',maxlength:2000},allowDownload:{type:Boolean,default:false},importReview:[Schema.Types.Mixed],importIssues:[Schema.Types.Mixed],warnings:[String],preview:{type:[Schema.Types.Mixed],select:false},publishedAt:Date,lockedUntil:Date},{timestamps:true,collection:'exam_seating_releases'});
+const entrySchema=new Schema({release:{type:Schema.Types.ObjectId,ref:'CampusExamSeatingRelease',required:true},exam:{type:Schema.Types.ObjectId,ref:'CampusFacultyExamination',required:true},revision:{type:Number,required:true},vtuNumber:{type:String,required:true,index:true},hall:String,room:String,seat:String,reportingTime:String,notes:String},{collection:'exam_seating_entries'});
+entrySchema.index({release:1,revision:1,vtuNumber:1},{unique:true});
+export const ExamSeatingRelease=mongoose.models.CampusExamSeatingRelease || mongoose.model('CampusExamSeatingRelease',releaseSchema);
+export const ExamSeatingEntry=mongoose.models.CampusExamSeatingEntry || mongoose.model('CampusExamSeatingEntry',entrySchema);

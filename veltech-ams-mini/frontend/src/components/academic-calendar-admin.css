@@ -1,0 +1,43 @@
+.academic-calendar-admin{min-width:0;max-width:1440px;margin:0 auto}
+.academic-calendar-admin .calendar-admin-note{display:flex;flex-direction:column;gap:5px;padding:16px 18px;border:1px solid var(--line,#dfe7e2);border-radius:14px;background:var(--surface,#fff);font-size:.88rem}
+.academic-calendar-admin .calendar-admin-note strong{color:var(--green,#24634e)}
+.academic-calendar-admin .calendar-admin-guidance{max-width:950px;font-size:.86rem;line-height:1.65;margin:14px 0 22px}
+.academic-calendar-admin .calendar-admin-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.85fr);gap:22px;align-items:start}
+.academic-calendar-admin .calendar-admin-editor,.academic-calendar-admin .calendar-admin-entries{padding:23px;min-width:0}
+.academic-calendar-admin .section-title h2,.academic-calendar-admin .section-title h3{display:flex;align-items:center;gap:8px}
+.academic-calendar-admin .calendar-admin-fieldset{border:0;margin:0;padding:0;min-width:0;display:grid;gap:18px}
+.academic-calendar-admin .calendar-admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.academic-calendar-admin input,.academic-calendar-admin select,.academic-calendar-admin textarea{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.academic-calendar-admin textarea{resize:vertical}
+.academic-calendar-admin .calendar-admin-targets,.academic-calendar-admin .calendar-admin-custom{min-width:0;border-top:1px solid var(--line,#dfe7e2);padding-top:18px}
+.academic-calendar-admin .calendar-admin-targets h3{display:flex;justify-content:space-between;gap:10px;font-size:.98rem}
+.academic-calendar-admin .calendar-admin-targets h3 span{font-weight:400;font-size:.78rem}
+.academic-calendar-admin .calendar-admin-targets p,.academic-calendar-admin .calendar-admin-custom p{font-size:.8rem;line-height:1.6}
+.academic-calendar-admin .calendar-admin-student-list{max-height:260px;overflow-y:auto;overscroll-behavior:contain;margin:14px 0;border:1px solid var(--line,#dfe7e2);border-radius:10px}
+.academic-calendar-admin .calendar-admin-student-list label{display:flex;align-items:center;gap:12px;padding:12px;min-height:50px;cursor:pointer;border-bottom:1px solid var(--line,#dfe7e2)}
+.academic-calendar-admin .calendar-admin-student-list label:last-child{border-bottom:0}
+.academic-calendar-admin .calendar-admin-student-list input{width:18px;height:18px;flex:0 0 18px;accent-color:var(--green,#24634e)}
+.academic-calendar-admin .calendar-admin-student-list span{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+.academic-calendar-admin .calendar-admin-student-list strong{font-size:.85rem}
+.academic-calendar-admin .calendar-admin-student-list small{font-size:.72rem;color:var(--muted,#65766c)}
+.academic-calendar-admin .calendar-admin-student-list>p{padding:10px 14px}
+.academic-calendar-admin .calendar-admin-selected{display:flex;flex-wrap:wrap;gap:7px}
+.academic-calendar-admin .calendar-admin-selected button{border:1px solid var(--line,#dfe7e2);background:var(--surface,#fff);border-radius:99px;padding:7px 11px;display:flex;align-items:center;gap:9px;font-size:.75rem;max-width:100%;min-height:34px}
+.academic-calendar-admin .calendar-admin-selected span{overflow-wrap:anywhere}
+.academic-calendar-admin .calendar-admin-period{border:1px solid var(--line,#dfe7e2);border-radius:12px;margin:15px 0;padding:15px;min-width:0}
+.academic-calendar-admin .calendar-admin-period legend{font-size:.78rem;font-weight:600;width:auto;padding:0 6px}
+.academic-calendar-admin .calendar-admin-period>.button{margin-top:14px}
+.academic-calendar-admin .calendar-admin-preview{display:grid;gap:7px;background:var(--green-soft,#edf6f0);border-radius:12px;padding:16px;font-size:.84rem;overflow-wrap:anywhere}
+.academic-calendar-admin .calendar-admin-preview small{line-height:1.6;color:var(--muted,#65766c)}
+.academic-calendar-admin .calendar-admin-entry-list{display:grid;gap:14px;margin-top:20px}
+.academic-calendar-admin .calendar-admin-entry-list article{border:1px solid var(--line,#dfe7e2);padding:16px;border-radius:12px;min-width:0;overflow-wrap:anywhere}
+.academic-calendar-admin .calendar-admin-entry-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.academic-calendar-admin .calendar-admin-entry-title strong{font-size:.94rem}
+.academic-calendar-admin .calendar-admin-entry-title .badge{flex-shrink:0}
+.academic-calendar-admin .calendar-admin-entry-list time{display:block;font-size:.78rem;color:var(--muted,#65766c);margin-top:7px}
+.academic-calendar-admin .calendar-admin-entry-list p{font-size:.82rem;margin:9px 0;white-space:pre-wrap}
+.academic-calendar-admin .calendar-admin-entry-list small{font-size:.72rem}
+.academic-calendar-admin .calendar-admin-entry-list .toolbar{margin-top:15px;gap:9px;flex-wrap:wrap}
+.academic-calendar-admin .calendar-admin-remove{border-top:1px solid var(--line,#dfe7e2);margin-top:13px;padding-top:4px}
+@media(max-width:1050px){.academic-calendar-admin .calendar-admin-layout{grid-template-columns:minmax(0,1fr)}.academic-calendar-admin .calendar-admin-entry-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.academic-calendar-admin .calendar-admin-editor,.academic-calendar-admin .calendar-admin-entries{padding:16px}.academic-calendar-admin .calendar-admin-form-grid,.academic-calendar-admin .calendar-admin-entry-list{grid-template-columns:minmax(0,1fr)}.academic-calendar-admin .calendar-admin-layout{gap:16px}.academic-calendar-admin .calendar-admin-period{padding:12px}.academic-calendar-admin .calendar-admin-entry-title{flex-wrap:wrap}.academic-calendar-admin .calendar-admin-targets h3{font-size:.9rem}.academic-calendar-admin .calendar-admin-fieldset>.button{width:100%;justify-content:center}.academic-calendar-admin .heading-actions .button{min-height:40px}}

@@ -1,0 +1,21 @@
+.install-app-settings .android-updates{margin:0;padding:1.1rem;border:1px solid var(--border,#dce4ee);border-radius:18px;background:var(--surface,#fff)}
+.install-app-settings .pwa-install-secondary{border-top:1px solid var(--border,#dce4ee);margin-top:1.4rem;padding-top:1.2rem}
+.install-app-settings .pwa-install-secondary>summary{cursor:pointer;font-weight:650;line-height:1.6}.install-app-settings .pwa-install-secondary[open]>summary{margin-bottom:1rem}
+.install-app-settings .connection-heading{align-items:center;flex-wrap:wrap;gap:.65rem}
+.install-app-settings .connection-heading>div{flex:1;min-width:160px}
+.install-app-settings .app-install-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0}
+.install-app-settings .app-install-actions .button{min-height:44px;white-space:normal}
+.apk-verification{font-size:.78rem;margin-top:.8rem;color:var(--muted,#526477)}
+.apk-verification summary{cursor:pointer}.apk-verification p{overflow-wrap:anywhere;line-height:1.6}
+.apk-download-complete{color:var(--text,#183149);font-weight:600;line-height:1.6}
+.apk-share{margin-top:1.2rem;padding:1rem;background:var(--surface-alt,#f5f7fb);border-radius:12px}
+.apk-share>p{margin:.4rem 0;font-size:.88rem;color:var(--muted,#526477)}
+.apk-domain-link{display:block;overflow-wrap:anywhere;font-size:.8rem;line-height:1.7}
+.apk-install-guide{margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border,#dce4ee)}
+.apk-install-guide h4{font-size:1rem;margin:0 0 .75rem}.apk-install-guide ol{padding-left:1.4rem;margin:0}.apk-install-guide li{padding-left:.25rem;margin:.65rem 0;line-height:1.7}.apk-install-guide code{overflow-wrap:anywhere}
+.android-install-page{width:min(760px,100%);margin:0 auto;padding:1.5rem max(1rem,env(safe-area-inset-right)) 2.5rem max(1rem,env(safe-area-inset-left))}
+.android-install-brand{display:flex;gap:1rem;align-items:center;justify-content:space-between;margin-bottom:2.5rem}
+.android-install-brand>a:first-child{display:flex;align-items:center;gap:.6rem;text-decoration:none;color:var(--text,#183149);font-weight:750}.android-install-brand img{width:45px;height:45px;object-fit:contain}.android-install-brand small{display:block;font-size:.64rem;color:var(--muted,#526477);font-weight:500;margin-top:.2rem}
+.android-install-intro{margin-bottom:1.5rem}.android-install-intro h1{font-size:clamp(1.8rem,5vw,2.7rem);line-height:1.2;margin:.65rem 0}.android-install-intro p{line-height:1.8;color:var(--muted,#526477);max-width:65ch}
+.android-install-footer{font-size:.8rem;line-height:1.8;color:var(--muted,#526477);padding:1rem .25rem}
+@media(max-width:480px){.install-app-settings .android-updates{padding:.9rem}.install-app-settings .app-install-actions{flex-direction:column}.install-app-settings .app-install-actions .button{width:100%;justify-content:center}}

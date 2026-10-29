@@ -1,0 +1,91 @@
+/* Event routes keep their existing visual style while allowing content to wrap. */
+.campus-events-page,.v14-event-detail,.v14-registration-route{min-width:0}
+.campus-events-page .page-heading>div,.campus-events-page .v14-event-intro>div,.campus-events-page .v14-event-card-copy,.v14-event-detail .v14-detail-layout>div,.v14-event-detail .v14-detail-booking{min-width:0}
+.campus-events-page .v14-event-card h3,.campus-events-page .v14-event-location,.v14-event-detail .v14-detail-booking h1,.v14-event-detail .v14-detail-facts strong,.v14-event-detail .v14-organizer-line strong{overflow-wrap:anywhere}
+.campus-events-page .v14-event-category{max-width:calc(100% - 26px);overflow-wrap:anywhere}
+.campus-events-page .v14-event-card-top{gap:10px}
+.campus-events-page .v14-event-date{min-width:0;line-height:1.6}
+.campus-events-page .v14-event-card-top .icon-button,.campus-events-page .v14-event-location>svg,.campus-events-page .v14-event-date>svg{flex-shrink:0}
+.campus-events-page .v14-event-location{align-items:flex-start;line-height:1.7}
+.campus-events-page .v14-event-location>svg{margin-top:2px}
+.campus-events-page .v14-event-card-bottom{flex-wrap:wrap;gap:14px 10px}
+.campus-events-page .v14-event-card-bottom>div{flex:1 1 110px;min-width:0}
+.campus-events-page .v14-event-card-bottom strong{overflow-wrap:anywhere}
+.campus-events-page .v14-event-card-bottom .button{flex:0 0 auto;max-width:100%;white-space:normal;justify-content:center;min-height:40px}
+.campus-events-page .v14-event-card-bottom .button>svg{flex-shrink:0}
+.campus-events-page .v14-filter-controls>*{max-width:100%}
+.v14-event-detail .v14-detail-facts p>svg{flex-shrink:0}
+.v14-event-detail .v14-detail-facts p>span,.v14-event-detail .v14-organizer-line>div{min-width:0;overflow-wrap:anywhere}
+.v14-event-detail .v14-organizer-mark{flex-shrink:0}
+.v14-event-detail .v14-detail-actions{flex-wrap:wrap}
+.v14-event-detail .v14-detail-actions .button{flex:1 1 100px;min-width:0;white-space:normal}
+.v14-event-detail .v14-detail-booking>.button{white-space:normal;line-height:1.6}
+.v14-event-detail .v14-detail-booking>.button>svg{flex-shrink:0}
+.v14-event-detail .v14-detail-price small{line-height:1.7}
+.v14-registration-route .event-registration-page{min-width:0}
+.v14-registration-route .event-detail-meta>span{min-width:0;max-width:100%;overflow-wrap:anywhere;line-height:1.7}
+.v14-registration-route .event-detail-meta svg{flex-shrink:0}
+.v14-registration-route .event-description,.v14-registration-route .event-organizer,.v14-registration-route .registration-preview-tag{overflow-wrap:anywhere}
+.v14-registration-route .event-organizer,.v14-registration-route .registration-heading,.v14-registration-route .ticket-status-heading{flex-wrap:wrap}
+.v14-registration-route .registration-heading{align-items:flex-start;margin-bottom:18px}
+.v14-registration-route .registration-heading h3{margin:0;line-height:1.5;flex:1 1 170px}
+.v14-registration-route .registration-heading .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.6}
+.v14-registration-route .registration-form .field,.v14-registration-route .registration-form input{min-width:0;max-width:100%}
+.v14-registration-route .registration-form>.button{white-space:normal;line-height:1.6}
+.v14-registration-route .registration-form>.button>svg{flex-shrink:0}
+.v14-registration-route .ticket-actions{flex-wrap:wrap}
+.v14-registration-route .ticket-actions>.event-ticket-note{flex-basis:100%;margin:0}
+.v14-registration-route .ticket-confirmation>.button{max-width:100%;white-space:normal}
+@media(max-width:760px){
+ .campus-events-page .heading-actions{gap:10px;justify-content:flex-start}
+ .campus-events-page .v14-event-card-bottom .button,.v14-event-detail .v14-detail-actions .button,.v14-registration-route .registration-form>.button{min-height:44px}
+ .v14-registration-route .registration-steps{display:grid;grid-template-columns:minmax(0,1fr) 10px minmax(0,1fr) 10px minmax(0,1fr);gap:7px;align-items:start;margin-top:2px}
+ .v14-registration-route .registration-step{flex-direction:column;align-items:center;text-align:center;gap:7px;line-height:1.5;min-width:0;font-size:11px}
+ .v14-registration-route .registration-step>span{width:24px;height:24px;flex-shrink:0}
+ .v14-registration-route .registration-steps i{width:100%;margin-top:12px}
+}
+@media(max-width:600px){
+ .campus-events-page .v14-filter-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .campus-events-page .v14-filter-controls .search-field{grid-column:1/-1;min-width:0}
+ .campus-events-page .v14-filter-controls select,.campus-events-page .v14-filter-button{min-width:0;min-height:42px;font-size:11px}
+ .campus-events-page .v14-filter-button{justify-content:center;grid-column:1/-1;justify-self:start;padding:10px 15px}
+ .v14-event-detail .v14-detail-booking{padding:22px}
+ .v14-event-detail .v14-detail-booking h1{font-size:26px;line-height:1.3}
+ .v14-registration-route .event-registration-page{padding:20px}
+ .v14-registration-route .registration-form .form-grid{grid-template-columns:minmax(0,1fr);gap:16px}
+ .v14-registration-route .registration-form input{font-size:16px;min-height:44px}
+ .v14-registration-route .registration-heading h3{flex-basis:100%}
+ .v14-registration-route .registration-heading{gap:10px}
+ .v14-registration-route .ticket-status-heading{align-items:flex-start;gap:10px}
+}
+@media(max-width:380px){
+ .campus-events-page .v14-event-card-bottom .button{flex:1 1 120px}
+ .v14-registration-route .event-registration-page{padding:18px}
+ .v14-registration-route .registration-steps{gap:5px;grid-template-columns:minmax(0,1fr) 7px minmax(0,1fr) 7px minmax(0,1fr)}
+}
+
+/* More specific than the legacy intro grid, independent of lazy CSS load order. */
+@media(max-width:760px){
+ .campus-events-page .v14-event-intro.veltech-event-hero{grid-template-columns:minmax(0,1fr);gap:0;min-height:0;border-radius:18px;overflow:hidden}
+ .campus-events-page .veltech-event-hero .veltech-event-copy{padding:24px}
+ .campus-events-page .veltech-event-hero h2{font-size:30px;line-height:1.15;margin:12px 0}
+ .campus-events-page .veltech-event-hero p{max-width:none;font-size:12px;line-height:1.75;margin-bottom:14px}
+ .campus-events-page .veltech-event-photo{height:164px;min-height:164px;width:100%}
+ .campus-events-page .veltech-event-photo .college-event-brand{max-width:calc(100% - 28px);min-width:0;padding:8px 12px 8px 8px;gap:9px}
+ .campus-events-page .veltech-event-photo .college-event-brand img{height:38px;width:38px;padding:2px;flex:none}
+ .campus-events-page .veltech-event-photo .college-event-brand strong{font-size:15px;white-space:normal;line-height:1.4}
+ .campus-events-page .veltech-event-photo .college-event-brand span{font-size:10px;line-height:1.5}
+ .campus-events-page .page-heading{gap:16px;margin-bottom:20px}
+ .campus-events-page .page-heading h1{font-size:26px;line-height:1.2;letter-spacing:-.7px}
+ .campus-events-page .page-heading>div>p{line-height:1.7;max-width:34em}
+ .campus-events-page .heading-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:10px}
+ .campus-events-page .heading-actions>.button{min-width:0;min-height:44px;justify-content:center;white-space:normal;font-size:12px;padding:10px 9px;gap:7px}
+ .campus-events-page .heading-actions>.button>svg{flex:none}
+ .campus-events-page .v14-main-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;min-width:0}
+ .campus-events-page .v14-main-tabs button{justify-content:center;min-height:46px}
+ .campus-events-page .v14-event-toolbar{scroll-margin-top:70px;gap:14px;margin-top:18px}
+ .campus-events-page .search-field{min-height:46px}
+ .campus-events-page .search-field input{font-size:16px;min-width:0}
+ .campus-events-page .v14-event-grid{gap:18px}
+}
+@media(max-width:380px){.campus-events-page .veltech-event-hero .veltech-event-copy{padding:21px 19px}.campus-events-page .veltech-event-hero h2{font-size:27px}.campus-events-page .heading-actions>.button{font-size:11px;gap:5px;padding-inline:7px}}

@@ -1,0 +1,10 @@
+{
+  "deploymentUrl": "https://example.invalid",
+  "packageId": "in.velstudents.veltechams",
+  "appName": "Veltech AMS mini",
+  "launcherName": "Veltech mini",
+  "versionName": "2.3.3",
+  "versionCode": 20305,
+  "signingKeyFile": "velstudents-release.keystore",
+  "signingKeyAlias": "velstudents"
+}

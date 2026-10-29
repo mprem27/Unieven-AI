@@ -1,0 +1,86 @@
+# Standalone HTTPS deployment; do not merge with the localhost compose.yaml.
+# docker compose --env-file .env.production -f compose.production.yaml up -d --build --scale campus=3
+name: veltech-ams-mini-production
+services:
+  proxy:
+    image: nginx:1.28-alpine
+    environment:
+      CAMPUS_SERVER_NAME: ${CAMPUS_SERVER_NAME:?Set CAMPUS_SERVER_NAME in .env.production}
+      NGINX_ENVSUBST_FILTER: ^CAMPUS_SERVER_NAME$$
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${CAMPUS_TLS_DIR:?Set CAMPUS_TLS_DIR in .env.production}:/etc/nginx/tls:ro
+    networks:
+      edge:
+        ipv4_address: 172.29.240.2
+    depends_on:
+      campus:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  academic:
+    build:
+      context: .
+      dockerfile: docker/academic.Dockerfile
+    env_file: .private/academic.env
+    environment:
+      NO_PROXY: academic,mongo,ferretdb,postgres,localhost,127.0.0.1
+      no_proxy: academic,mongo,ferretdb,postgres,localhost,127.0.0.1
+      WEB_CONCURRENCY: "1"
+    # One process: pending AMS verification clients are process-local.
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    networks: [private]
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  campus:
+    build:
+      context: .
+      dockerfile: docker/campus.Dockerfile
+    env_file: .private/campus.env
+    environment:
+      NODE_ENV: production
+      CAMPUS_HOST: 0.0.0.0
+      CAMPUS_PORT: "4100"
+      CAMPUS_MEDIA_DIR: /app/media
+      CAMPUS_TRUST_PROXY: 172.29.240.2/32
+      CAMPUS_RATE_LIMIT_STORE: mongo
+      NO_PROXY: academic,mongo,ferretdb,postgres,localhost,127.0.0.1
+      no_proxy: academic,mongo,ferretdb,postgres,localhost,127.0.0.1
+    volumes:
+      - campus-media:/app/media
+    # No published app port: only the trusted proxy reaches the public API.
+    networks: [edge, private]
+    depends_on:
+      academic:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/api/campus/health').then(r=>r.json().then(v=>{if(!r.ok||v.status!=='ok'||v.database!=='connected')process.exit(1)})).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+volumes:
+  campus-media:
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.29.240.0/24
+  # This network permits outbound AMS/SMTP/Atlas connections. Its name does
+  # not make it a firewall; private services have no published host ports.
+  private:

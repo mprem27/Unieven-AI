@@ -1,0 +1,2 @@
+/* The home retains its existing reminder section; urgency stays within it. */
+.campus-reminders .reminder-day-divider{border-top:1px solid #dce5ee;padding-top:18px;margin-top:4px}.campus-reminders .reminder-today small,.campus-reminders .reminder-tomorrow small{color:#1769bf;font-weight:750}.campus-reminders .reminder-in-progress{border-left:3px solid #168678;padding-left:12px}.campus-reminders .reminder-in-progress small{color:#168678;font-weight:750}

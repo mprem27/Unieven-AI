@@ -1,0 +1,81 @@
+/* Social conversations: scoped to posts and the full-screen reel viewer. */
+.v17-live-status{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.v17-comments{--v17-comment-surface:var(--soft,#f4f7fa);display:flex;flex-direction:column;min-width:0;scroll-margin-bottom:calc(90px + env(safe-area-inset-bottom));padding-top:20px;margin-top:10px}
+.v17-comments[hidden]{display:none}
+.v17-comments .v15-comments-heading{margin-bottom:17px;align-items:flex-start}
+.v17-comments .v15-comments-heading h2{font-size:15px;font-weight:700;letter-spacing:-.025em}
+.v17-comments .v15-comments-heading h2>span{font-size:12px;font-weight:500}
+.v17-comments .v15-comments-heading p{font-size:11px;color:var(--muted,#697787);margin:5px 0 0}
+.v17-comments .v15-comments-heading>.icon-button{width:36px;height:36px;flex:none;border-radius:50%;background:var(--v17-comment-surface)}
+.v17-comments .v15-comments-list{display:flex;flex-direction:column;gap:19px;max-height:420px;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:2px 4px 5px 0;scrollbar-width:thin;scroll-padding:10px}
+.v17-comments .v15-comments-list:focus-visible{outline:2px solid var(--accent,#0a66c2);outline-offset:3px;border-radius:8px}
+.v17-comments .v15-comment{gap:10px;min-width:0;flex:none}
+.v17-comments .v17-comment-avatar{flex:none;width:34px;height:34px;text-decoration:none}
+.v17-comments .v17-comment-avatar .avatar,.v17-comments .v15-comment>.avatar{height:34px;width:34px;font-size:11px}
+.v17-comments .v15-comment-copy{padding:10px 12px 1px;background:var(--v17-comment-surface);border-radius:0 12px 12px;min-width:0;overflow-wrap:anywhere}
+.v17-comments .v15-comment-byline{gap:7px;flex-wrap:wrap;align-items:center;line-height:1.5}
+.v17-comments .v15-comment-byline a{color:inherit;text-decoration:none;min-width:0}
+.v17-comments .v15-comment-byline a:hover{text-decoration:underline}
+.v17-comments .v15-comment-byline strong{font-size:12px;font-weight:650}
+.v17-comments .v15-comment-byline time{color:var(--muted,#697787);font-size:10px;margin-left:auto;white-space:nowrap}
+.v17-comments .v15-comment-byline small{font-size:9px}
+.v17-comment-username{display:block;font-size:10px;color:var(--muted,#697787);margin-top:1px;line-height:1.5}
+.v17-comments .v15-comment-copy>p{font-size:12px;line-height:1.7;margin:6px 0 2px;white-space:pre-wrap;overflow-wrap:anywhere}
+.v17-comments .v15-comment-tools{gap:12px;flex-wrap:wrap;margin-top:2px}
+.v17-comments .v15-comment-tools>button{min-height:34px;gap:5px;font-size:10px;font-weight:600}
+.v17-comments .v15-comment-tools>button:disabled{opacity:.55;cursor:wait}
+.v17-comments .v15-comment-tools>button.active{color:#d23763}
+.v17-comments .v17-comment-reply{margin-left:43px}
+.v17-comments .v17-comment-reply .v17-comment-avatar,.v17-comments .v17-comment-reply .avatar{width:27px;height:27px;font-size:9px}
+.v17-comment-sending{display:flex;gap:5px;align-items:center;min-height:33px;font-size:10px;color:var(--muted,#697787)}
+.v17-comments [data-comment-id][aria-busy=true] .v15-comment-copy{opacity:.75}
+.v17-comment-feedback:empty{display:none}
+.v17-comment-feedback .feedback{font-size:11px;margin:12px 0 0}
+.v17-comments .v15-comment-form{display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:15px 0 0;margin:16px 0 0;border-top:1px solid var(--border,#dce6ef);background:var(--panel,#fff);flex:none;position:relative}
+.v17-comments .v15-comment-form>.avatar{width:33px;height:33px;flex:none;font-size:10px}
+.v17-comment-input{flex:1;min-width:0}
+.v17-comments .v15-comment-form input{display:block;width:100%;font-size:12px;line-height:1.6;border-radius:22px;min-height:43px;padding:10px 13px;background:var(--v17-comment-surface);border:1px solid transparent;box-sizing:border-box}
+.v17-comments .v15-comment-form input:focus{outline:0;border-color:var(--accent,#0a66c2);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent,#0a66c2) 12%,transparent)}
+.v17-comments .v15-comment-form>.icon-button{background:var(--accent,#0a66c2);color:#fff;border-radius:50%;width:39px;height:39px;flex:none}
+.v17-comments .v15-comment-form>.icon-button:disabled{opacity:.42;cursor:default}
+.v17-reply-context{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:7px 10px 7px 13px;border-radius:9px;background:var(--v17-comment-surface);font-size:11px;color:var(--muted,#697787)}
+.v17-reply-context>span{min-width:0;overflow-wrap:anywhere}
+.v17-reply-context>.icon-button{width:28px;height:28px;flex:none}
+.v17-restore-draft{font-size:11px;background:transparent;border:0;color:var(--accent,#0a66c2);text-decoration:underline;padding:8px 0}
+.v17-comments .v15-comments-empty{padding:17px 12px 23px}
+.v17-comment-empty-mark{display:grid;place-items:center;width:42px;height:42px;margin:0 auto 13px;border-radius:50%;background:var(--v17-comment-surface);color:var(--accent,#0a66c2)}
+.v17-comments .v15-comments-empty strong{font-size:13px}
+.v17-comments .v15-comments-empty p{font-size:11px;max-width:260px;margin:7px auto 0}
+.v17-comments.v15-comment-sheet{inset:auto 0 var(--v17-keyboard-bottom,0);height:min(72%,660px);max-height:calc(var(--v17-visible-height,100dvh) - 76px);padding:20px 22px max(17px,env(safe-area-inset-bottom));margin:0;border-radius:21px 21px 0 0;z-index:12;box-sizing:border-box}
+.v17-comments.v15-comment-sheet:before{content:'';display:block;width:34px;height:4px;border-radius:3px;background:var(--border,#dce6ef);margin:-9px auto 17px;flex:none}
+.v17-comments.v15-comment-sheet .v15-comments-list{max-height:none;flex:1}
+.v17-comments.v15-comment-sheet .v15-comments-heading{flex:none}
+.v17-comments.v15-comment-sheet .v15-comment-form{padding-top:13px;margin-top:10px}
+.v17-comments-open .v15-reel-actions,.v17-comments-open .v15-reel-caption{visibility:hidden;pointer-events:none}
+.v17-reel-error{position:absolute;left:18px;right:82px;bottom:175px;z-index:6;background:#4b1523ef;color:#fff;padding:11px 13px;border:1px solid #ffbdcc66;border-radius:10px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.v15-feed-post .post-actions>button[aria-busy=true] svg,.v15-reel-actions>button[aria-busy=true] svg{opacity:.8}
+@media(max-width:600px){
+ .v17-comments .v15-comments-list{max-height:min(48dvh,380px);gap:16px}
+ .v17-comments .v15-comment-copy{padding:8px 10px 0}
+ .v17-comments .v15-comment-byline strong{font-size:12px}
+ .v17-comments .v15-comment-copy>p{font-size:12px}
+ .v17-comments .v15-comment-tools{gap:12px}
+ .v17-comments .v15-comment-tools>button{min-height:40px;font-size:10px}
+ .v17-comments .v17-comment-reply{margin-left:29px;gap:8px}
+ .v17-comments .v15-comment-form input{font-size:14px;min-height:44px}
+ .v17-comments .v15-comment-form>.icon-button{width:42px;height:42px}
+ .v17-comments.v15-comment-sheet{padding:20px 16px max(15px,env(safe-area-inset-bottom));height:72%;max-height:calc(var(--v17-visible-height,100dvh) - 70px)}
+ .v17-comments.v15-comment-sheet .v15-comments-list{max-height:none}
+ .v15-feed-post .post-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
+ .v15-feed-post .post-actions>button{min-width:0;min-height:46px;justify-content:center;gap:5px;padding:8px 2px;font-size:10px;white-space:nowrap}
+ .v15-feed-post .post-actions>button svg{width:17px;height:17px;flex:none}
+}
+@media(max-width:359px){.v17-comments .v15-comment-form>.avatar{display:none}.v17-comments .v15-comment-tools{gap:9px}.v17-comments .v15-comment-tools>button{font-size:9px}.v17-comments .v17-comment-reply{margin-left:16px}}
+
+/* Inline discoveries remain a horizontal touch surface, independent of feed scroll. */
+.v15-suggestions.inline .v15-suggested-members{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;overscroll-behavior-x:contain;padding:2px 2px 12px;-webkit-overflow-scrolling:touch}
+.v15-suggestions.inline .v15-suggested-person{flex:0 0 152px;display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 10px;border:1px solid var(--border);border-radius:12px;scroll-snap-align:start}
+.v15-suggestions.inline .v15-suggested-person .avatar{width:54px;height:54px}
+.v15-suggestions.inline .v15-suggested-person>div{width:100%}
+.v15-suggestions.inline .v15-suggested-person small{max-width:130px}
+.v15-suggestions.inline .v15-suggested-person>.button{width:100%;margin-top:6px;justify-content:center;white-space:normal}

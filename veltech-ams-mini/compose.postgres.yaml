@@ -1,0 +1,36 @@
+# Merge with compose.yaml for a NEW Windows Docker installation.
+# Existing databases require the verified migration in docs/V2-UPGRADE.md.
+services:
+  postgres:
+    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0
+    env_file: .private/postgres.env
+    volumes:
+      - campus-postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  ferretdb:
+    image: ghcr.io/ferretdb/ferretdb:2.7.0
+    env_file: .private/ferretdb.env
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: unless-stopped
+    environment:
+      FERRETDB_TELEMETRY: disable
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  academic:
+    depends_on:
+      ferretdb: {condition: service_healthy}
+  campus:
+    depends_on:
+      ferretdb: {condition: service_healthy}
+volumes:
+  campus-postgres:

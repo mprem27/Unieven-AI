@@ -1,0 +1,11 @@
+import {useState} from 'react';
+import {Upload} from 'lucide-react';
+import {useCampus} from '../context/CampusContext';
+import {request} from '../lib/api';
+import {Button,Field,Feedback} from './UI';
+export default function ImportData(){
+ const {mode,refresh}=useCampus(),[file,setFile]=useState(null),[content,setContent]=useState(''),[format,setFormat]=useState('json'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ async function choose(e){setError('');setMessage('');setContent('');setFile(null);const next=e.target.files?.[0];if(!next)return;if(next.size>5000000){setError('Import limit is 5 MB.');return;}const extension=next.name.split('.').pop().toLowerCase();if(!['json','csv','html','htm'].includes(extension)){setError('Choose a JSON, CSV or HTML file.');return;}setFormat(extension==='htm'?'html':extension);setContent(await next.text());setFile(next);}
+ async function save(){setBusy(true);setError('');setMessage('');try{const result=await request('/academics/import',{method:'POST',body:{format,content}});setMessage(result.message);setContent('');setFile(null);await refresh();}catch(e){setError(e.message);}finally{setBusy(false);}}
+ return <section className="panel settings-card"><h2><Upload size={19}/>Import my academic export</h2><p className="muted">Use your own JSON, CSV or HTML export when a live module is unavailable. Records are private to your account and remain labeled as imports.</p><Feedback error={error} success={message}/><Field label="Academic export"><input type="file" accept=".json,.csv,.html,.htm" onChange={choose} disabled={mode!=='connected' || busy}/></Field>{file?<p>{file.name} · {format.toUpperCase()} · {(file.size/1024).toFixed(1)} KB</p>:null}<p className="muted">Limit: 5 MB, 4,000 rows. JSON sections: profile, summary, records, results, courses, timetable, fees, examinations and documents. CSV requires a <code>kind</code> column. HTML supports explicitly labeled attendance and grade tables. Imports cannot verify identity or grant roles.</p><Button onClick={save} busy={busy} disabled={mode!=='connected' || !content}>Save my records</Button><a className="text-button" href="#/course-registration">View format examples and course planner</a>{mode==='demo'?<p className="muted">Sign in to import your actual records.</p>:null}</section>;
+}

@@ -1,0 +1,15 @@
+{
+  "name": "veltech-ams-mini",
+  "version": "2.3.3",
+  "private": true,
+  "scripts": {
+    "setup": "npm --prefix frontend ci && npm --prefix services/campus ci",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "dev:api": "node scripts/dev-api.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "test": "npm --prefix frontend test && npm --prefix services/campus test",
+    "email:check": "node services/campus/campus/scripts/mail-check.js"
+  }
+}

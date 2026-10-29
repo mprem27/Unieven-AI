@@ -1,0 +1,23 @@
+import test,{before,after,beforeEach} from 'node:test';
+import assert from 'node:assert/strict';
+import {harness,member,clearCollections} from './support/social-harness.js';
+import {registerSocial} from '../routes/social.js';
+import {registerCommunityExtras} from '../routes/community-extra.js';
+import {registerMediaSocial} from '../routes/media-social.js';
+import {CampusPost} from '../models.js';
+import Post from '../../models/Post.js';
+import Reel from '../../models/Reel.js';
+let app,actor,author;
+before(async()=>{app=await harness('v17_social_response',(r,c)=>{registerSocial(r,c);registerCommunityExtras(r,c);registerMediaSocial(r,c);});});
+after(async()=>app.close());beforeEach(async()=>{await clearCollections();actor=await member('actor');author=await member('author');});
+const call=(path,body,method='PUT')=>app.call(path,{user:actor,method,body});
+for(const kind of ['campus','legacy','reel'])test(`${kind} reaction returns authoritative count and reply remains bound to its parent target`,async()=>{
+ const target=kind==='campus'?await CampusPost.create({user:author._id,text:'Fictional post',likes:[author._id]}):kind==='legacy'?await Post.create({user:author._id,caption:'Fictional post',media:'/fixture.png',likes:[author._id]}):await Reel.create({user:author._id,caption:'Fictional reel',video:'/fixture.mp4',likes:[author._id]});
+ const base=`/${kind==='reel'?'reels':'feed'}/${target.id}`;
+ let response=await call(base+'/like',{liked:true});assert.equal(response.status,200);assert.equal(response.body.likes,2);
+ response=await call(base+'/like',{liked:true});assert.equal(response.body.likes,2);
+ const parent=await call(base+'/comments',{text:'Parent'},'POST');assert.equal(parent.status,201);
+ const reply=await call(base+'/comments',{text:'Reply',parentComment:parent.body.comment.id},'POST');assert.equal(reply.status,201);assert.equal(reply.body.comment.parentComment,parent.body.comment.id);
+ const liked=await call(base+'/comments/'+parent.body.comment.id+'/like',{liked:true});assert.equal(liked.status,200);assert.equal(liked.body.likes,1);
+ const fake=await call(base+'/comments',{text:'Cannot attach arbitrary parent',parentComment:'a'.repeat(24)},'POST');assert.equal(fake.status,400);
+});

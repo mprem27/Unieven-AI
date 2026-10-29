@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {scopeSelection,scopeChoices} from '../src/lib/publishing-directory.js';
+const options={departments:[{value:'CSE',label:'CSE',aliases:['Computer Science & Engineering']},{value:'ECE',label:'ECE',aliases:[]}],clubs:[{value:'Robotics',label:'Robotics',department:'CSE'},{value:'Electronics',label:'Electronics',department:'ECE'}]};
+test('department text accepts exact normalized aliases and blocks unknown suggestions',()=>{assert.equal(scopeSelection('C.S.E.',options,{kind:'department'}).value,'CSE');assert.equal(scopeSelection('CSEE',options,{kind:'department'}).valid,false);assert.equal(scopeSelection('CSEE',options,{kind:'department'}).suggestions[0].value,'CSE');});
+test('saved legacy values remain usable without making new unknown text valid',()=>{assert.equal(scopeSelection('Legacy branch',options,{kind:'department',existingValue:'Legacy branch'}).valid,true);assert.equal(scopeSelection('Different branch',options,{kind:'department',existingValue:'Legacy branch'}).valid,false);assert.equal(scopeSelection('',options,{kind:'department',required:true}).valid,false);});
+test('club choices and resolution remain bound to selected department',()=>{assert.deepEqual(scopeChoices(options,{kind:'club',department:'Computer Science and Engineering'}).map(r=>r.value),['Robotics']);assert.equal(scopeSelection('Electronics',options,{kind:'club',department:'CSE'}).valid,false);assert.equal(scopeSelection('Robotics',options,{kind:'club',department:'CSE'}).valid,true);});
+test('an existing club name from a different known department must be reselected',()=>{assert.equal(scopeSelection('Electronics',options,{kind:'club',department:'CSE',existingValue:'Electronics'}).valid,false);});

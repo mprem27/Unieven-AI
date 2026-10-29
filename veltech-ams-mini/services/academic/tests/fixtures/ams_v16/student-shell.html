@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Fictional shell exercising HTML entities and literal navigation; no script execution. -->
+<html><body><p>Student academic semester dashboard</p>
+<a href="StudentAttendance.aspx?StudentId=OWN&amp;semester=II">Attendance</a>
+<a href="#" onclick="window.location.href = 'SemesterResults.aspx?semester=II'; return false;">Results</a>
+<iframe title="Student profile" src="StudentProfile.aspx?StudentId=OWN"></iframe>
+<iframe title="Timetable" src="TimeTable.aspx"></iframe>
+<a href="TimeTable.aspx">Course Registered Details</a>
+<a href="javascript:__doPostBack('RegisterCourses','')">Course registration</a>
+<a href="#" onclick="saveData(); window.location='SemesterResults.aspx';">Results</a>
+<iframe title="Fees" src="Fees.aspx?StudentId=OTHER"></iframe>
+</body></html>

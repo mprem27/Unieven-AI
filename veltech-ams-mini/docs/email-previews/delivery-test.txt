@@ -1,0 +1,6 @@
+This is the email test you requested from your server. If you can read this, the message reached this mailbox. No student data is included.
+
+Open your workspace: https://campus.example.edu/#/login
+
+veltech-ams-mini
+Developed by VEL STUDENTS

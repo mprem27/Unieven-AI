@@ -1,0 +1,6 @@
+import {academicFileUrl} from './academic-source.js';
+export function documentRows(ams=[],staff=[],mode='connected'){
+ return [...ams.filter(row=>mode==='demo' || row?.source==='ams').map((row,index)=>({...row,id:row.id || `ams-${row.downloadId || index}`,title:row.name || row.title || 'AMS document',category:row.type || 'Type not provided',source:mode==='demo'?'sample-preview':'ams',fileURL:mode==='demo'?'':academicFileUrl(row)})),...staff.filter(row=>row?.source==='staff-published').map(row=>({...row,fileURL:row.file?.url || ''}))];
+}
+export function filterDocuments(rows,{query='',source='all',category='all'}={}){const search=query.trim().toLowerCase();return rows.filter(row=>(source==='all' || source===row.source) && (category==='all' || category===row.category) && (!search || [row.title,row.category,row.reference,row.department].filter(Boolean).join(' ').toLowerCase().includes(search)));}
+export function documentAudience(row){if(row.source==='ams' || row.source==='sample-preview')return 'Your AMS account';return [row.scope==='college'?'College-wide':row.department,row.semester?`Semester ${row.semester}`:'',row.section?`Section ${row.section}`:'',row.batch?`Batch ${row.batch}`:'',row.courseCodes?.length?`Courses: ${row.courseCodes.join(', ')}`:''].filter(Boolean).join(' · ');}

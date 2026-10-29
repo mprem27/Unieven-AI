@@ -1,0 +1,7 @@
+# Use after scripts/android-assetlinks.mjs creates both files in android/out.
+# Always combine with compose.production.yaml; never the localhost compose.yaml.
+services:
+  proxy:
+    volumes:
+      - ./android/out/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./android/out/assetlinks.json:/etc/nginx/dal/assetlinks.json:ro

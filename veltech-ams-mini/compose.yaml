@@ -1,0 +1,42 @@
+name: veltech-ams-mini
+services:
+  academic:
+    build:
+      context: .
+      dockerfile: docker/academic.Dockerfile
+    env_file: .private/academic.env
+    environment:
+      NO_PROXY: academic,mailpit,mongo,ferretdb,postgres,localhost,127.0.0.1
+      no_proxy: academic,mailpit,mongo,ferretdb,postgres,localhost,127.0.0.1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  campus:
+    build:
+      context: .
+      dockerfile: docker/campus.Dockerfile
+    env_file: .private/campus.env
+    environment:
+      NO_PROXY: academic,mailpit,mongo,ferretdb,postgres,localhost,127.0.0.1
+      no_proxy: academic,mailpit,mongo,ferretdb,postgres,localhost,127.0.0.1
+    volumes:
+      - campus-media:/app/media
+    ports:
+      - "127.0.0.1:${CAMPUS_PUBLIC_PORT:-4100}:4100"
+    depends_on:
+      academic:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/api/campus/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  campus-media:

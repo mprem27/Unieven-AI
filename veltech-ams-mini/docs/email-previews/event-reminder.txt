@@ -1,0 +1,15 @@
+Hello Demo Student,
+
+Your registered event starts soon.
+Event: Campus Design Workshop
+When: 24 Oct 2026, 09:00 am IST
+Location: Innovation Hall
+Registration: DEMO-TICKET
+Verified payment: INR 250.00. Payment reference: DEMO-PAYMENT.
+
+Open Events → Your ticket after signing in for your private check-in QR.
+
+View your ticket: https://campus.example.edu/#/events/tickets
+
+veltech-ams-mini
+Developed by VEL STUDENTS
