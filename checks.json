@@ -1,0 +1,17 @@
+{
+  "automated": {
+    "frontend": 389,
+    "campus": 411,
+    "academic": 228,
+    "android": 16,
+    "total": 1044
+  },
+  "browserChecks": 29,
+  "sourceAndNativeDisplayVersion": "2.3.3",
+  "androidVersionCode": 20305,
+  "apkSha256": "2bae7907c68818a59f0be3da4494f7b8933d7bbb27705084fc6b1e9d46e68410",
+  "domainAssociation": "pending",
+  "physicalPhoneTested": false,
+  "liveAmsTested": false,
+  "publicHosted": false
+}

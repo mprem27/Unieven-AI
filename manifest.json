@@ -1,0 +1,61 @@
+{
+  "version": "2.3.3",
+  "androidVersionCode": 20305,
+  "files": [
+    {
+      "name": "START-HERE.md",
+      "bytes": 807,
+      "sha256": "f5bf94b38e42a9fec8f7db3f38a136b232b63718ee1356515acfab07ccb3515d"
+    },
+    {
+      "name": "academic-regulations.md",
+      "bytes": 14605,
+      "sha256": "990a7c0c32e9956815bcaefd5ba0d9187bc39055a366aee8ec604b7b18f9d28a"
+    },
+    {
+      "name": "android-verification.md",
+      "bytes": 1460,
+      "sha256": "712f634d2bf1c3ee27742af996320982a0a79d7bba00d0d4ef4f7826e84c6903"
+    },
+    {
+      "name": "assetlinks.json",
+      "bytes": 345,
+      "sha256": "595262537a00f177176a6838cef40de7586be9d1d886b5efd8d8f18c14f36699"
+    },
+    {
+      "name": "checks.json",
+      "bytes": 421,
+      "sha256": "e3e8fd7df4cc441ed26448a0601f73a7e2768407715e7428380107e3ec3df79f"
+    },
+    {
+      "name": "setup-guide.md",
+      "bytes": 9502,
+      "sha256": "d99fe4fdf3610aabdd36e7410d5a26b0bcc3cc24f770523ab4e33aa63f168ebd"
+    },
+    {
+      "name": "signing-receipt.json",
+      "bytes": 718,
+      "sha256": "a180df05a346363f699065f238222fb339d57cbfa726a1d323cf55cd2cb54f4e"
+    },
+    {
+      "name": "veltech-ams-mini-source.zip",
+      "bytes": 10179265,
+      "sha256": "c990698f4a54a7485845e2e41ceef741805904fdf8c63fb6f0e4146fcabe6d97"
+    },
+    {
+      "name": "veltech-ams-mini-v2.3.3.zip",
+      "bytes": 21282694,
+      "sha256": "551e46e59eb46dcfc0dddbba04bb717eebdad74361bccdf61a79163244dd58c2"
+    },
+    {
+      "name": "veltech-ams-mini-web.zip",
+      "bytes": 8804927,
+      "sha256": "4c32f38b00bb4b7b53d434c20323ec14bb428b0ad5eda158fac6a63f7305c12e"
+    },
+    {
+      "name": "verification.md",
+      "bytes": 4103,
+      "sha256": "7d59157e1f69d05755d22d926b960919f040b6e8a15f6350d1b9d8be47c01651"
+    }
+  ]
+}
