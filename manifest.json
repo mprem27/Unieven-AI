@@ -1,0 +1,86 @@
+{
+  "version": "2.3.5",
+  "androidVersionCode": 20307,
+  "files": [
+    {
+      "name": "START-HERE.md",
+      "bytes": 1863,
+      "sha256": "cd52f8c2a27d4c8d098eead9d615768d3db8aced69368d27268fb55099fcd445"
+    },
+    {
+      "name": "academic-regulations.md",
+      "bytes": 14605,
+      "sha256": "990a7c0c32e9956815bcaefd5ba0d9187bc39055a366aee8ec604b7b18f9d28a"
+    },
+    {
+      "name": "android-settings-mobile.png",
+      "bytes": 56776,
+      "sha256": "31e2dfc3dab0d8b9e3966f3835e7ad1f3a06b71fc6288cc8588a161933fb967a"
+    },
+    {
+      "name": "android-verification.md",
+      "bytes": 2179,
+      "sha256": "86b1797722010bc1dfe9e40ea1d2f3728de76abc3fc29ad9e50e5eec3d474b19"
+    },
+    {
+      "name": "assetlinks.json",
+      "bytes": 345,
+      "sha256": "595262537a00f177176a6838cef40de7586be9d1d886b5efd8d8f18c14f36699"
+    },
+    {
+      "name": "checks.json",
+      "bytes": 801,
+      "sha256": "a2bf9d0f5743450bc2abf59d0f8ff94b2b9798be84a6a2be168f361cb0ba29c2"
+    },
+    {
+      "name": "home-mobile.png",
+      "bytes": 111131,
+      "sha256": "dc660558459ecbc026fc581a873c1c08f88595f2ed00bf00a45908fca3e68645"
+    },
+    {
+      "name": "opening-logo-mobile.png",
+      "bytes": 85692,
+      "sha256": "11e0b35a8e8884b920d15040c52ef2b7f3efadc39e0e65319682621af1c8869d"
+    },
+    {
+      "name": "results-mobile.png",
+      "bytes": 63062,
+      "sha256": "ffd53724f485ae1b4318aa36f6de7cfdf079011d01c0ba1a724694158437cf43"
+    },
+    {
+      "name": "setup-guide.md",
+      "bytes": 6204,
+      "sha256": "23a19c1533be34fc4c2b70aac9ba8c44003f45acdc0ac189b69ee13069a44654"
+    },
+    {
+      "name": "signing-receipt.json",
+      "bytes": 785,
+      "sha256": "6838cc7f8c67a94bc66d071b06606b855d636d913749f33bdc082e16ea099437"
+    },
+    {
+      "name": "veltech-ams-mini-source.zip",
+      "bytes": 11174583,
+      "sha256": "f578ab2145b5431e424a6515da0f73ade0d25970bb9172b4c8ca73747b63b584"
+    },
+    {
+      "name": "veltech-ams-mini-v2.3.5.apk",
+      "bytes": 11937687,
+      "sha256": "6dcd7987d09c64c910718ad11af64e4fb912a0df14cc969b1a311b698103fcae"
+    },
+    {
+      "name": "veltech-ams-mini-v2.3.5.zip",
+      "bytes": 32809210,
+      "sha256": "2035b528e7d590e88ef4afdfa2403ea632a11cf7fc1c0f89825a90f17e650911"
+    },
+    {
+      "name": "veltech-ams-mini-web.zip",
+      "bytes": 9739667,
+      "sha256": "a285bb6751aba8703294f40da4291c561483accade0d7cec9b9ea551be197a5c"
+    },
+    {
+      "name": "verification.md",
+      "bytes": 4787,
+      "sha256": "268db27eac7f6350f0f634c8368166edae8951645364336d1731f61999f1b60d"
+    }
+  ]
+}

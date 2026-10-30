@@ -1,0 +1,39 @@
+{
+  "version": "2.3.5",
+  "androidVersionCode": 20307,
+  "automated": {
+    "frontend": {
+      "passed": 453,
+      "failed": 0,
+      "skipped": 0
+    },
+    "campus": {
+      "passed": 416,
+      "failed": 0,
+      "skipped": 0
+    },
+    "academic": {
+      "passed": 227,
+      "failed": 0,
+      "skipped": 1
+    },
+    "android": {
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passedTotal": 1123,
+    "failedTotal": 0,
+    "skippedTotal": 1
+  },
+  "browser": {
+    "webChecks": 12,
+    "nativeSimulatedChecks": 12,
+    "openingChecks": 21
+  },
+  "liveAmsTested": false,
+  "physicalPhoneTested": false,
+  "productionDeployed": false,
+  "downloadRepository": "mprem27/Unieven-AI",
+  "hostedByteVerification": "Recorded separately after upload; not an application test"
+}

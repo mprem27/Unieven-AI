@@ -1,0 +1,9 @@
+# veltech-ams-mini — 2.3.5
+
+Extract the entire ZIP. The complete editable project and compiled React website are in `veltech-ams-mini/`. Start with `veltech-ams-mini/docs/RELEASE-v2.3.5.md`. Windows setup uses Docker Desktop and `Setup.ps1` / `Start.ps1`; no Ubuntu installation is required. Keep your existing AWS/Cloudflare private configuration, database/media volumes and keys during an upgrade.
+
+The independently verified standalone Android APK and public release manifest are in `android-release/`. Copy the checksum-named APK first, then `release.json`, to the persistent server release directory described in `docs/ANDROID-UPDATE-DEPLOYMENT.md`. After deploying, students download from `https://app.veltech-mini-ams.me/#/install`, with the direct endpoint `/api/campus/app-release/latest.apk`. Android asks for installation approval. The native app includes its own screens, device bridge and launcher; it does not open its primary UI through Chrome or a PWA. Website/PWA updates and native APK updates are separate.
+
+Retain your actual signing key for future updates. The prepared APK uses the retained workspace certificate shown in `signing-receipt.json`; compatibility with an inaccessible older Actions APK is unverified. A TWA-to-native migration may need one login; later same-key native updates preserve WebView data. Do not erase data or uninstall as an update step. Real phone acceptance is still required.
+
+The UI reference images and browser tests use fictional records. Real university records require your backend and an authorized upstream session; verification is shown when AMS requires it. This ZIP does not deploy the live website automatically. No private configuration, university password or signing key is included. Project-download publication is restricted to `mprem27/Unieven-AI`; a public link must be verified after upload.

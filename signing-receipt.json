@@ -1,0 +1,18 @@
+{
+  "runtime": "android-native",
+  "webVersion": "2.3.5",
+  "assetSha256": "2ac930a1233c4b00abe97a3e40701acde13a74291f6190f2cf5960211b1badf7",
+  "signatureVerified": true,
+  "alignmentVerified": true,
+  "certificateSha256": "3B:44:DD:8A:C3:15:56:4A:27:A7:FA:2D:03:5C:3E:58:1A:FF:20:5A:7C:B6:E6:2C:E4:5E:28:3B:28:E4:C7:68",
+  "apkSha256": "6dcd7987d09c64c910718ad11af64e4fb912a0df14cc969b1a311b698103fcae",
+  "packageId": "in.velstudents.veltechams",
+  "versionName": "2.3.5",
+  "versionCode": 20307,
+  "deploymentUrl": "https://app.veltech-mini-ams.me",
+  "domainAssociation": {
+    "verified": false,
+    "status": "pending",
+    "note": "Domain association is not verified. The standalone APK opens in its own Android window; association is a separate optional website check."
+  }
+}
